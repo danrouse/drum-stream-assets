@@ -1,0 +1,52 @@
+.SongList {
+  flex: 1;
+}
+  .SongList ul { 
+    list-style: none;
+  }
+    .SongList li {
+      padding: 12px;
+      margin: 4px 8px;
+      background: #eee;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+
+      font-size: 80%;
+      opacity: 0.8;
+    }
+      .SongList li:hover {
+        cursor: pointer;
+        background-color: #aaa;
+      }
+
+.SongList li > div {
+  flex: 1;
+  /* flex-basis: 15%; */
+}
+  .SongList .title {
+
+    font-weight: bold;
+    opacity: 1;
+    font-size: 120%;
+    /* line-height: 24px; */
+    margin-bottom: 2px;
+  }
+
+  .SongList .artist {
+        
+  }
+.SongList .album {
+
+}
+
+.SongList .buttons {
+  display: flex;
+  gap: 12px;
+}
+.SongList .buttons button {
+  flex: 1;
+  padding: 4px;
+}

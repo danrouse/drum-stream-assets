@@ -1,0 +1,101 @@
+.MultiTrackAudioPlayer {
+  text-align: center;
+
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px 0;
+
+}
+.MultiTrackAudioPlayer__top {
+  display: flex;
+  align-items: center;
+}
+.MultiTrackAudioPlayer__head {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* justify-content: center;
+  align-items: center; */
+
+}
+  .MultiTrackAudioPlayer__meta {
+    margin-right: 16px;
+  }
+    .MultiTrackAudioPlayer__meta__title {
+      font-weight: bold;
+      font-size: 24px;
+    }
+  .MultiTrackAudioPlayer__controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+.MultiTrackAudioPlayer__progress {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  font-size: 80%;
+}
+  .MultiTrackAudioPlayer__progress span:first-child {
+    margin-right: 8px;
+  }
+  .MultiTrackAudioPlayer__progress span:last-child {
+    margin-left: 8px;
+  }
+.MultiTrackAudioPlayer__progress__slider {
+  flex: 1;
+}
+.MultiTrackAudioPlayer__progress__slider::-webkit-slider-runnable-track {
+  background: var(--blue-transparent);
+  border-radius: 8px;
+  padding: 8px 0;
+}
+.MultiTrackAudioPlayer__progress__slider::-webkit-slider-thumb {
+  transform: scale(3);
+}
+.MultiTrackAudioPlayer__playpause {
+  font-size: 24px;
+  margin: 4px;
+}
+.MultiTrackAudioPlayer__rewind, .MultiTrackAudioPlayer__stop {
+  /* margin-left: 16px; */
+}
+.MultiTrackAudioPlayer__tracks {
+  margin-right: 16px;
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+}
+.MultiTrackAudioPlayer__tracks li {
+  text-transform: capitalize;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+}
+.MultiTrackAudioPlayer__tracks input[type="range"] {
+  /* writing-mode: vertical-lr; */
+  /* direction: rtl; */
+}
+.MultiTrackAudioPlayer__tracks p:hover {
+  cursor: pointer;
+}
+.MultiTrackAudioPlayer__tracks button:active {
+  background: pink;
+}
+.MultiTrackAudioPlayer button {
+  width: 2em;
+  height: 2em;
+  line-height: 1em;
+}
+.MultiTrackAudioPlayer button.muted {
+  background-color: #ccc;
+  border-color: #aaa;
+}
+

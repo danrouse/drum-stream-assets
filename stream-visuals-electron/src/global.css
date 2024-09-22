@@ -1,0 +1,8 @@
+:root {
+  /* font-family: 'Garamond Premier Pro'; */
+  font-family: 'Bahnschrift';
+  color: white;
+  -webkit-text-stroke: 0.2em black;
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 0.1em rgba(0, 0, 0, 0.8);
+}

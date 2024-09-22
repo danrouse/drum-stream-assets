@@ -1,0 +1,27 @@
+.Downloader {
+  /* position: fixed; */
+  /* bottom: 0; */
+  padding: 12px;
+  background: #aaa;
+  width: 100%;
+  text-align: center;
+}
+  .Downloader input, .Downloader button {
+    font-size: 16px;
+    padding: 4px 8px;
+  }
+
+  .Downloader__status {
+    position: absolute;
+    bottom: 64px;
+    width: 100%;
+    text-align: center;
+  }
+  .Downloader__status p {
+    display: inline-block;
+    padding: 8px;
+    font-size: 14px;
+    border-radius: 8px;
+    background: white;
+    border: 2px solid #aaa;
+  }
