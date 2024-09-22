@@ -26,6 +26,12 @@
   flex: 1;
   /* flex-basis: 15%; */
 }
+.SongList li > div:first-child {
+  flex: 3;
+}
+.SongList li > div:last-child {
+  flex: 2;
+}
   .SongList .title {
 
     font-weight: bold;
@@ -39,7 +45,6 @@
         
   }
 .SongList .album {
-
 }
 
 .SongList .buttons {

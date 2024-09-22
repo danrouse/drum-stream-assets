@@ -1,3 +1,4 @@
+import formatTime from '../formatTime';
 import './style.css';
 
 interface SongListProps {
@@ -19,6 +20,9 @@ export default function SongList({ songs, onSongSelected, onSongQueued }: SongLi
             <div>
               <p className="album">{song.album}</p>
               <p className="trackNumber">{song.track[0]}/{song.track[1]}</p>
+            </div>
+            <div>
+              <p className="duration">{formatTime(song.duration)}</p>
             </div>
             <div className="buttons">
               <button

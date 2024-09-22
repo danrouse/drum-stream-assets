@@ -44,5 +44,6 @@ interface SongData {
   downloadDate: Date;
   album: string;
   track: [number, number];
+  duration: number;
 }
 

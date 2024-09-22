@@ -36,13 +36,12 @@ demucs.onProcessingError = (name, errorMessage) => broadcast({ type: 'demucs_err
 
 app.get('/songs', async (req, res) => {
   const output: SongData[] = [];
-  const stemmedSongs = readdirSync(STEMS_PATH);
+  const stemmedSongs = readdirSync(STEMS_PATH).filter(s => statSync(join(STEMS_PATH, s)).isDirectory());
   for (let song of stemmedSongs) {
     const stems = readdirSync(join(STEMS_PATH, song));
     if (!stems.length) continue;
     const stat = statSync(join(STEMS_PATH, song, stems[0]));
     const tags = await parseFile(join(DOWNLOADS_PATH, `${song}.m4a`));
-    // console.log(tags);
     output.push({
       name: song,
       artist: String(tags.common.artist),
@@ -50,7 +49,8 @@ app.get('/songs', async (req, res) => {
       stems: stems,
       downloadDate: stat.mtime,
       album: String(tags.common.album),
-      track: [tags.common.track.no, tags.common.track.of]
+      track: [tags.common.track.no, tags.common.track.of],
+      duration: tags.format.duration,
     });
   }
   res.send(output);
