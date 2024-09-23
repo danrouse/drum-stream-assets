@@ -22,6 +22,11 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
   const [searchQuery, setSearchQuery] = useState(value || '');
   const [processingState, setProcessingState] = useState<string | undefined>();
 
+  const clearInput = () => {
+    setSearchQuery('');
+    onInputChanged('');
+  };
+
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       const message: WebSocketOutgoingMessage = JSON.parse(e.data.toString());
@@ -60,9 +65,11 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
         } catch (err) {
           setProcessingState(`Error while processing ${searchQuery}: ` + err);
         }
-        setSearchQuery('');
-        onInputChanged('');
+        clearInput();
       }}>
+        <button onClick={() => clearInput()} type="reset">
+          <i className="fa-solid fa-xmark" />
+        </button>
         <input
           type="text"
           value={searchQuery}

@@ -1,5 +1,4 @@
 .SongList {
-  flex: 1;
 }
   .SongList ul { 
     list-style: none;
@@ -18,8 +17,11 @@
       opacity: 0.8;
     }
       .SongList li:hover {
-        cursor: pointer;
+        /* cursor: pointer; */
         background-color: #aaa;
+      }
+      .SongList li.selected {
+        background-color: var(--blue-transparent);
       }
 
 .SongList li > div {
@@ -30,7 +32,7 @@
   flex: 3;
 }
 .SongList li > div:last-child {
-  flex: 2;
+  flex: 1;
 }
   .SongList .title {
 

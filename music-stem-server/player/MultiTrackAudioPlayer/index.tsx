@@ -13,23 +13,35 @@ interface MultiTrackAudioPlayerProps {
 
   isPlaying?: boolean;
   shuffle?: boolean;
+  playbackRate?: number;
 
   onSongPlayed: (t: number) => void;
   onSongPaused: () => void;
   onSongStopped: () => void;
   onSongEnded: () => void;
+  onSongSkipped: () => void;
   onSongProgress: (t: number) => void;
   onSongLoaded: (artist: string, title: string, duration: number) => void;
   onTrackMuteChanged: (mutedTracks: string[]) => void;
   onShuffleChanged: (isShuffleEnabled: boolean) => void;
   onAutoplayChanged: (isAutoplayEnabled: boolean) => void;
+  onPlaybackRateChanged: (rate: number) => void;
 }
 
 export default function MultiTrackAudioPlayer({
   autoplay, artist, title, tracks, mutedTrackNames,
-  isPlaying, shuffle,
-  onSongPlayed, onSongPaused, onSongStopped, onSongEnded, onSongProgress, onSongLoaded,
-  onTrackMuteChanged, onShuffleChanged, onAutoplayChanged,
+  isPlaying, shuffle, playbackRate,
+  onSongPlayed,
+  onSongPaused,
+  onSongStopped,
+  onSongEnded,
+  onSongSkipped,
+  onSongProgress,
+  onSongLoaded,
+  onTrackMuteChanged,
+  onShuffleChanged,
+  onAutoplayChanged,
+  onPlaybackRateChanged,
 }: MultiTrackAudioPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [position, setPosition] = useState(0);
@@ -80,6 +92,13 @@ export default function MultiTrackAudioPlayer({
     }
   }, [isLoaded]);
 
+  // Sync audio elements with their settings
+  useEffect(() => {
+    sources.forEach(howl => {
+      howl.rate(playbackRate);
+    });
+  }, [playbackRate]);
+
   useEffect(() => {
     sources.forEach((s) => {
       s.stop();
@@ -98,10 +117,27 @@ export default function MultiTrackAudioPlayer({
       const howl = new Howl({
         src: track.src,
         preload: true,
+        rate: playbackRate,
 
-        // html5 uses a lot less memory on iOS Safari,
-        // but also shits its pants and doesn't sync well :(
-        // html5: true,
+        /*
+          There's a lot of tradeoffs between using HTML5 Audio vs (default) WebAudio.
+          WebAudio uses much more memory, and - in Safari, it leaks lots of memory.
+          This is especially problematic on iOS which is very resource restricted.
+
+          However, syncing the separate tracks' audio sources is much more reliable with WebAudio.
+          Additionally, iOS does not allow for changing the volume of HTML5 audio sources.
+          This means HTML5 audio volume control, for iOS support, must be binary muted/unmuted.
+
+          Even more additionally, when changing playback rate, HTML5 audio preserves pitch,
+          where WebAudio will end up with audio pitched up or down depending on playback rate,
+          so slowing something down makes it deep and speeding it up makes it chipmunks.
+
+          Given that we aren't planning on actually running this within iOS itself, we'll go with
+          HTML5 audio for now, enabling changing playback rate effectively.
+          We might need to pay more attention to keeping the tracks synced, but some amount
+          of sync preservation needs to happen no matter what.
+        */
+        html5: true,
       });
       const handleHowlLoaded = () => {
         if (newSources.every(h => h.state() === 'loaded') && !isAllHowlsLoaded) {
@@ -149,15 +185,6 @@ export default function MultiTrackAudioPlayer({
       if (frameHandlerId) cancelAnimationFrame(frameHandlerId);
       clearInterval(broadcastInterval);
       newSources.forEach(howl => howl.unload());
-      // Howler.unload();
-      // for (let i in newSources) {
-      //   newSources[i].unload();
-      //   for (let j in newSources[i]) {
-      //     delete newSources[i][j];
-      //   }
-      //   delete newSources[i];
-      // }
-      // onSongStopped();
     };
   }, [JSON.stringify(tracks)]); // my god this is awful
   
@@ -194,7 +221,7 @@ export default function MultiTrackAudioPlayer({
               className={`MultiTrackAudioPlayer__autoplay ${autoplay ? '': 'inactive'}`}
               onClick={() => onAutoplayChanged(!autoplay)}
             >
-              <i className="fa-solid fa-repeat" />
+              <i className="fa-solid fa-circle-play" />
             </button>
             <button
               className="MultiTrackAudioPlayer__rewind"
@@ -211,10 +238,21 @@ export default function MultiTrackAudioPlayer({
             </button>
             <button
               className="MultiTrackAudioPlayer__next"
-              onClick={() => onSongEnded()}
+              onClick={() => onSongSkipped()}
             >
               <i className="fa-solid fa-forward-fast" />
             </button>
+            <label>
+              <span onClick={() => onPlaybackRateChanged(1)}>Speed</span>
+              <input
+                type="range"
+                value={playbackRate}
+                step={0.05}
+                min={0.05}
+                max={2.0}
+                onChange={(evt) => onPlaybackRateChanged(evt.currentTarget.valueAsNumber)}
+              />
+            </label>
           </div>
         </div>
         <ul className="MultiTrackAudioPlayer__tracks">

@@ -19,6 +19,9 @@ ul, p {
   margin: 0;
   padding: 0;
 }
+h2 {
+  margin: 8px 12px;
+}
 button {
   border-radius: 8px;
   border: 1px solid var(--blue-solid);
@@ -27,12 +30,14 @@ button {
   text-align: center;
   padding: 0;
 }
-button[disabled] {
-  background-color: #777;
-  border-color: #333;
-}
 button:hover {
   cursor: pointer;
+  background: var(--blue-solid);
+}
+button[disabled] {
+  cursor: auto;
+  background-color: #777;
+  border-color: #333;
 }
 button.inactive {
   color: rgba(255, 255, 255, 0.4);
@@ -45,18 +50,28 @@ button.inactive {
 }
 
 .SongBrowserUI {
-  display: flex;
-  flex-direction: column;
+  /* display: flex;
+  flex-direction: column; */
   height: 100%;
+  --player-height: 260px;
 }
   .SongBrowserUI .top {
-    /* flex: 1; */
     display: flex;
     flex-direction: column;
+    z-index: 2;
+    height: var(--player-height);
   }
   .SongBrowserUI .bottom {
-    flex: 1;
     display: flex;
     flex-direction: row;
-    overflow: auto;
+    position: relative;
+    z-index: 1;
+    height: calc(100vh - var(--player-height));
+  }
+  .SongBrowserUI .bottom > div {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .SongBrowserUI .bottom .active {
+    background-color: #ddd;
   }

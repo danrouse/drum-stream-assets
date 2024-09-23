@@ -1,18 +1,19 @@
+import { ReactNode } from 'react';
 import formatTime from '../formatTime';
 import './style.css';
 
 interface SongListProps {
   songs: SongData[];
-  onSongSelected: (song: SongData) => void;
-  onSongQueued: (song: SongData) => void;
+  selectedSong?: SongData;
+  renderActions: (song: SongData, index: number) => ReactNode;
 }
 
-export default function SongList({ songs, onSongSelected, onSongQueued }: SongListProps) {
+export default function SongList({ songs, selectedSong, renderActions }: SongListProps) {
   return (
     <div className="SongList">
       <ul>
-        {songs.map((song) => (
-          <li key={song.name}>
+        {songs.map((song, index) => (
+          <li key={song.name} className={selectedSong === song ? 'selected' : ''}>
             <div>
               <p className="title">{song.title}</p>
               <p className="artist">{song.artist}</p>
@@ -25,16 +26,7 @@ export default function SongList({ songs, onSongSelected, onSongQueued }: SongLi
               <p className="duration">{formatTime(song.duration)}</p>
             </div>
             <div className="buttons">
-              <button
-                onClick={() => onSongSelected(song)}
-              >
-                Play
-              </button>
-              <button
-                onClick={() => onSongQueued(song)}
-              >
-                Add to Playlist
-              </button>
+              {renderActions(song, index)}
             </div>
           </li>
         ))}

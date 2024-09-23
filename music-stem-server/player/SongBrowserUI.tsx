@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
+import { unstable_batchedUpdates } from 'react-dom';
 
 import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongList from './SongList';
 import Downloader from './Downloader';
-// import Playlist from './Playlist';
 
 
 // localStorage persistence of user state
@@ -13,6 +13,7 @@ interface SavedState {
   songSearchQuery: string;
   mutedTrackNames: string[];
   queuedSongs: SongData[];
+  playbackRate: number;
 }
 const defaultSavedState: SavedState = {
   isAutoplayEnabled: false,
@@ -20,6 +21,7 @@ const defaultSavedState: SavedState = {
   songSearchQuery: '',
   mutedTrackNames: [],
   queuedSongs: [],
+  playbackRate: 1,
 };
 const LOCAL_STORAGE_KEY = 'SongBrowser-state';
 const loadState = () => {
@@ -45,10 +47,12 @@ export default function SongBrowserUI() {
   const [songSearchQuery, setSongSearchQuery] = useState('');
   const [mutedTrackNames, setMutedTrackNames] = useState<string[]>([]);
   const [queuedSongs, setQueuedSongs] = useState<SongData[]>([]);
+  const [playbackRate, setPlaybackRate] = useState(1);
   // Internal state
-  const [songListData, setSongListData] = useState<SongData[]>([]);
+  const [allSongs, setAllSongs] = useState<SongData[]>([]);
   const [selectedSong, setSelectedSong] = useState<SongData>();
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingFromQueue, setIsPlayingFromQueue] = useState(false);
   const [socket, setSocket] = useState<WebSocket>();
 
   const fetchNewSongListData = () => fetch('/songs')
@@ -58,23 +62,26 @@ export default function SongBrowserUI() {
         a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
           a.album !== b.album ? a.album.localeCompare(b.album) :
             a.track[0] - b.track[0]);
-      setSongListData(songs);
+      setAllSongs(songs);
     });
   
   const nextSong = () => {
-    const selectedSongIndex = songListData.indexOf(selectedSong!);
-    const nextIndex = isShuffleEnabled ?
-      Math.floor(Math.random() * songListData.length) :
-      selectedSongIndex === songListData.length - 1 ?
-        0 : selectedSongIndex + 1;
-    setSelectedSong(songListData[nextIndex]);
+    const songList = isPlayingFromQueue ? queuedSongs : allSongs;
+    console.log('next song', isPlayingFromQueue);
+    const selectedSongIndex = songList.indexOf(selectedSong!);
+    let nextIndex = selectedSongIndex === songList.length - 1 ? 0 : selectedSongIndex + 1;
+    if (isShuffleEnabled) {
+      do {
+        nextIndex = Math.floor(Math.random() * songList.length);
+      } while (nextIndex === selectedSongIndex);
+    }
+    setSelectedSong(songList[nextIndex]);
   };
   
   const broadcast = (payload: WebSocketIncomingMessage) => {
     if (!socket) return;
     console.log(payload)
     socket.send(JSON.stringify(payload));
-    // console.log('broadcast', payload);
   };
 
   // User state persistence in localStorage
@@ -86,6 +93,7 @@ export default function SongBrowserUI() {
         songSearchQuery,
         mutedTrackNames,
         queuedSongs,
+        playbackRate,
       });
     }
   }, [
@@ -94,33 +102,35 @@ export default function SongBrowserUI() {
     songSearchQuery,
     mutedTrackNames,
     queuedSongs,
+    playbackRate,
   ]);
 
   // One-time componentDidMount effects
   useEffect(() => {
+    const loadedState = loadState();
+    unstable_batchedUpdates(() => {
+      setIsAutoplayEnabled(loadedState.isAutoplayEnabled);
+      setIsShuffleEnabled(loadedState.isShuffleEnabled);
+      setSongSearchQuery(loadedState.songSearchQuery);
+      setMutedTrackNames(loadedState.mutedTrackNames);
+      setQueuedSongs(loadedState.queuedSongs);
+      setPlaybackRate(loadedState.playbackRate);
+      setIsInitialLoad(false);
+    });
+
     fetchNewSongListData();
 
     const ws = new WebSocket(`ws://${location.host}`);
     setSocket(ws);
 
-    const loadedState = loadState();
-    setIsAutoplayEnabled(loadedState.isAutoplayEnabled);
-    setIsShuffleEnabled(loadedState.isShuffleEnabled);
-    setSongSearchQuery(loadedState.songSearchQuery);
-    setMutedTrackNames(loadedState.mutedTrackNames);
-    setQueuedSongs(loadedState.queuedSongs);
-    setIsInitialLoad(false);
-
     return () => {
       if (ws.readyState === ws.OPEN) {
-        // console.log('immediate cleanup');
         ws.close();
       } else {
         // can't cancel the pending connection,
         // so wait for it to open then close
         ws.addEventListener('open', () => {
           // somehow it's not always open at this point? what?
-          // console.log('deferred cleanup');
           ws.readyState === ws.OPEN && ws.close();
         });
       }
@@ -141,6 +151,9 @@ export default function SongBrowserUI() {
 
             onSongLoaded={(artist, title, duration) => {
               broadcast({ type: 'song_changed', artist, title, duration });
+              if (!isAutoplayEnabled) {
+                setIsPlaying(false);
+              }
             }}
             onSongPlayed={(timestamp) => {
               broadcast({ type: 'song_played', timestamp });
@@ -152,9 +165,18 @@ export default function SongBrowserUI() {
             }}
             onSongStopped={() => {
               setSelectedSong(undefined);
+              setIsPlaying(false);
               broadcast({ type: 'song_stopped' });
             }}
             onSongEnded={() => {
+              broadcast({ type: 'song_paused' });
+              if (isAutoplayEnabled) {
+                nextSong();
+              } else {
+                setIsPlaying(false);
+              }
+            }}
+            onSongSkipped={() => {
               broadcast({ type: 'song_paused' });
               nextSong();
             }}
@@ -162,10 +184,12 @@ export default function SongBrowserUI() {
             onTrackMuteChanged={setMutedTrackNames}
             onShuffleChanged={setIsShuffleEnabled}
             onAutoplayChanged={setIsAutoplayEnabled}
+            onPlaybackRateChanged={setPlaybackRate}
             mutedTrackNames={mutedTrackNames}
-            isPlaying={isPlaying}
             autoplay={isAutoplayEnabled}
             shuffle={isShuffleEnabled}
+            playbackRate={playbackRate}
+            isPlaying={isPlaying}
           />
         }
         {socket &&
@@ -178,15 +202,46 @@ export default function SongBrowserUI() {
         }
       </div>
       <div className="bottom">
-        {/* <Playlist
-          selectedSong={selectedSong}
-          onSongSelected={setSelectedSong}
-        /> */}
-        <SongList
-          songs={songListData.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')))}
-          onSongSelected={setSelectedSong}
-          onSongQueued={(song: SongData) => setQueuedSongs([...queuedSongs, song])}
-        />
+        <div className={isPlayingFromQueue ? '' : 'active'}>
+          <h2>All Songs</h2>
+          <SongList
+            songs={allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')))}
+            selectedSong={selectedSong}
+            renderActions={(song: SongData) => (
+              <>
+                <button onClick={() => {
+                  setSelectedSong(song);
+                  setIsPlayingFromQueue(false);
+                }}>
+                  Select
+                </button>
+                <button onClick={() => !queuedSongs.includes(song) && setQueuedSongs([...queuedSongs, song])}>
+                  Add to Playlist
+                </button>
+              </>
+            )}
+          />
+        </div>
+        <div className={isPlayingFromQueue ? 'active' : ''}>
+          <h2>Queue</h2>
+          <SongList
+            songs={queuedSongs}
+            selectedSong={selectedSong}
+            renderActions={(song, index) => (
+              <>
+                <button onClick={() => {
+                  setSelectedSong(song);
+                  setIsPlayingFromQueue(true);
+                }}>
+                  Select
+                </button>
+                <button onClick={() => setQueuedSongs(queuedSongs.toSpliced(index, 1))}>
+                  Remove
+                </button>
+              </>
+            )}          
+          />
+        </div>
       </div>
     </div>
   );
