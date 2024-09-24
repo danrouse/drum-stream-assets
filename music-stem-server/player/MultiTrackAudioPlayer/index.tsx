@@ -14,6 +14,7 @@ interface MultiTrackAudioPlayerProps {
   isPlaying?: boolean;
   shuffle?: boolean;
   playbackRate?: number;
+  volume?: number;
 
   onSongPlayed: (t: number) => void;
   onSongPaused: () => void;
@@ -26,11 +27,12 @@ interface MultiTrackAudioPlayerProps {
   onShuffleChanged: (isShuffleEnabled: boolean) => void;
   onAutoplayChanged: (isAutoplayEnabled: boolean) => void;
   onPlaybackRateChanged: (rate: number) => void;
+  onVolumeChanged: (volume: number) => void;
 }
 
 export default function MultiTrackAudioPlayer({
   autoplay, artist, title, tracks, mutedTrackNames,
-  isPlaying, shuffle, playbackRate,
+  isPlaying, shuffle, playbackRate, volume,
   onSongPlayed,
   onSongPaused,
   onSongStopped,
@@ -42,6 +44,7 @@ export default function MultiTrackAudioPlayer({
   onShuffleChanged,
   onAutoplayChanged,
   onPlaybackRateChanged,
+  onVolumeChanged,
 }: MultiTrackAudioPlayerProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [position, setPosition] = useState(0);
@@ -98,6 +101,11 @@ export default function MultiTrackAudioPlayer({
       howl.rate(playbackRate);
     });
   }, [playbackRate]);
+  useEffect(() => {
+    sources.forEach(howl => {
+      howl.volume(volume || 1.0);
+    });
+  }, [volume]);
 
   useEffect(() => {
     sources.forEach((s) => {
@@ -118,6 +126,7 @@ export default function MultiTrackAudioPlayer({
         src: track.src,
         preload: true,
         rate: playbackRate,
+        volume: volume,
 
         /*
           There's a lot of tradeoffs between using HTML5 Audio vs (default) WebAudio.
@@ -212,18 +221,6 @@ export default function MultiTrackAudioPlayer({
             </button>
             {/* TODO: Go back to previous song */}
             <button
-              className={`MultiTrackAudioPlayer__shuffle ${shuffle ? '': 'inactive'}`}
-              onClick={() => onShuffleChanged(!shuffle)}
-            >
-              <i className="fa-solid fa-shuffle" />
-            </button>
-            <button
-              className={`MultiTrackAudioPlayer__autoplay ${autoplay ? '': 'inactive'}`}
-              onClick={() => onAutoplayChanged(!autoplay)}
-            >
-              <i className="fa-solid fa-circle-play" />
-            </button>
-            <button
               className="MultiTrackAudioPlayer__rewind"
               disabled={!isLoaded}
               onClick={() => seek(0)}
@@ -242,30 +239,19 @@ export default function MultiTrackAudioPlayer({
             >
               <i className="fa-solid fa-forward-fast" />
             </button>
-            <label>
-              <span onClick={() => onPlaybackRateChanged(1)} style={{display: 'inline-block', width: '7em'}}>Speed {playbackRate}x</span>
-              <input
-                type="range"
-                value={playbackRate}
-                step={0.05}
-                min={0.05}
-                max={2.0}
-                onChange={(evt) => onPlaybackRateChanged(evt.currentTarget.valueAsNumber)}
-              />
-            </label>
           </div>
         </div>
         <ul className="MultiTrackAudioPlayer__tracks">
-            {tracks?.map((track, i) => (
-              <MultiTrackAudioPlayerTrack 
-                track={track}
-                source={sources[i]}
-                key={track.title}
-                muted={mutedTrackNames?.includes(track.title)}
-                onMuteChange={handleTrackMuteChange}
-              />
-            ))}
-          </ul>
+          {tracks?.map((track, i) => (
+            <MultiTrackAudioPlayerTrack 
+              track={track}
+              source={sources[i]}
+              key={track.title}
+              muted={mutedTrackNames?.includes(track.title)}
+              onMuteChange={handleTrackMuteChange}
+            />
+          ))}
+        </ul>
       </div>
       <div className="MultiTrackAudioPlayer__progress">
         <span className="MultiTrackAudioPlayer__progress__time">
@@ -285,6 +271,46 @@ export default function MultiTrackAudioPlayer({
         <span className="MultiTrackAudioPlayer__progress__time">
           {formatTime(duration)}
         </span>
+      </div>
+      <div className="MultiTrackAudioPlayer__secondary_controls">
+        <button
+          className={`MultiTrackAudioPlayer__shuffle ${shuffle ? '': 'inactive'}`}
+          onClick={() => onShuffleChanged(!shuffle)}
+        >
+          <i className="fa-solid fa-shuffle" /> Shuffle {shuffle ? 'ON' : 'OFF'}
+        </button>
+        <button
+          className={`MultiTrackAudioPlayer__autoplay ${autoplay ? '': 'inactive'}`}
+          onClick={() => onAutoplayChanged(!autoplay)}
+        >
+          <i className="fa-solid fa-circle-play" /> Autoplay {autoplay ? 'ON' : 'OFF'}
+        </button>
+        <label className="range-label">
+          <span onClick={() => onPlaybackRateChanged(1)} style={{display: 'inline-block', width: '7em'}}>
+            Speed {playbackRate}x
+          </span>
+          <input
+            type="range"
+            value={playbackRate}
+            step={0.1}
+            min={0.1}
+            max={2.0}
+            onChange={(evt) => onPlaybackRateChanged(evt.currentTarget.valueAsNumber)}
+          />
+        </label>
+        <label className="range-label">
+          <span onClick={() => onVolumeChanged(1)} style={{display: 'inline-block', width: '7em'}}>
+            Volume {Math.round((volume || 1) * 100)}%
+          </span>
+          <input
+            type="range"
+            value={volume}
+            step={0.05}
+            min={0.1}
+            max={1.0}
+            onChange={(evt) => onVolumeChanged(evt.currentTarget.valueAsNumber)}
+          />
+        </label>
       </div>
     </div>
   );

@@ -89,13 +89,16 @@
 .MultiTrackAudioPlayer__tracks button:active {
   background: pink;
 }
-.MultiTrackAudioPlayer button {
+.MultiTrackAudioPlayer__tracks button,
+.MultiTrackAudioPlayer__controls button {
   width: 2em;
   height: 2em;
   line-height: 1em;
 }
-.MultiTrackAudioPlayer button.muted {
+.MultiTrackAudioPlayer__tracks button.muted {
   background-color: #ccc;
   border-color: #aaa;
 }
-
+.MultiTrackAudioPlayer__secondary_controls button {
+  margin: 8px 4px 0;
+}
