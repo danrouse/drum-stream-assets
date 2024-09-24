@@ -23,10 +23,10 @@ export default async function initializeMIDIInput(handler: (note: number, veloci
   midiAccess.addEventListener('statechange', (event: Event) => {
     const port = (event as MIDIConnectionEvent).port;
     if (port?.state === 'connected') {
-      console.log('MIDI device connected', port);
+      console.info('MIDI device connected', port);
       registerMIDIDevice(port as MIDIInput);
     } else {
-      console.log('MIDI device disconnected', port);
+      console.info('MIDI device disconnected', port);
     }
   });
 }
