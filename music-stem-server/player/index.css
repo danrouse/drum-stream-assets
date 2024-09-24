@@ -54,7 +54,7 @@ button.inactive {
   /* display: flex;
   flex-direction: column; */
   height: 100%;
-  --player-height: 260px;
+  --player-height: 240px;
 }
   .SongBrowserUI .top {
     display: flex;
@@ -88,6 +88,10 @@ button.inactive {
   padding: 0 8px;
   margin: 8px 0;
 }
-.playlist-top *:first-child {
+.SongBrowserPlaylists .playlist-top *:first-child {
   flex: 1;
+}
+.SongBrowserPlaylists .playlist-top select {
+  font-weight: bold;
+  font-size: 24px;
 }

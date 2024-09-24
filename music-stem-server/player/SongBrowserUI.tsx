@@ -5,21 +5,29 @@ import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongBrowserPlaylists from './SongBrowserPlaylists';
 
 // localStorage persistence of user state
+const DEFAULT_PLAYLISTS: Playlist[] = [
+  { title: 'Base Playlist', songs: [] },
+  { title: 'Requests', songs: [] },
+];
 interface SavedState {
   isAutoplayEnabled: boolean;
   isShuffleEnabled: boolean;
   songSearchQuery: string;
   mutedTrackNames: string[];
-  queuedSongs: SongData[];
   playbackRate: number;
+  volume: number;
+  playlists: Playlist[];
+  selectedPlaylistIndex: number;
 }
 const defaultSavedState: SavedState = {
   isAutoplayEnabled: false,
   isShuffleEnabled: false,
   songSearchQuery: '',
   mutedTrackNames: [],
-  queuedSongs: [],
   playbackRate: 1,
+  volume: 1,
+  playlists: DEFAULT_PLAYLISTS,
+  selectedPlaylistIndex: 0,
 };
 const LOCAL_STORAGE_KEY = 'SongBrowser-state';
 const loadState = () => {
@@ -44,31 +52,31 @@ export default function SongBrowserUI() {
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [songSearchQuery, setSongSearchQuery] = useState('');
   const [mutedTrackNames, setMutedTrackNames] = useState<string[]>([]);
-  const [queuedSongs, setQueuedSongs] = useState<SongData[]>([]);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [volume, setVolume] = useState(1);
+  const [playlists, setPlaylists] = useState<Playlist[]>(DEFAULT_PLAYLISTS);
+  const [selectedPlaylistIndex, setSelectedPlaylistIndex] = useState(0);
   // Internal state
   const [allSongs, setAllSongs] = useState<SongData[]>([]);
   const [selectedSong, setSelectedSong] = useState<SongData>();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isPlayingFromQueue, setIsPlayingFromQueue] = useState(false);
+  const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
   const [socket, setSocket] = useState<WebSocket>();
 
   const fetchNewSongListData = () => fetch('/songs')
     .then(res => res.json())
     .then((songs: SongData[]) => {
       // TODO: Sorting option (download date vs artist)
-      songs.sort((a, b) => new Date(b.downloadDate).getTime() - new Date(a.downloadDate).getTime())
-      // songs.sort((a, b) =>
-      //   a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
-      //     a.album !== b.album ? a.album.localeCompare(b.album) :
-      //       a.track[0] - b.track[0]);
+      // songs.sort((a, b) => new Date(b.downloadDate).getTime() - new Date(a.downloadDate).getTime())
+      songs.sort((a, b) =>
+        a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
+          a.album !== b.album ? a.album.localeCompare(b.album) :
+            a.track[0] - b.track[0]);
       setAllSongs(songs);
     });
-
-  const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
   
   const nextSong = () => {
-    const songList = isPlayingFromQueue ? queuedSongs : allSongs;
+    const songList = isPlayingFromPlaylist ? playlists[selectedPlaylistIndex].songs : allSongs;
     const selectedSongIndex = songList.indexOf(selectedSong!);
     let nextIndex = selectedSongIndex === songList.length - 1 ? 0 : selectedSongIndex + 1;
     if (isShuffleEnabled) {
@@ -81,20 +89,37 @@ export default function SongBrowserUI() {
   
   const broadcast = (payload: WebSocketIncomingMessage) => {
     if (!socket || socket.readyState !== socket.OPEN) return;
-    console.log('broadcast', payload);
+    // console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
 
+  const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
+  
   // User state persistence in localStorage
   useEffect(() => {
-    if (!isInitialLoad) {
+    if (isInitialLoad) {
+      const loadedState = loadState();
+      unstable_batchedUpdates(() => {
+        setIsAutoplayEnabled(loadedState.isAutoplayEnabled);
+        setIsShuffleEnabled(loadedState.isShuffleEnabled);
+        setSongSearchQuery(loadedState.songSearchQuery);
+        setMutedTrackNames(loadedState.mutedTrackNames);
+        setPlaybackRate(loadedState.playbackRate);
+        setVolume(loadedState.volume);
+        setPlaylists(loadedState.playlists);
+        setSelectedPlaylistIndex(loadedState.selectedPlaylistIndex);
+        setIsInitialLoad(false);
+      });
+    } else {
       saveState({
         isAutoplayEnabled,
         isShuffleEnabled,
         songSearchQuery,
         mutedTrackNames,
-        queuedSongs,
         playbackRate,
+        volume,
+        playlists,
+        selectedPlaylistIndex,
       });
     }
   }, [
@@ -102,23 +127,14 @@ export default function SongBrowserUI() {
     isShuffleEnabled,
     songSearchQuery,
     mutedTrackNames,
-    queuedSongs,
     playbackRate,
+    volume,
+    playlists,
+    selectedPlaylistIndex,
   ]);
 
   // One-time componentDidMount effects
   useEffect(() => {
-    const loadedState = loadState();
-    unstable_batchedUpdates(() => {
-      setIsAutoplayEnabled(loadedState.isAutoplayEnabled);
-      setIsShuffleEnabled(loadedState.isShuffleEnabled);
-      setSongSearchQuery(loadedState.songSearchQuery);
-      setMutedTrackNames(loadedState.mutedTrackNames);
-      setQueuedSongs(loadedState.queuedSongs);
-      setPlaybackRate(loadedState.playbackRate);
-      setIsInitialLoad(false);
-    });
-
     fetchNewSongListData();
 
     const ws = new WebSocket(`ws://${location.host}`);
@@ -149,6 +165,7 @@ export default function SongBrowserUI() {
               title: s.replace(/\.mp3$/, ''),
               src: `/stems/${selectedSong.name}/${s}`
             }))}
+            isPlaying={isPlaying}
 
             onSongLoaded={(artist, title, duration) => {
               broadcast({ type: 'song_changed', artist, title, duration });
@@ -182,31 +199,35 @@ export default function SongBrowserUI() {
               nextSong();
             }}
             onSongProgress={(timestamp) => broadcast({ type: 'song_progress', timestamp })}
-            onTrackMuteChanged={setMutedTrackNames}
-            onShuffleChanged={setIsShuffleEnabled}
-            onAutoplayChanged={setIsAutoplayEnabled}
-            onPlaybackRateChanged={setPlaybackRate}
+            
             mutedTrackNames={mutedTrackNames}
-            autoplay={isAutoplayEnabled}
+            onTrackMuteChanged={setMutedTrackNames}
             shuffle={isShuffleEnabled}
+            onShuffleChanged={setIsShuffleEnabled}
+            autoplay={isAutoplayEnabled}
+            onAutoplayChanged={setIsAutoplayEnabled}
             playbackRate={playbackRate}
-            isPlaying={isPlaying}
+            onPlaybackRateChanged={setPlaybackRate}
+            volume={volume}
+            onVolumeChanged={setVolume} 
           />
         }
       </div>
       <SongBrowserPlaylists
         className="bottom"
         songs={filteredSongs}
-        queuedSongs={queuedSongs}
-        setQueuedSongs={setQueuedSongs}
+        socket={socket}
+        onDownloadComplete={fetchNewSongListData}
         selectedSong={selectedSong}
         setSelectedSong={setSelectedSong}
-        isPlayingFromQueue={isPlayingFromQueue}
-        setIsPlayingFromQueue={setIsPlayingFromQueue}
+        selectedPlaylistIndex={selectedPlaylistIndex}
+        setSelectedPlaylistIndex={setSelectedPlaylistIndex}
+        isPlayingFromPlaylist={isPlayingFromPlaylist}
+        setIsPlayingFromPlaylist={setIsPlayingFromPlaylist}
         songSearchQuery={songSearchQuery}
         setSongSearchQuery={setSongSearchQuery}
-        onDownloadComplete={fetchNewSongListData}
-        socket={socket}
+        playlists={playlists}
+        setPlaylists={setPlaylists}
       />
     </div>
   );
