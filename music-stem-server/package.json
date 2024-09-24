@@ -11,8 +11,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@spotify/web-api-ts-sdk": "^1.2.0",
     "@vitejs/plugin-react": "^4.3.1",
     "body-parser": "^1.20.3",
+    "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "howler": "^2.2.4",
     "music-metadata": "^10.5.0",
