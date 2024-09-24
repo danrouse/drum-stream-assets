@@ -61,19 +61,22 @@ export default class Demucs {
       { shell: true }
     );
     this.child.stderr.on('data', msg => {
-      // progress updates are logged to stderr
-      const parsedProgress = msg.toString().match(/^\s*(\d+)%/);
+      const strippedMessage = msg.toString().trim();
+      // progress updates are logged to stderr with percentage and an ASCII loading bar
+      const parsedProgress = strippedMessage.match(/^\s*(\d+)%/);
       if (parsedProgress) {
         const progressPercent = Number(parsedProgress[1]) / 100;
         if (this.onProcessingProgress) {
           this.onProcessingProgress(this.currentQuery!, progressPercent);
         }
-      } else if (msg.toString().includes('demucs.separate: error')) {
+      } else if (strippedMessage.includes('demucs.separate: error')) {
         if (this.onProcessingError) {
-          this.onProcessingError(this.currentQuery!, msg.toString()); // jank
+          this.onProcessingError(this.currentQuery!, strippedMessage); // jank
         }
-      } else if (!msg.toString().includes('Torch was not compiled with flash attention')) {
-        console.debug('demucs unhandled stderr:\n', msg.toString());
+      } else if (!strippedMessage.includes('Torch was not compiled with flash attention')) {
+        // Just notify via logs, it's probably fine
+        // Demucs spits out a fair amount of garbage in stderr sometimes
+        console.debug('demucs unhandled stderr:\n', strippedMessage);
       }
     });
     this.child.on('close', () => {

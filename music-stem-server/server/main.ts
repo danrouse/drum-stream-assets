@@ -56,6 +56,18 @@ app.get('/songs', async (req, res) => {
   res.send(output);
 });
 
+app.post('/songrequest', async (req, res) => {
+  /**
+   * TODO: songrequest endpoint
+   * This is for the bot to request to, and adds in some extra checks
+   * aside from anything directly in the /stem endpoint.
+   * - Download and process any song that doesn't already exist
+   *  - This might not be through spotify, so we need to be able to handle YouTube links
+   * - Enforce song length restrictions
+   * - Add the song to the queue somehow
+   */
+});
+
 app.post('/stem', async (req, res) => {
   const q = req.body.q;
   if (!q)
