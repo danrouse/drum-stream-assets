@@ -13,7 +13,7 @@ export default function SongList({ songs, selectedSong, renderActions }: SongLis
     <div className="SongList">
       <ul>
         {songs.map((song, index) => (
-          <li key={song.name} className={selectedSong === song ? 'selected' : ''}>
+          <li key={song.name + index} className={selectedSong === song ? 'selected' : ''}>
             <div>
               <p className="title">{song.title}</p>
               <p className="artist">{song.artist}</p>

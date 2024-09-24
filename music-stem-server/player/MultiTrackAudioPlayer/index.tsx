@@ -243,7 +243,7 @@ export default function MultiTrackAudioPlayer({
               <i className="fa-solid fa-forward-fast" />
             </button>
             <label>
-              <span onClick={() => onPlaybackRateChanged(1)}>Speed</span>
+              <span onClick={() => onPlaybackRateChanged(1)} style={{display: 'inline-block', width: '7em'}}>Speed {playbackRate}x</span>
               <input
                 type="range"
                 value={playbackRate}

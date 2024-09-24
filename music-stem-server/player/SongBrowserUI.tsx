@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
 
 import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
-import SongList from './SongList';
-import Downloader from './Downloader';
-
+import SongBrowserPlaylists from './SongBrowserPlaylists';
 
 // localStorage persistence of user state
 interface SavedState {
@@ -58,16 +56,19 @@ export default function SongBrowserUI() {
   const fetchNewSongListData = () => fetch('/songs')
     .then(res => res.json())
     .then((songs: SongData[]) => {
-      songs.sort((a, b) =>
-        a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
-          a.album !== b.album ? a.album.localeCompare(b.album) :
-            a.track[0] - b.track[0]);
+      // TODO: Sorting option (download date vs artist)
+      songs.sort((a, b) => new Date(b.downloadDate).getTime() - new Date(a.downloadDate).getTime())
+      // songs.sort((a, b) =>
+      //   a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
+      //     a.album !== b.album ? a.album.localeCompare(b.album) :
+      //       a.track[0] - b.track[0]);
       setAllSongs(songs);
     });
+
+  const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
   
   const nextSong = () => {
     const songList = isPlayingFromQueue ? queuedSongs : allSongs;
-    console.log('next song', isPlayingFromQueue);
     const selectedSongIndex = songList.indexOf(selectedSong!);
     let nextIndex = selectedSongIndex === songList.length - 1 ? 0 : selectedSongIndex + 1;
     if (isShuffleEnabled) {
@@ -79,8 +80,8 @@ export default function SongBrowserUI() {
   };
   
   const broadcast = (payload: WebSocketIncomingMessage) => {
-    if (!socket) return;
-    console.log(payload)
+    if (!socket || socket.readyState !== socket.OPEN) return;
+    console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
 
@@ -192,57 +193,21 @@ export default function SongBrowserUI() {
             isPlaying={isPlaying}
           />
         }
-        {socket &&
-          <Downloader
-            onDownloadComplete={fetchNewSongListData}
-            onInputChanged={q => setSongSearchQuery(q)}
-            value={songSearchQuery}
-            socket={socket}
-          />
-        }
       </div>
-      <div className="bottom">
-        <div className={isPlayingFromQueue ? '' : 'active'}>
-          <h2>All Songs</h2>
-          <SongList
-            songs={allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')))}
-            selectedSong={selectedSong}
-            renderActions={(song: SongData) => (
-              <>
-                <button onClick={() => {
-                  setSelectedSong(song);
-                  setIsPlayingFromQueue(false);
-                }}>
-                  Select
-                </button>
-                <button onClick={() => !queuedSongs.includes(song) && setQueuedSongs([...queuedSongs, song])}>
-                  Add to Playlist
-                </button>
-              </>
-            )}
-          />
-        </div>
-        <div className={isPlayingFromQueue ? 'active' : ''}>
-          <h2>Queue</h2>
-          <SongList
-            songs={queuedSongs}
-            selectedSong={selectedSong}
-            renderActions={(song, index) => (
-              <>
-                <button onClick={() => {
-                  setSelectedSong(song);
-                  setIsPlayingFromQueue(true);
-                }}>
-                  Select
-                </button>
-                <button onClick={() => setQueuedSongs(queuedSongs.toSpliced(index, 1))}>
-                  Remove
-                </button>
-              </>
-            )}          
-          />
-        </div>
-      </div>
+      <SongBrowserPlaylists
+        className="bottom"
+        songs={filteredSongs}
+        queuedSongs={queuedSongs}
+        setQueuedSongs={setQueuedSongs}
+        selectedSong={selectedSong}
+        setSelectedSong={setSelectedSong}
+        isPlayingFromQueue={isPlayingFromQueue}
+        setIsPlayingFromQueue={setIsPlayingFromQueue}
+        songSearchQuery={songSearchQuery}
+        setSongSearchQuery={setSongSearchQuery}
+        onDownloadComplete={fetchNewSongListData}
+        socket={socket}
+      />
     </div>
   );
 }

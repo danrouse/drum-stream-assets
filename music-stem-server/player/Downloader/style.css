@@ -1,10 +1,13 @@
 .Downloader {
   /* position: fixed; */
   /* bottom: 0; */
+  position: sticky;
+  top: 0;
   padding: 12px;
   background: #aaa;
   width: 100%;
   text-align: center;
+  z-index: 1;
 }
   .Downloader input, .Downloader button {
     font-size: 16px;
@@ -12,10 +15,12 @@
   }
 
   .Downloader__status {
-    position: absolute;
+    position: fixed;
     bottom: 64px;
+    left: 0;
     width: 100%;
     text-align: center;
+    z-index: 3;
   }
   .Downloader__status p {
     display: inline-block;

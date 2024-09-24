@@ -20,7 +20,7 @@ ul, p {
   padding: 0;
 }
 h2 {
-  margin: 8px 12px;
+  margin: 0;
 }
 button {
   border-radius: 8px;
@@ -28,7 +28,8 @@ button {
   background: var(--blue-transparent);
   color: white;
   text-align: center;
-  padding: 0;
+  padding: 4px;
+  /* margin: 0px 2px; */
 }
 button:hover {
   cursor: pointer;
@@ -62,16 +63,31 @@ button.inactive {
     height: var(--player-height);
   }
   .SongBrowserUI .bottom {
-    display: flex;
-    flex-direction: row;
     position: relative;
     z-index: 1;
     height: calc(100vh - var(--player-height));
   }
-  .SongBrowserUI .bottom > div {
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-  .SongBrowserUI .bottom .active {
-    background-color: #ddd;
-  }
+
+.SongBrowserPlaylists {
+  display: flex;
+  flex-direction: row;
+}
+.SongBrowserPlaylists > div {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+}
+.SongBrowserPlaylists .active {
+  background-color: #ddd;
+}
+.SongBrowserPlaylists .playlist-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  margin: 8px 0;
+}
+.playlist-top *:first-child {
+  flex: 1;
+}
