@@ -28,11 +28,47 @@ app.use('/stems', express.static(STEMS_PATH));
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const broadcast = createWebSocketServer(httpServer);
 
+interface DemucsSubscriber {
+  name: string;
+  callback: (success: boolean) => void;
+}
+let demucsSubscribers: DemucsSubscriber[] = [];
 const demucs = new Demucs(DEMUCS_OUTPUT_PATH, DEFAULT_DEMUCS_MODEL);
 demucs.onProcessingStart = (name) => broadcast({ type: 'demucs_start', name });
 demucs.onProcessingProgress = (name, progress) => broadcast({ type: 'demucs_progress', progress, name });
-demucs.onProcessingComplete = (name) => broadcast({ type: 'demucs_complete', stems: `/stems/${name}` });
-demucs.onProcessingError = (name, errorMessage) => broadcast({ type: 'demucs_error', message: errorMessage });
+demucs.onProcessingComplete = (name) => {
+  broadcast({ type: 'demucs_complete', stems: `/stems/${name}` });
+  demucsSubscribers.filter(s => s.name === name).forEach(s => s.callback(true));
+  demucsSubscribers = demucsSubscribers.filter(s => s.name !== name);
+};
+demucs.onProcessingError = (name, errorMessage) => {
+  broadcast({ type: 'demucs_error', message: errorMessage });
+  demucsSubscribers.filter(s => s.name === name).forEach(s => s.callback(false));
+  demucsSubscribers = demucsSubscribers.filter(s => s.name !== name);
+};
+
+function downloadSong(query: string) {
+  console.info('Attempting to download:', query);
+  broadcast({ type: 'download_start', query });
+  const downloadedBasename = spotdl(query, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE);
+
+  if (downloadedBasename) {
+    broadcast({ type: 'download_complete', name: downloadedBasename });
+    console.info('Downloaded:', downloadedBasename);
+  } else {
+    broadcast({ type: 'download_error', query });
+    console.info('Received no basename from spotdl');
+  }
+  return downloadedBasename;
+}
+
+function processDownloadedSong(songFileBasename: string, callback?: (success: boolean) => void) {
+  const downloadedSongPath = join(DOWNLOADS_PATH, `${songFileBasename}.m4a`);
+  demucs.queue(downloadedSongPath);
+  if (callback) {
+    demucsSubscribers.push({ name: downloadedSongPath, callback });
+  }
+}
 
 app.get('/songs', async (req, res) => {
   const output: SongData[] = [];
@@ -57,46 +93,36 @@ app.get('/songs', async (req, res) => {
 });
 
 app.post('/songrequest', async (req, res) => {
-  /**
-   * TODO: songrequest endpoint
-   * This is for the bot to request to, and adds in some extra checks
-   * aside from anything directly in the /stem endpoint.
-   * - Download and process any song that doesn't already exist
-   *  - This might not be through spotify, so we need to be able to handle YouTube links
-   * - Enforce song length restrictions
-   * - Add the song to the queue somehow
-   */
+  // TODO: some way to toggle song requests on/off
+  const q = req.body.q;
+  if (!q) return res.status(400).send();
+  const downloadedSongPath = downloadSong(q);
+  // TODO: Enforce song length restrictions
+  if (downloadedSongPath) {
+    processDownloadedSong(downloadedSongPath, (success) => {
+      if (success) {
+        broadcast({ type: 'song_request_added', name: downloadedSongPath });
+      }
+      // TODO: any error handling to deal with here? to report back to requester somehow? :|
+    });
+    res.status(200).send();
+  }
+  return res.status(500).send();
 });
 
 app.post('/stem', async (req, res) => {
   const q = req.body.q;
-  if (!q)
-    return res.status(500).send();
-
-  console.info('Attempting to download:', q);
-  broadcast({ type: 'download_start', query: q });
+  if (!q) return res.status(400).send();
+  
   try {
-    const downloadedBasename = spotdl(q, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE);
-    if (downloadedBasename) {
-      broadcast({ type: 'download_complete', name: downloadedBasename });
-      console.info('Downloaded:', downloadedBasename);
-
-      // check to see that demucs hasn't already processed this song first
-      if (existsSync(join(STEMS_PATH, downloadedBasename))) {
-        broadcast({ type: 'demucs_complete', stems: `/stems/${downloadedBasename}` });
-        return;
-      }
-
-      const downloadedSongPath = join(DOWNLOADS_PATH, `${downloadedBasename}.m4a`);
-      demucs.queue(downloadedSongPath);
-      res.status(200).send({ name: downloadedBasename });
-    } else {
-      res.status(500).send({ message: 'Failed to download song.' });
+    const downloadedSongPath = downloadSong(q);
+    if (!downloadedSongPath) {
+      return res.status(500).send({ message: 'Failed to download song.' });
     }
+    processDownloadedSong(downloadedSongPath);
+    return res.status(200).send({ name: downloadedSongPath });
   } catch (e) {
-    console.log('got error');
-    res.status(500).send({ message: 'Failed to download song.' });
-    console.error(e);
+    return res.status(500).send({ message: 'Failed to download or process song.' });
   }
 });
 

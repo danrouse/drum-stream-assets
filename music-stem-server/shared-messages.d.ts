@@ -1,9 +1,12 @@
-type WebSocketOutgoingMessage = {
+type WebSocketServerMessage = {
   type: 'download_start',
   query: string,
 } | {
   type: 'download_complete',
   name: string,
+} | {
+  type: 'download_error',
+  query: string,
 } | {
   type: 'demucs_start',
   name: string,
@@ -17,9 +20,12 @@ type WebSocketOutgoingMessage = {
 } | {
   type: 'demucs_error',
   message: string,
+} | {
+  type: 'song_request_added',
+  name: string,
 };
 
-type WebSocketIncomingMessage = {
+type WebSocketPlayerMessage = {
   type: 'song_changed',
   artist: string,
   title: string,

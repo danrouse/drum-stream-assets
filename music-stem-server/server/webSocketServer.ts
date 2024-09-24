@@ -29,7 +29,7 @@ export function createWebSocketServer(httpServer: Server) {
     });
   });
 
-  const broadcast = (payload: WebSocketOutgoingMessage | string, broadcast: boolean = false) =>
+  const broadcast = (payload: WebSocketServerMessage | string, broadcast: boolean = false) =>
     [...wsServer.clients]
       .filter(client => !broadcast || broadcastReceivers.includes(client))
       .forEach(ws => ws.send(typeof payload === 'string' ? payload : JSON.stringify(payload)));

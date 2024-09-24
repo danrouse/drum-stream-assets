@@ -29,7 +29,7 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
 
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      const message: WebSocketOutgoingMessage = JSON.parse(e.data.toString());
+      const message: WebSocketServerMessage = JSON.parse(e.data.toString());
       if (!message) return;
       if (message.type === 'download_start') {
         setProcessingState(`Attempting to download "${message.query}"`);

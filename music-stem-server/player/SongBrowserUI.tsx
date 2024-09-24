@@ -5,9 +5,10 @@ import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongBrowserPlaylists from './SongBrowserPlaylists';
 
 // localStorage persistence of user state
+const SONG_REQUEST_PLAYLIST_NAME = 'Requests';
 const DEFAULT_PLAYLISTS: Playlist[] = [
   { title: 'Base Playlist', songs: [] },
-  { title: 'Requests', songs: [] },
+  { title: SONG_REQUEST_PLAYLIST_NAME, songs: [] },
 ];
 interface SavedState {
   isAutoplayEnabled: boolean;
@@ -61,6 +62,7 @@ export default function SongBrowserUI() {
   const [selectedSong, setSelectedSong] = useState<SongData>();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
+  const [songRequestsToAdd, setSongRequestsToAdd] = useState<string[]>([]);
   const [socket, setSocket] = useState<WebSocket>();
 
   const fetchNewSongListData = () => fetch('/songs')
@@ -74,7 +76,7 @@ export default function SongBrowserUI() {
             a.track[0] - b.track[0]);
       setAllSongs(songs);
     });
-  
+
   const nextSong = () => {
     const songList = isPlayingFromPlaylist ? playlists[selectedPlaylistIndex].songs : allSongs;
     const selectedSongIndex = songList.indexOf(selectedSong!);
@@ -87,14 +89,29 @@ export default function SongBrowserUI() {
     setSelectedSong(songList[nextIndex]);
   };
   
-  const broadcast = (payload: WebSocketIncomingMessage) => {
+  const broadcast = (payload: WebSocketPlayerMessage) => {
     if (!socket || socket.readyState !== socket.OPEN) return;
     // console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
 
   const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
-  
+
+  // Add song requests to the Requests playlist when they become available
+  useEffect(() => {
+    const songRequestPlaylistIndex = playlists.findIndex(p => p.title === SONG_REQUEST_PLAYLIST_NAME);
+    for (let i in songRequestsToAdd) {
+      const song = allSongs.find(song => songRequestsToAdd[i] === song.name);
+      if (song) {
+        setPlaylists(playlists.toSpliced(songRequestPlaylistIndex, 1, {
+          ...playlists[songRequestPlaylistIndex],
+          songs: [...playlists[songRequestPlaylistIndex].songs, song]
+        }));
+        delete songRequestsToAdd[i];
+      }
+    }
+  }, [songRequestsToAdd, allSongs]);
+
   // User state persistence in localStorage
   useEffect(() => {
     if (isInitialLoad) {
@@ -140,7 +157,16 @@ export default function SongBrowserUI() {
     const ws = new WebSocket(`ws://${location.host}`);
     setSocket(ws);
 
+    const handleMessage = (e: MessageEvent) => {
+      const message: WebSocketServerMessage = JSON.parse(e.data.toString());
+      if (message?.type === 'song_request_added') {
+        setSongRequestsToAdd([...songRequestsToAdd, message.name]);
+      }
+    };
+    ws.addEventListener('message', handleMessage);
+
     return () => {
+      ws.removeEventListener('message', handleMessage);
       if (ws.readyState === ws.OPEN) {
         ws.close();
       } else {

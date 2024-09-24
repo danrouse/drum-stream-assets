@@ -1,4 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { existsSync } from 'fs';
+import { join, basename } from 'path';
 
 type DemucsModel =
   'htdemucs' | 'htdemucs_ft' | 'htdemucs_6s' | 'hdemucs_mmi' | 
@@ -44,11 +46,19 @@ export default class Demucs {
     }
   }
 
-  execute(query: string) {
+  execute(originalSongPath: string) {
     if (this.child) {
       throw new Error('already have a spawned process');
     }
-    this.currentQuery = query;
+    // check to see if it's not already been processed first
+    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, basename(originalSongPath, '.m4a'));
+    if (existsSync(dstPath)) {
+      if (this.onProcessingComplete) {
+        this.onProcessingComplete(originalSongPath);
+      }
+      return;
+    }
+    this.currentQuery = originalSongPath;
     this.child = spawn(
       'demucs',
       [
@@ -56,7 +66,7 @@ export default class Demucs {
         '-o', `"${this.outputPath}"`,
         '-d', 'cuda',
         '--mp3',
-        `"${query}"`
+        `"${originalSongPath}"`
       ],
       { shell: true }
     );

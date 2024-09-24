@@ -102,3 +102,7 @@
 .MultiTrackAudioPlayer__secondary_controls button {
   margin: 8px 4px 0;
 }
+.MultiTrackAudioPlayer__secondary_controls .range-label span {
+  display: inline-block;
+  width: 7em;
+}
