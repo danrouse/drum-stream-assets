@@ -53,7 +53,6 @@ export default class Demucs {
     // check to see if it's not already been processed first
     const strippedBasename = basename(originalSongPath).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, '');
     const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, strippedBasename);
-    console.log('demucs check existing', dstPath);
     if (existsSync(dstPath)) {
       if (this.onProcessingComplete) {
         this.onProcessingComplete(strippedBasename);
@@ -73,7 +72,7 @@ export default class Demucs {
       { shell: true }
     );
     this.child.stderr.on('data', msg => {
-      const strippedMessage = msg.toString().trim();
+      const strippedMessage = msg.toString().replace(/[\r\n]/g, '').trim();
       // progress updates are logged to stderr with percentage and an ASCII loading bar
       const parsedProgress = strippedMessage.match(/^\s*(\d+)%/);
       if (parsedProgress) {
