@@ -59,6 +59,26 @@ function createSyncedLyricsWindow() {
 
 let prevSongChangedPayload: any;
 
+function findLyrics(artist: string, title: string, duration: number) {
+  const lyricsPath = join(__dirname, '../../music-stem-server/server/downloads',
+    `${artist} - ${title}.lrc`);
+  if (existsSync(lyricsPath)) {
+    return parseLyrics(lyricsPath, duration);
+  }
+}
+
+function findVideo(artist: string, title: string) {
+  const possibleExtensions = ['mkv', 'mp4', 'ogg', 'webm', 'flv'];
+  for (let ext of possibleExtensions) {
+    const videoBaseName = `${artist} - ${title}.${ext}`;
+    const videoPath = join(__dirname, '../../music-stem-server/server/downloads', videoBaseName);
+    if (existsSync(videoPath)) {
+      // TODO: More reliable base URL?
+      return `http://127.0.0.1:3000/downloads/${videoBaseName}`;
+    }
+  }
+}
+
 function createWindows() {
   const windows = [
     createMIDINotesWindow(),
@@ -76,24 +96,8 @@ function createWindows() {
       return;
     }
     if (message.type === 'song_changed') {
-      const lyricsPath = join(__dirname, '../../music-stem-server/server/downloads',
-        `${message.artist} - ${message.title}.lrc`);
-      if (existsSync(lyricsPath)) {
-        // just stuff the lyrics into the message sent to renderer process
-        // 🤦‍♂️
-        message.lyrics = parseLyrics(lyricsPath, message.duration);
-      } else {
-        const possibleExtensions = ['mkv', 'mp4', 'ogg', 'webm', 'flv'];
-        for (let ext of possibleExtensions) {
-          const videoBaseName = `${message.artist} - ${message.title}.${ext}`;
-          const videoPath = join(__dirname, '../../music-stem-server/server/downloads', videoBaseName);
-          if (existsSync(videoPath)) {
-            // TODO: More reliable base URL?
-            message.videoPath = `http://127.0.0.1:3000/downloads/${videoBaseName}`;
-            break;
-          }
-        }
-      }
+      message.lyrics = findLyrics(message.artist, message.title, message.duration);
+      message.videoPath = findVideo(message.artist, message.title);
       const { type: _, ...payload } = message;
       prevSongChangedPayload = payload;
     }
