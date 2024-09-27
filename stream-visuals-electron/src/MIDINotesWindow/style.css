@@ -112,7 +112,7 @@
 } */
 .note.animated {
   /* animation: noteScroll 1 linear 2000ms forwards, */
-  animation: noteFade 1 ease-out 1000ms forwards;
+  animation: noteFade 1 ease-out 400ms forwards;
 }
 .note-kick {
 
