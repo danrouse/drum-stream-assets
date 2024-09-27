@@ -26,6 +26,7 @@ type WebSocketServerMessage = {
 } | {
   type: 'send_twitch_message',
   message: string,
+  reply?: string,
 };
 
 type WebSocketPlayerMessage = {
@@ -56,3 +57,13 @@ interface SongData {
   duration: number;
 }
 
+interface DownloadedSong {
+  basename: string;
+  path: string;
+}
+
+interface ProcessedSong {
+  basename: string;
+  songPath: string;
+  stemsPath: string;
+}

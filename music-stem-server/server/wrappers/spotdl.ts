@@ -3,8 +3,9 @@ import { join, basename } from 'path';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
+const YT_DLP_PATH = 'C:/Users/Dan/Downloads/yt-dlp.exe';
 
-export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE';
+export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS';
 export class SongDownloadError extends Error {
   type: SongDownloadErrorType;
   constructor(type: SongDownloadErrorType = 'DOWNLOAD_FAILED') {
@@ -22,8 +23,8 @@ const isURL = (s: string) => {
 };
 
 function handleYouTubeDownload(url: URL, outputPath: string) {
-  return new Promise<string>((resolve, reject) => {
-    const cmd = spawn('C:/Users/Dan/Downloads/yt-dlp.exe', // TODO: lol
+  return new Promise<DownloadedSong>((resolve, reject) => {
+    const cmd = spawn(YT_DLP_PATH, // TODO: lol
       [
         '--no-playlist',
         '--no-overwrites',
@@ -34,28 +35,30 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
       ],
       { shell: true }
     );
-    let downloadedBasename = '';
+    let downloadedSong: DownloadedSong | undefined;
     cmd.stderr.on('data', msg => {
       if (msg.toString().match(/\[youtube\] (.+): Video unavailable/)) {
-        throw new SongDownloadError('VIDEO_UNAVAILABLE');
+        reject(new SongDownloadError('VIDEO_UNAVAILABLE'));
+      } else if (msg.toString().match(/\[youtube:tab\] YouTube said: The playlist does not exist/)) {
+        reject(new SongDownloadError('VIDEO_UNAVAILABLE'));
+      } else {
+        console.warn('yt-dlp.exe stderr:', msg.toString());
       }
-      console.log('stderr', msg.toString());
     });
     cmd.stdout.on('data', msg => {
       const downloadMatch = msg.toString().match(/^\[download\] Destination: (.+)/);
       const dupeMatch = msg.toString().match(/^\[download\] (.+) has already been downloaded/);
       const mergeMatch = msg.toString().match(/^\[Merger\] Merging formats into "(.+)"/);
-      if (downloadMatch) {
-        downloadedBasename = basename(downloadMatch[1]);
-      } else if (dupeMatch) {
-        downloadedBasename = basename(dupeMatch[1]);
-      } else if (mergeMatch) {
-        downloadedBasename = basename(mergeMatch[1]);
+      const match = downloadMatch || dupeMatch || mergeMatch;
+      if (match) {
+        downloadedSong = {
+          basename: basename(match[1]).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, ''),
+          path: match[1],
+        };
       }
-      // console.log('stdout', msg.toString(), dupeMatch);
     });
     cmd.on('close', () => {
-      if (downloadedBasename) return resolve(downloadedBasename);
+      if (downloadedSong) return resolve(downloadedSong);
       console.error('yt-dlp closed without returning a filename');
       reject(new SongDownloadError('DOWNLOAD_FAILED'));
     });
@@ -66,16 +69,23 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
   });
 }
 
-export default async function spotdl(query: string, outputPath: string, cookies: string) {
+export default async function spotdl(query: string, outputPath: string, cookies: string): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
       const url = new URL(query);
-      const domain = url.host.toLowerCase().replace(/^www\./, '');
-      if (domain === 'youtube.com') {
+      const host = url.host.toLowerCase();
+      const youTubeMatch = host.match(/^((www|m|music)\.)?(youtube\.com|youtu.be)/);
+      const spotifyMatch = host.match(/^(open\.)?spotify\.com/);
+      if (youTubeMatch) {
+        if (url.pathname.startsWith('/channel/') || url.pathname.startsWith('/playlist')) {
+          throw new SongDownloadError('NO_PLAYLISTS');
+        }
         return await handleYouTubeDownload(url, outputPath);
-      } else if (domain === 'spotify.com' || domain === 'open.spotify.com') {
+      } else if (spotifyMatch) {
+        if (!url.pathname.startsWith('/track/')) {
+          throw new SongDownloadError('NO_PLAYLISTS');
+        }
       } else {
-        // TODO: better messaging
         throw new SongDownloadError('UNSUPPORTED_DOMAIN');
       }
     }
@@ -100,7 +110,6 @@ export default async function spotdl(query: string, outputPath: string, cookies:
     // try to parse them from its string output.
     const wasDownloaded = stdout.match(/Downloaded "(.+)":/i);
     const alreadyExists = stdout.match(/Skipping (.+) \(file already exists\)/i);
-    // console.log('what the fuck', stdout, wasDownloaded, alreadyExists);
     if (wasDownloaded || alreadyExists) {
       const basename = (wasDownloaded || alreadyExists)![1].replace(/:/g, '-').replace(/\?/g, '');
       const dstPath = join(outputPath, `${basename}.m4a`);
@@ -120,9 +129,12 @@ export default async function spotdl(query: string, outputPath: string, cookies:
           // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
         }
         unlinkSync(TMP_OUTPUT_FILENAME);
-        return basename;
+        return {
+          basename,
+          path: dstPath,
+        };
       } else {
-        console.log('dstpath doesnt exist', dstPath);
+        console.warn('spotdl: expected download path does not exist', dstPath);
       }
     }
     console.debug('spotdl failed as it did not match a valid return string');

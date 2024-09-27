@@ -11,14 +11,13 @@ export const DEFAULT_DEMUCS_MODEL: DemucsModel = 'htdemucs';
 export default class Demucs {
   outputPath: string;
   model: string;
-  onProcessingStart?: (query: string) => void;
-  onProcessingComplete?: (query: string) => void;
-  onProcessingError?: (query: string, errorMessage: string) => void;
-  onProcessingProgress?: (query: string, progress: number) => void;
+  onProcessingStart?: (song: DownloadedSong) => void;
+  onProcessingError?: (song: DownloadedSong, errorMessage: string) => void;
+  onProcessingProgress?: (song: DownloadedSong, progress: number) => void;
+  onProcessingComplete?: (song: ProcessedSong) => void;
   
   private child?: ChildProcessWithoutNullStreams = undefined;
-  private currentQuery?: string;
-  private _queue: string[] = [];
+  private _queue: DownloadedSong[] = [];
   private interval: NodeJS.Timeout;
 
   static POLL_INTERVAL = 500;
@@ -36,53 +35,55 @@ export default class Demucs {
     }
   }
 
-  queue(query: string) {
-    this._queue.push(query);
+  queue(song: DownloadedSong) {
+    this._queue.push(song);
   }
 
-  cancel(query: string) {
-    if (query === this.currentQuery) {
-      this.child?.kill();
-    }
+  cancel() {
+    this.child?.kill();
   }
 
-  execute(originalSongPath: string) {
+  execute(song: DownloadedSong) {
     if (this.child) {
       throw new Error('already have a spawned process');
     }
     // check to see if it's not already been processed first
-    const strippedBasename = basename(originalSongPath).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, '');
-    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, strippedBasename);
+    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, song.basename);
     if (existsSync(dstPath)) {
       if (this.onProcessingComplete) {
-        this.onProcessingComplete(strippedBasename);
+        this.onProcessingComplete({
+          basename: song.basename,
+          songPath: song.path,
+          stemsPath: dstPath,
+        });
       }
       return;
     }
-    this.currentQuery = originalSongPath;
+    const args = [
+      '-n', this.model || DEFAULT_DEMUCS_MODEL,
+      '-o', `"${this.outputPath}"`,
+      '-d', 'cuda',
+      '--mp3',
+      `"${song.path}"`
+    ];
+    console.info('Spawning demucs with args', args);
     this.child = spawn(
       'demucs',
-      [
-        '-n', this.model || DEFAULT_DEMUCS_MODEL,
-        '-o', `"${this.outputPath}"`,
-        '-d', 'cuda',
-        '--mp3',
-        `"${originalSongPath}"`
-      ],
+      args,
       { shell: true }
     );
     this.child.stderr.on('data', msg => {
-      const strippedMessage = msg.toString().replace(/[\r\n]/g, '').trim();
+      const strippedMessage = msg.toString().replace(/[\r\n]/g, '').replace(/[\udc00|\udb40]/g, '').trim()
       // progress updates are logged to stderr with percentage and an ASCII loading bar
       const parsedProgress = strippedMessage.match(/^\s*(\d+)%/);
       if (parsedProgress) {
         const progressPercent = Number(parsedProgress[1]) / 100;
         if (this.onProcessingProgress) {
-          this.onProcessingProgress(this.currentQuery!, progressPercent);
+          this.onProcessingProgress(song, progressPercent);
         }
       } else if (strippedMessage.includes('demucs.separate: error')) {
         if (this.onProcessingError) {
-          this.onProcessingError(this.currentQuery!, strippedMessage); // jank
+          this.onProcessingError(song, strippedMessage); // jank
         }
       } else if (strippedMessage.includes('Torch was not compiled with flash attention')) {
         // ignore this garbage...
@@ -95,14 +96,17 @@ export default class Demucs {
     });
     this.child.on('close', () => {
       if (this.onProcessingComplete) {
-        this.onProcessingComplete(
-          basename(this.currentQuery!).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, ''));
+        this.onProcessingComplete({
+          basename: song.basename,
+          songPath: song.path,
+          stemsPath: dstPath,
+        });
       }
       this.cleanup();
     });
     this.child.on('error', (err) => {
       if (this.onProcessingError) {
-        this.onProcessingError(this.currentQuery!, err.message);
+        this.onProcessingError(song, err.message);
       }
       this.cleanup();
     });
@@ -113,6 +117,5 @@ export default class Demucs {
       this.child.kill();
     }
     delete this.child;
-    delete this.currentQuery;
   }
 }

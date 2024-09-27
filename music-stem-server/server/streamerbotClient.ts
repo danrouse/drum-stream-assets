@@ -1,11 +1,14 @@
 import { StreamerbotClient } from '@streamerbot/client';
+import { SongDownloadError, SongDownloadErrorType } from './wrappers/spotdl';
 
+const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 export default function createStreamerbotClient(
-  sendTwitchMessage: (message: string) => void,
-  handleSongRequest: (query: string) => Promise<string>,
+  sendTwitchMessage: (message: string, reply?: string) => void,
+  handleSongRequest: (query: string) => Promise<ProcessedSong>,
 ) {
   const client = new StreamerbotClient();
   const commandIds: { [name: string]: string } = {};
+  const twitchMessageIdsByUser: { [userId: string]: string } = {};
 
   const loadCommands = async () => {
     const res = await client.getActions();
@@ -15,9 +18,9 @@ export default function createStreamerbotClient(
   };
 
   client.on('Twitch.ChatMessage', (data) => {
-    // console.log('Twitch.ChatMessage', data);
+    twitchMessageIdsByUser[data.data.message.userId] = data.data.message.msgId;
   });
-  let n = 0;
+
   client.on('Command.Triggered', async (payload) => {
     if (!Object.keys(commandIds).length) {
       await loadCommands();
@@ -25,26 +28,33 @@ export default function createStreamerbotClient(
 
     switch (payload.data.command) {
       case '!request':
-        const message = payload.data.message.trim();
-        if (message.length < 5) {
+        const message = payload.data.message.replace(/[\udc00|\udb40]/g, '').trim();
+        if (message.length < MINIMUM_SONG_REQUEST_QUERY_LENGTH) {
           try {
             await client.doAction(commandIds['!how']);
-            return;
-          } catch (e) {
-            console.error(e);
-            return;
-          }
+          } catch (e) {}
+          return;
         }
+        const replyId = twitchMessageIdsByUser[payload.data.user.id];
+        let hasSentMessage = false;
+        setTimeout(() => {
+          if (!hasSentMessage) sendTwitchMessage(`Working on it!`, replyId);
+        }, 1000);
         try {
-          sendTwitchMessage(`Adding song request for "${message}"!`);
-          await handleSongRequest(message);
-          sendTwitchMessage(`Song request for ${payload.data.user.display} added!`);
-        } catch (e) {
-          sendTwitchMessage(`There was an error adding ${payload.data.user.display}'s song request!"`);
+          const song = await handleSongRequest(message);
+          hasSentMessage = true;
+          sendTwitchMessage(`${song.basename} was added!`, replyId);
+        } catch (e: any) {
+          let message = 'There was an error adding your song request!';
+          if (e instanceof SongDownloadError) {
+            if (e.type === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
+            if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
+            if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
+            if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
+          }
+          hasSentMessage = true;
+          sendTwitchMessage(message, replyId);
         }
-        // console.log('Song request from', payload.data.user.name, payload.data.user.display, payload.data.user.id);
-        // console.log(payload.data.message);
-        // sendTwitchMessage(`foo bar baz, responding to: ${payload.data.user.display} with request for "${payload.data.message}"`);
       break;
     }
   });
