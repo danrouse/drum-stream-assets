@@ -1,5 +1,6 @@
 import { StreamerbotClient } from '@streamerbot/client';
-import { SongDownloadError, SongDownloadErrorType } from './wrappers/spotdl';
+import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
+import formatTime from '../player/formatTime';
 
 const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 export default function createStreamerbotClient(
@@ -25,9 +26,10 @@ export default function createStreamerbotClient(
     if (!Object.keys(commandIds).length) {
       await loadCommands();
     }
-
     switch (payload.data.command) {
       case '!request':
+      case '!sr':
+      case '!ssr':
         const message = payload.data.message.replace(/[\udc00|\udb40]/g, '').trim();
         if (message.length < MINIMUM_SONG_REQUEST_QUERY_LENGTH) {
           try {
@@ -51,6 +53,7 @@ export default function createStreamerbotClient(
             if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
             if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
             if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
+            if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
           }
           hasSentMessage = true;
           sendTwitchMessage(message, replyId);

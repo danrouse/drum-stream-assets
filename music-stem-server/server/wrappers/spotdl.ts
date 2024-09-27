@@ -5,7 +5,7 @@ import { existsSync, readFileSync, unlinkSync } from 'fs';
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 const YT_DLP_PATH = 'C:/Users/Dan/Downloads/yt-dlp.exe';
 
-export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS';
+export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS' | 'TOO_LONG';
 export class SongDownloadError extends Error {
   type: SongDownloadErrorType;
   constructor(type: SongDownloadErrorType = 'DOWNLOAD_FAILED') {
@@ -22,12 +22,14 @@ const isURL = (s: string) => {
   }
 };
 
+export const MAX_SONG_REQUEST_DURATION = 600;
 function handleYouTubeDownload(url: URL, outputPath: string) {
   return new Promise<DownloadedSong>((resolve, reject) => {
     const cmd = spawn(YT_DLP_PATH, // TODO: lol
       [
         '--no-playlist',
         '--no-overwrites',
+        '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
         // '--max-downloads', '1',
         '-f', '"[height <=? 720]+bestaudio"',
         '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s %(id)s.%(ext)s')}"`,
@@ -46,6 +48,9 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
       }
     });
     cmd.stdout.on('data', msg => {
+      if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration/)) {
+        return reject(new SongDownloadError('TOO_LONG'));
+      }
       const downloadMatch = msg.toString().match(/^\[download\] Destination: (.+)/);
       const dupeMatch = msg.toString().match(/^\[download\] (.+) has already been downloaded/);
       const mergeMatch = msg.toString().match(/^\[Merger\] Merging formats into "(.+)"/);
