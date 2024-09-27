@@ -65,6 +65,8 @@ export default function SongBrowserUI() {
   const [songRequestsToAdd, setSongRequestsToAdd] = useState<string[]>([]);
   const [socket, setSocket] = useState<WebSocket>();
 
+  const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
+
   const fetchNewSongListData = () => fetch('/songs')
     .then(res => res.json())
     .then((songs: SongData[]) => {
@@ -76,15 +78,28 @@ export default function SongBrowserUI() {
             a.track[0] - b.track[0]);
       setAllSongs(songs);
     });
+  
+  const stopPlayback = () => {
+    setSelectedSong(undefined);
+    setIsPlaying(false);
+    broadcast({ type: 'song_stopped' });
+  };
 
   const nextSong = () => {
-    const songList = isPlayingFromPlaylist ? playlists[selectedPlaylistIndex].songs : allSongs;
-    const selectedSongIndex = songList.indexOf(selectedSong!);
-    let nextIndex = selectedSongIndex === songList.length - 1 ? 0 : selectedSongIndex + 1;
+    const songList = isPlayingFromPlaylist ? playlists[selectedPlaylistIndex].songs : filteredSongs;
+    const currentSelectedSongIndex = songList.indexOf(selectedSong!);
+    // If we're at the end of a playlist, playing sequentially, stop
+    if (isPlayingFromPlaylist && !isShuffleEnabled && currentSelectedSongIndex === songList.length - 1) {
+      stopPlayback();
+      return;
+    }
+    // If not in a playlist, loop back around to the beginning
+    let nextIndex = currentSelectedSongIndex === songList.length - 1 ? 0 : currentSelectedSongIndex + 1;
     if (isShuffleEnabled) {
+      // Unless shuffling is on, in which case, get a random index that isn't the one we're on
       do {
         nextIndex = Math.floor(Math.random() * songList.length);
-      } while (nextIndex === selectedSongIndex);
+      } while (nextIndex === currentSelectedSongIndex);
     }
     setSelectedSong(songList[nextIndex]);
   };
@@ -94,8 +109,6 @@ export default function SongBrowserUI() {
     // console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
-
-  const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
 
   // Add song requests to the Requests playlist when they become available
   useEffect(() => {
@@ -207,11 +220,7 @@ export default function SongBrowserUI() {
               broadcast({ type: 'song_paused' });
               setIsPlaying(false);
             }}
-            onSongStopped={() => {
-              setSelectedSong(undefined);
-              setIsPlaying(false);
-              broadcast({ type: 'song_stopped' });
-            }}
+            onSongStopped={stopPlayback}
             onSongEnded={() => {
               broadcast({ type: 'song_paused' });
               if (isAutoplayEnabled) {
