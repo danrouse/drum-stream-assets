@@ -51,10 +51,12 @@ export default class Demucs {
       throw new Error('already have a spawned process');
     }
     // check to see if it's not already been processed first
-    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, basename(originalSongPath, '.m4a'));
+    const strippedBasename = basename(originalSongPath).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, '');
+    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, strippedBasename);
+    console.log('demucs check existing', dstPath);
     if (existsSync(dstPath)) {
       if (this.onProcessingComplete) {
-        this.onProcessingComplete(originalSongPath);
+        this.onProcessingComplete(strippedBasename);
       }
       return;
     }
@@ -83,7 +85,10 @@ export default class Demucs {
         if (this.onProcessingError) {
           this.onProcessingError(this.currentQuery!, strippedMessage); // jank
         }
-      } else if (!strippedMessage.includes('Torch was not compiled with flash attention')) {
+      } else if (strippedMessage.includes('Torch was not compiled with flash attention')) {
+        // ignore this garbage...
+        // Did I mention that I have a problem with python because of its ecosystem?
+      } else {
         // Just notify via logs, it's probably fine
         // Demucs spits out a fair amount of garbage in stderr sometimes
         console.debug('demucs unhandled stderr:\n', strippedMessage);
@@ -91,7 +96,8 @@ export default class Demucs {
     });
     this.child.on('close', () => {
       if (this.onProcessingComplete) {
-        this.onProcessingComplete(this.currentQuery!);
+        this.onProcessingComplete(
+          basename(this.currentQuery!).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, ''));
       }
       this.cleanup();
     });

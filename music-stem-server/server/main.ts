@@ -2,14 +2,17 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
-import { join, dirname, } from 'path';
+import { join, dirname, basename } from 'path';
 import { readdirSync, existsSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
+import ffprobe from 'ffprobe';
+import ffprobeStatic from 'ffprobe-static';
 import spotdl from './wrappers/spotdl';
 import Demucs, { DEFAULT_DEMUCS_MODEL } from './wrappers/demucs';
-// import copyID3Tags from './copyID3Tags';
+import createWebSocketServer from './webSocketServer';
+import createStreamerbotClient from './streamerbotClient';
+// @ts-expect-error
 import { parseFile } from 'music-metadata';
-import { createWebSocketServer } from './webSocketServer';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3000;
@@ -27,6 +30,8 @@ app.use('/stems', express.static(STEMS_PATH));
 
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const broadcast = createWebSocketServer(httpServer);
+const sendTwitchMessage = (message: string) => broadcast({ type: 'send_twitch_message', message });
+const streamerbotClient = createStreamerbotClient(sendTwitchMessage, handleSongRequest);
 
 interface DemucsSubscriber {
   name: string;
@@ -37,9 +42,10 @@ const demucs = new Demucs(DEMUCS_OUTPUT_PATH, DEFAULT_DEMUCS_MODEL);
 demucs.onProcessingStart = (name) => broadcast({ type: 'demucs_start', name });
 demucs.onProcessingProgress = (name, progress) => broadcast({ type: 'demucs_progress', progress, name });
 demucs.onProcessingComplete = (name) => {
-  broadcast({ type: 'demucs_complete', stems: `/stems/${name}` });
-  demucsSubscribers.filter(s => s.name === name).forEach(s => s.callback(true));
-  demucsSubscribers = demucsSubscribers.filter(s => s.name !== name);
+  const strippedName = name.replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, '');
+  broadcast({ type: 'demucs_complete', stems: `/stems/${strippedName}` });
+  demucsSubscribers.filter(s => s.name === strippedName).forEach(s => s.callback(true));
+  demucsSubscribers = demucsSubscribers.filter(s => s.name !== strippedName);
 };
 demucs.onProcessingError = (name, errorMessage) => {
   broadcast({ type: 'demucs_error', message: errorMessage });
@@ -47,10 +53,10 @@ demucs.onProcessingError = (name, errorMessage) => {
   demucsSubscribers = demucsSubscribers.filter(s => s.name !== name);
 };
 
-function downloadSong(query: string) {
+async function downloadSong(query: string) {
   console.info('Attempting to download:', query);
   broadcast({ type: 'download_start', query });
-  const downloadedBasename = spotdl(query, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE);
+  const downloadedBasename = await spotdl(query, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE);
 
   if (downloadedBasename) {
     broadcast({ type: 'download_complete', name: downloadedBasename });
@@ -62,11 +68,44 @@ function downloadSong(query: string) {
   return downloadedBasename;
 }
 
+function handleSongRequest(query: string) {
+  return new Promise<string>(async (resolve, reject) => {
+    try {
+      const downloadedSongPath = await downloadSong(query);
+      // TODO: Enforce song length restrictions
+      if (downloadedSongPath) {
+        processDownloadedSong(downloadedSongPath, (success) => {
+          if (success) {
+            console.info(`Song request added from request "${downloadedSongPath}", broadcasting message...`);
+            broadcast({ type: 'song_request_added', name: downloadedSongPath.replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, '') });
+            resolve(downloadedSongPath);
+          } else {
+            reject();
+          }
+        });
+      } else {
+        reject();
+      }
+    } catch (e) {
+      reject();
+    }
+  });
+}
+
 function processDownloadedSong(songFileBasename: string, callback?: (success: boolean) => void) {
-  const downloadedSongPath = join(DOWNLOADS_PATH, `${songFileBasename}.m4a`);
+  let downloadedSongPath = join(DOWNLOADS_PATH, songFileBasename);
+  if (!existsSync(downloadedSongPath)) {
+    downloadedSongPath = join(DOWNLOADS_PATH, `${songFileBasename}.m4a`);
+    if (!existsSync(downloadedSongPath)) {
+      throw new Error(`Could not find path for ${songFileBasename}`);
+    }
+  }
   demucs.queue(downloadedSongPath);
   if (callback) {
-    demucsSubscribers.push({ name: downloadedSongPath, callback });
+    demucsSubscribers.push({
+      name: basename(downloadedSongPath).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, ''),
+      callback
+    });
   }
 }
 
@@ -77,15 +116,39 @@ app.get('/songs', async (req, res) => {
     const stems = readdirSync(join(STEMS_PATH, song));
     if (!stems.length) continue;
     const stat = statSync(join(STEMS_PATH, song, stems[0]));
-    const tags = await parseFile(join(DOWNLOADS_PATH, `${song}.m4a`));
+    let tags: any = {};
+    try {
+      tags = await parseFile(join(DOWNLOADS_PATH, `${song}.m4a`));
+    } catch (e) {
+      const possibleExtensions = ['mkv', 'mp4', 'ogg', 'webm', 'flv'];
+      for (let ext of possibleExtensions) {
+        if (!existsSync(join(DOWNLOADS_PATH, `${song}.${ext}`))) {
+          continue;
+        }
+        const res = await ffprobe(join(DOWNLOADS_PATH, `${song}.${ext}`), { path: ffprobeStatic.path });
+        const duration = res.streams[0].tags.DURATION?.split(':').reduce((a,t)=> (60 * a) + +t, 0);
+        const partsMatch = song.match(/([^-]+) - (.+)$/);
+        tags = {
+          common: {
+            artist: partsMatch?.[1],
+            title: partsMatch?.[2],
+            album: 'YouTube',
+            // album: `YouTube - ${partsMatch?.[3]}`,
+            track: { no: 1, of: 1 },
+          },
+          format: { duration },
+        };
+        break;
+      }
+    }
     output.push({
       name: song,
-      artist: String(tags.common.artist),
-      title: String(tags.common.title),
+      artist: String(tags.common?.artist) || '',
+      title: String(tags.common?.title) || '',
       stems: stems,
       downloadDate: stat.mtime,
-      album: String(tags.common.album),
-      track: [tags.common.track.no, tags.common.track.of],
+      album: String(tags.common?.album) || '',
+      track: [tags.common?.track.no || 1, tags.common?.track.of || 1],
       duration: tags.format.duration,
     });
   }
@@ -93,20 +156,16 @@ app.get('/songs', async (req, res) => {
 });
 
 app.post('/songrequest', async (req, res) => {
-  // TODO: some way to toggle song requests on/off
   const q = req.body.q;
   if (!q) return res.status(400).send();
-  const downloadedSongPath = downloadSong(q);
-  // TODO: Enforce song length restrictions
-  if (downloadedSongPath) {
-    processDownloadedSong(downloadedSongPath, (success) => {
-      if (success) {
-        broadcast({ type: 'song_request_added', name: downloadedSongPath });
-      }
-      // TODO: any error handling to deal with here? to report back to requester somehow? :|
-    });
+  try {
+    await handleSongRequest(q);
     res.status(200).send();
+  } catch (err) {
+    console.error('Error thrown while downloading song request', err);
   }
+  // TODO: Message back to the requester that there was an error?
+  console.log(`Message back to requester that there was an error downloading "${q}"!`);
   return res.status(500).send();
 });
 
@@ -115,7 +174,7 @@ app.post('/stem', async (req, res) => {
   if (!q) return res.status(400).send();
   
   try {
-    const downloadedSongPath = downloadSong(q);
+    const downloadedSongPath = await downloadSong(q);
     if (!downloadedSongPath) {
       return res.status(500).send({ message: 'Failed to download song.' });
     }

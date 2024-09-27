@@ -23,6 +23,9 @@ type WebSocketServerMessage = {
 } | {
   type: 'song_request_added',
   name: string,
+} | {
+  type: 'send_twitch_message',
+  message: string,
 };
 
 type WebSocketPlayerMessage = {
