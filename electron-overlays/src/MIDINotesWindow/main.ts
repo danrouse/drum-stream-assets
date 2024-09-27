@@ -248,10 +248,7 @@ if (location.hash === '#MIDINotesWindow') {
 
   initializeMIDIInput(triggerNote);
   loadConfig();
-  noteConfig[44] = { ...noteConfig[26] };
   // renderTestNotes(false);
 
-  // TODO: periodically poll for access to midi device, attempt to reinitialize if lost
-  // setInterval(() => initializeMIDIInput(triggerNote), 500);
   window.onerror = (error, url, line) => window.ipcRenderer.send('error', { error, url, line });
 }
