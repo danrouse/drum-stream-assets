@@ -119,6 +119,7 @@ if (location.hash === '#MIDINotesWindow') {
       alert('Failed to initialize camera for calibration!')
       return false;
     }
+    window.ipcRenderer.send('toggle_mouse');
 
     uiContainerElem.innerHTML = '<h2>Set Drum Position</h2>';
     const statusTextElem = document.createElement('P');
@@ -133,6 +134,7 @@ if (location.hash === '#MIDINotesWindow') {
       saveConfig();
       clearNotes();
       window.removeEventListener('keydown', keyHandler);
+      window.ipcRenderer.send('toggle_mouse');
     }
 
     const noteKeys = Object.keys(noteConfig).sort((a, b) => noteConfig[Number(a)].name.localeCompare(noteConfig[Number(b)].name));

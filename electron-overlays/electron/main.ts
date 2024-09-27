@@ -23,10 +23,13 @@ function createMIDINotesWindow() {
     width: 1920,
     height: 1080,
   });
-  // TODO: Re-enable mouse events when running sync thing
-  // win.setIgnoreMouseEvents(true);
+  let isMouseEventsIgnored = true;
+  win.setIgnoreMouseEvents(isMouseEventsIgnored);
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#MIDINotesWindow');
-  // win.loadURL(process.env.VITE_DEV_SERVER_URL!);
+  ipcMain.on('toggle_mouse', () => {
+    isMouseEventsIgnored = !isMouseEventsIgnored;
+    win.setIgnoreMouseEvents(isMouseEventsIgnored);
+  });
 
   return win;
 }
