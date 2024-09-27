@@ -1,11 +1,14 @@
 import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain } from 'electron';
 import { WebSocket } from 'ws';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, URL } from 'url';
 import { readFileSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const SERVER_PORT = readFileSync(join(__dirname, '..', '..', 'SERVER_PORT'), 'utf-8');
+const SERVER_URL = new URL(process.env.VITE_DEV_SERVER_URL!);
+SERVER_URL.port = SERVER_PORT;
 
 const defaultWindowConfig: Partial<BrowserWindowConstructorOptions> = {
   transparent: true,
@@ -76,22 +79,15 @@ function findVideo(artist: string, title: string) {
     const videoBaseName = `${artist} - ${title}.${ext}`;
     const videoPath = join(__dirname, '../../music-stem-server/server/downloads', videoBaseName);
     if (existsSync(videoPath)) {
-      // TODO: More reliable base URL?
-      return `http://127.0.0.1:3000/downloads/${videoBaseName}`;
+      return `${SERVER_URL}/downloads/${videoBaseName}`;
     }
   }
 }
 
-function createWindows() {
-  const windows = [
-    createMIDINotesWindow(),
-    createNowPlayingWindow(),
-    createSyncedLyricsWindow(),
-  ];
-  
+function createWebSocket(windows: BrowserWindow[]) {
   // Connect to server WS to receive rebroadcast messages from remote client
   // Send all messages via IPC to individual windows
-  const ws = new WebSocket('http://127.0.0.1:3000');
+  const ws = new WebSocket(`ws://${SERVER_URL.host}`);
   ws.on('message', (data) => {
     const message = JSON.parse(data.toString());
     if (!message) {
@@ -107,6 +103,17 @@ function createWindows() {
     const { type, ...payload } = message;
     windows.forEach(win => win.webContents.send(type, payload));
   });
+  ws.on('close', () => setTimeout(() => createWebSocket(windows), 1000));
+  return ws;
+}
+
+function createWindows() {
+  const windows = [
+    createMIDINotesWindow(),
+    createNowPlayingWindow(),
+    createSyncedLyricsWindow(),
+  ];
+  createWebSocket(windows);
 }
 
 const parseLRCTimeToFloat = (lrcTime: string) => {

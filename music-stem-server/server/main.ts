@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join, dirname, basename } from 'path';
-import { readdirSync, existsSync, statSync } from 'fs';
+import { readdirSync, existsSync, statSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import ffprobe, { FFProbeResult } from 'ffprobe';
 import ffprobeStatic from 'ffprobe-static';
@@ -15,12 +15,12 @@ import createStreamerbotClient from './streamerbotClient';
 import { parseFile } from 'music-metadata';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT = 3000;
 const DOWNLOADS_PATH = join(__dirname, 'downloads');
 const DEMUCS_OUTPUT_PATH = join(__dirname, 'separated');
 const STEMS_PATH = join(DEMUCS_OUTPUT_PATH, DEFAULT_DEMUCS_MODEL);
 const YOUTUBE_MUSIC_COOKIE_FILE = join(__dirname, '..', 'music.youtube.com_cookies.txt');
 const STATIC_ASSETS_PATH = join(__dirname, '..', 'static');
+const SERVER_PORT = readFileSync(join(__dirname, '..', '..', 'SERVER_PORT'), 'utf-8');
 
 const app = express();
 app.use(bodyParser.json());
@@ -28,7 +28,7 @@ app.use(express.static(STATIC_ASSETS_PATH));
 app.use('/downloads', express.static(DOWNLOADS_PATH));
 app.use('/stems', express.static(STEMS_PATH));
 
-const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
+const httpServer = app.listen(SERVER_PORT, () => console.log('HTTP server listening on port', SERVER_PORT));
 const broadcast = createWebSocketServer(httpServer);
 let i = 0;
 const sendTwitchMessage = (message: string, reply?: string) => {
@@ -56,10 +56,10 @@ demucs.onProcessingError = (song, errorMessage) => {
   demucsSubscribers = demucsSubscribers.filter(s => s.song.basename !== song.basename);
 };
 
-async function downloadSong(query: string) {
+async function downloadSong(query: string, isRequest: boolean = false) {
   console.info('Attempting to download:', query);
   broadcast({ type: 'download_start', query });
-  const downloadedSong = await spotdl(query, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE);
+  const downloadedSong = await spotdl(query, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE, isRequest);
 
   if (downloadedSong) {
     broadcast({ type: 'download_complete', name: downloadedSong.basename });
@@ -74,7 +74,7 @@ async function downloadSong(query: string) {
 function handleSongRequest(query: string) {
   return new Promise<ProcessedSong>(async (resolve, reject) => {
     try {
-      const downloadedSong = await downloadSong(query);
+      const downloadedSong = await downloadSong(query, true);
       const tags = await getSongTags(downloadedSong.path, true);
       if (tags.format?.duration > MAX_SONG_REQUEST_DURATION) {
         reject(new SongDownloadError('TOO_LONG'));
@@ -161,7 +161,6 @@ app.get('/songs', async (req, res) => {
   res.send(output);
 });
 
-// TODO: do this over WS instead
 app.post('/stem', async (req, res) => {
   const q = req.body.q;
   if (!q) return res.status(400).send();
