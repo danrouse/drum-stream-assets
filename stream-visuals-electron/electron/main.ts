@@ -69,7 +69,6 @@ function createWindows() {
   // Connect to server WS to receive rebroadcast messages from remote client
   // Send all messages via IPC to individual windows
   const ws = new WebSocket('http://127.0.0.1:3000');
-  ws.on('open', () => ws.send('receiver'));
   ws.on('message', (data) => {
     const message = JSON.parse(data.toString());
     if (!message) {
@@ -83,6 +82,17 @@ function createWindows() {
         // just stuff the lyrics into the message sent to renderer process
         // 🤦‍♂️
         message.lyrics = parseLyrics(lyricsPath, message.duration);
+      } else {
+        const possibleExtensions = ['mkv', 'mp4', 'ogg', 'webm', 'flv'];
+        for (let ext of possibleExtensions) {
+          const videoBaseName = `${message.artist} - ${message.title}.${ext}`;
+          const videoPath = join(__dirname, '../../music-stem-server/server/downloads', videoBaseName);
+          if (existsSync(videoPath)) {
+            // TODO: More reliable base URL?
+            message.videoPath = `http://127.0.0.1:3000/downloads/${videoBaseName}`;
+            break;
+          }
+        }
       }
       const { type: _, ...payload } = message;
       prevSongChangedPayload = payload;
