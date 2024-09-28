@@ -23,14 +23,13 @@ const isURL = (s: string) => {
 };
 
 export const MAX_SONG_REQUEST_DURATION = 600;
-export const MAX_SONG_NON_REQUEST_DURATION = 6000;
-function handleYouTubeDownload(url: URL, outputPath: string, isRequest: boolean = false) {
+function handleYouTubeDownload(url: URL, outputPath: string) {
   return new Promise<DownloadedSong>((resolve, reject) => {
-    const cmd = spawn(YT_DLP_PATH,
+    const cmd = spawn(YT_DLP_PATH, // TODO: lol
       [
         '--no-playlist',
         '--no-overwrites',
-        '--match-filter', `"duration<${isRequest ? MAX_SONG_REQUEST_DURATION : MAX_SONG_NON_REQUEST_DURATION}"`,
+        '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
         // '--max-downloads', '1',
         '-f', '"[height <=? 720]+bestaudio"',
         '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s %(id)s.%(ext)s')}"`,
@@ -75,7 +74,7 @@ function handleYouTubeDownload(url: URL, outputPath: string, isRequest: boolean 
   });
 }
 
-export default async function spotdl(query: string, outputPath: string, cookies: string, isRequest: boolean = false): Promise<DownloadedSong> {
+export default async function spotdl(query: string, outputPath: string, cookies: string): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
       const url = new URL(query);

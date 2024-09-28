@@ -106,6 +106,7 @@ export default function SongBrowserUI() {
   
   const broadcast = (payload: WebSocketPlayerMessage) => {
     if (!socket || socket.readyState !== socket.OPEN) return;
+    // console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
 
@@ -162,44 +163,36 @@ export default function SongBrowserUI() {
     selectedPlaylistIndex,
   ]);
 
-  // WebSocket init, reconnect, and cleanup
-  useEffect(() => {
-    if (!socket) {
-      const ws = new WebSocket(`ws://${location.host}`);
-      const handleMessage = (e: MessageEvent) => {
-        const message: WebSocketServerMessage = JSON.parse(e.data.toString());
-        if (message?.type === 'song_request_added') {
-          setSongRequestsToAdd([...songRequestsToAdd, message.name]);
-        }
-      };
-      ws.addEventListener('message', handleMessage);
-      const clearSocket = () => setSocket(undefined);
-      ws.addEventListener('close', clearSocket);
-
-      setSocket(ws);
-
-      return () => {
-        ws.removeEventListener('message', handleMessage);
-        ws.removeEventListener('close', clearSocket);
-        if (ws.readyState === ws.OPEN) {
-          ws.close();
-        } else {
-          // can't cancel the pending connection,
-          // so wait for it to open then close
-          ws.addEventListener('open', () => {
-            // somehow it's not always open at this point? what?
-            ws.readyState === ws.OPEN && ws.close();
-          });
-        }
-      };
-    }
-  }, [socket]);
-
-  // componentDidMount fetch initial data
+  // One-time componentDidMount effects
   useEffect(() => {
     fetchNewSongListData();
-  }, []);
 
+    const ws = new WebSocket(`ws://${location.host}`);
+    setSocket(ws);
+
+    const handleMessage = (e: MessageEvent) => {
+      const message: WebSocketServerMessage = JSON.parse(e.data.toString());
+      if (message?.type === 'song_request_added') {
+        setSongRequestsToAdd([...songRequestsToAdd, message.name]);
+      }
+    };
+    ws.addEventListener('message', handleMessage);
+
+    return () => {
+      ws.removeEventListener('message', handleMessage);
+      if (ws.readyState === ws.OPEN) {
+        ws.close();
+      } else {
+        // can't cancel the pending connection,
+        // so wait for it to open then close
+        ws.addEventListener('open', () => {
+          // somehow it's not always open at this point? what?
+          ws.readyState === ws.OPEN && ws.close();
+        });
+      }
+    };
+  }, []);
+  
   return (
     <div className="SongBrowserUI">
       <div className="top">

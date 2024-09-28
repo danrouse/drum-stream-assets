@@ -16,6 +16,7 @@ export default function createWebSocketServer(httpServer: Server) {
           // console.log('Broadcast message', messageString);
           // TODO: 'song_changed' event we can kinda twitch message the new title/artist
           // however we should wait until also receiving a 'song_played' event so that it's actually on
+          console.log('rebroadcast message', parsedMessage);
           broadcast(messageString);
         }
       } catch (e) {}
