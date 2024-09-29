@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import './style.css';
 
-async function submitDownloadQuery(q: string) {
-  await fetch('/stem', {
-    body: JSON.stringify({ q }),
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+async function submitDownloadQuery(q: string, socket: WebSocket) {
+  socket.send(JSON.stringify({
+    type: 'song_request',
+    query: q,
+  }));
+  // await fetch('/stem', {
+  //   body: JSON.stringify({ q }),
+  //   method: 'POST',
+  //   headers: {
+  //     'Content-Type': 'application/json',
+  //   },
+  // });
 }
 
 interface DownloaderProps {
@@ -60,7 +64,7 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
       <form onSubmit={(event) => {
         event.preventDefault();
         try {
-          submitDownloadQuery(searchQuery);
+          submitDownloadQuery(searchQuery, socket);
           setProcessingState(`Submitted request for ${searchQuery}`);
         } catch (err) {
           setProcessingState(`Error while processing ${searchQuery}: ` + err);

@@ -1,14 +1,13 @@
 import { StreamerbotClient } from '@streamerbot/client';
 import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import formatTime from '../player/formatTime';
+import { handleSongRequest } from './songRequests';
 
 const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
 interface IdMap { [name: string]: string }
 
-export default function createStreamerbotClient(
-  handleSongRequest: (query: string) => Promise<ProcessedSong>,
-) {
+export default function createStreamerbotClient() {
   // Store a mapping of command names to IDs so that they can be called by name
   let actions: IdMap;
   const loadActions = async () => {
@@ -60,7 +59,7 @@ export default function createStreamerbotClient(
         }, 1000);
 
         try {
-          const song = await handleSongRequest(message);
+          const song = await handleSongRequest(message, payload.data.user.display_name);
           await sendTwitchMessage(`${song.basename} was added!`, replyId);
         } catch (e: any) {
           let message = 'There was an error adding your song request!';

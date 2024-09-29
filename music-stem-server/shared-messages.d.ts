@@ -24,9 +24,8 @@ type WebSocketServerMessage = {
   type: 'song_request_added',
   name: string,
 } | {
-  type: 'send_twitch_message',
-  message: string,
-  reply?: string,
+  type: 'song_request',
+  query: string,
 };
 
 type WebSocketPlayerMessage = {
@@ -45,6 +44,8 @@ type WebSocketPlayerMessage = {
 } | {
   type: 'song_stopped',
 };
+
+type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;
 
 interface SongData {
   name: string; // for paths

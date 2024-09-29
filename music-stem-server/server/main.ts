@@ -2,123 +2,45 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import { readdirSync, existsSync, statSync, unlinkSync } from 'fs';
-import { fileURLToPath } from 'url';
-import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
-import Demucs, { DEFAULT_DEMUCS_MODEL } from './wrappers/demucs';
 import createWebSocketServer from './webSocketServer';
 import createStreamerbotClient from './streamerbotClient';
 import getSongTags from './getSongTags';
+import * as Paths from './paths';
+import { setSongRequestWebSocketBroadcaster } from './songRequests';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3000;
-const DOWNLOADS_PATH = join(__dirname, 'downloads');
-const DEMUCS_OUTPUT_PATH = join(__dirname, 'separated');
-const STEMS_PATH = join(DEMUCS_OUTPUT_PATH, DEFAULT_DEMUCS_MODEL);
-const YOUTUBE_MUSIC_COOKIE_FILE = join(__dirname, '..', 'music.youtube.com_cookies.txt');
-const STATIC_ASSETS_PATH = join(__dirname, '..', 'static');
 
 const app = express();
 app.use(bodyParser.json());
-app.use(express.static(STATIC_ASSETS_PATH));
-app.use('/downloads', express.static(DOWNLOADS_PATH));
-app.use('/stems', express.static(STEMS_PATH));
+app.use(express.static(Paths.STATIC_ASSETS_PATH));
+app.use('/downloads', express.static(Paths.DOWNLOADS_PATH));
+app.use('/stems', express.static(Paths.STEMS_PATH));
 
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const broadcast = createWebSocketServer(httpServer);
-let i = 0;
-// const sendTwitchMessage = (message: string, reply?: string) => {
-//   console.log('STM', ++i, message);
-//   broadcast({ type: 'send_twitch_message', message, reply });
-// };
-createStreamerbotClient(handleSongRequest);
-
-interface DemucsSubscriber {
-  song: DownloadedSong;
-  callback: (song?: ProcessedSong) => void;
-}
-let demucsSubscribers: DemucsSubscriber[] = [];
-const demucs = new Demucs(DEMUCS_OUTPUT_PATH, DEFAULT_DEMUCS_MODEL);
-demucs.onProcessingStart = (song) => broadcast({ type: 'demucs_start', name: song.basename });
-demucs.onProcessingProgress = (song, progress) => broadcast({ type: 'demucs_progress', progress, name: song.basename });
-demucs.onProcessingComplete = (song) => {
-  broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
-  demucsSubscribers.filter(s => s.song.basename === song.basename).forEach(s => s.callback(song));
-  demucsSubscribers = demucsSubscribers.filter(s => s.song.basename !== song.basename);
-};
-demucs.onProcessingError = (song, errorMessage) => {
-  broadcast({ type: 'demucs_error', message: errorMessage });
-  demucsSubscribers.filter(s => s.song.basename === song.basename).forEach(s => s.callback());
-  demucsSubscribers = demucsSubscribers.filter(s => s.song.basename !== song.basename);
-};
-
-async function downloadSong(query: string) {
-  console.info('Attempting to download:', query);
-  broadcast({ type: 'download_start', query });
-  const downloadedSong = await spotdl(query, DOWNLOADS_PATH, YOUTUBE_MUSIC_COOKIE_FILE);
-
-  if (downloadedSong) {
-    broadcast({ type: 'download_complete', name: downloadedSong.basename });
-    console.info('Downloaded:', downloadedSong.basename);
-  } else {
-    broadcast({ type: 'download_error', query });
-    console.info('Received no basename from spotdl');
-  }
-  return downloadedSong;
-}
-
-function handleSongRequest(query: string) {
-  return new Promise<ProcessedSong>(async (resolve, reject) => {
-    try {
-      const downloadedSong = await downloadSong(query);
-      const tags = await getSongTags(downloadedSong.path, true, DOWNLOADS_PATH);
-      if (tags.format?.duration > MAX_SONG_REQUEST_DURATION) {
-        reject(new SongDownloadError('TOO_LONG'));
-      }
-      if (downloadedSong) {
-        processDownloadedSong(downloadedSong, (processedSong) => {
-          if (processedSong) {
-            console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-            broadcast({ type: 'song_request_added', name: downloadedSong.basename });
-            resolve(processedSong);
-          } else {
-            reject();
-          }
-        });
-      } else {
-        reject();
-      }
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-function processDownloadedSong(song: DownloadedSong, callback?: (song?: ProcessedSong) => void) {
-  demucs.queue(song);
-  if (callback) {
-    demucsSubscribers.push({ song, callback });
-  }
-}
+setSongRequestWebSocketBroadcaster(broadcast);
+createStreamerbotClient();
 
 app.get('/clean', async () => {
-  for (let file of readdirSync(DOWNLOADS_PATH)) {
-    if (!existsSync(join(STEMS_PATH, file.replace(/\....$/, '')))) {
+  for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
+    if (!existsSync(join(Paths.STEMS_PATH, file.replace(/\....$/, '')))) {
       console.info(`Found unprocessed download, deleting`, file);
-      unlinkSync(join(DOWNLOADS_PATH, file));
+      unlinkSync(join(Paths.DOWNLOADS_PATH, file));
     }
   }
 });
 
 app.get('/songs', async (req, res) => {
   const output: SongData[] = [];
-  const stemmedSongs = readdirSync(STEMS_PATH).filter(s => statSync(join(STEMS_PATH, s)).isDirectory());
+  const stemmedSongs = readdirSync(Paths.STEMS_PATH)
+    .filter(s => statSync(join(Paths.STEMS_PATH, s)).isDirectory());
   for (let songBasename of stemmedSongs) {
-    const stems = readdirSync(join(STEMS_PATH, songBasename));
+    const stems = readdirSync(join(Paths.STEMS_PATH, songBasename));
     if (!stems.length) continue;
-    const stat = statSync(join(STEMS_PATH, songBasename, stems[0]));
-    const tags = await getSongTags(songBasename, false, DOWNLOADS_PATH);
+    const stat = statSync(join(Paths.STEMS_PATH, songBasename, stems[0]));
+    const tags = await getSongTags(songBasename, false, Paths.DOWNLOADS_PATH);
     output.push({
       name: songBasename,
       artist: String(tags.common?.artist) || '',
@@ -131,23 +53,6 @@ app.get('/songs', async (req, res) => {
     });
   }
   res.send(output);
-});
-
-// TODO: do this over WS instead
-app.post('/stem', async (req, res) => {
-  const q = req.body.q;
-  if (!q) return res.status(400).send();
-  
-  try {
-    const downloadedSongPath = await downloadSong(q);
-    if (!downloadedSongPath) {
-      return res.status(500).send({ message: 'Failed to download song.' });
-    }
-    processDownloadedSong(downloadedSongPath);
-    return res.status(200).send({ name: downloadedSongPath });
-  } catch (e) {
-    return res.status(500).send({ message: 'Failed to download or process song.' });
-  }
 });
 
 // connect Vite once all of our own routes are defined

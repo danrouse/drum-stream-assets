@@ -1,6 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { existsSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 
 type DemucsModel =
   'htdemucs' | 'htdemucs_ft' | 'htdemucs_6s' | 'hdemucs_mmi' | 
