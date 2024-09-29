@@ -1,8 +1,17 @@
 import initializeCamera from './camera';
 import initializeMIDIInput from './midi';
+import { loadEmotes } from './7tv';
 
 if (location.hash === '#MIDINotesWindow') {
   import('./style.css');
+
+  const emotes = await loadEmotes();
+  const emoteURLs = Object.values(emotes);
+  let selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+  setInterval(() => {
+    selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+    console.log('selected emote is now', selectedEmote);
+  }, 5000);
 
   const globalContainerElem = document.body.querySelector<HTMLDivElement>('#app')!;
 
@@ -13,6 +22,8 @@ if (location.hash === '#MIDINotesWindow') {
   const uiContainerElem = document.createElement('DIV');
   uiContainerElem.classList.add('ui');
   globalContainerElem.appendChild(uiContainerElem);
+
+  console.log('got emotes', emotes);
 
 
   const pascalCaseToKebabCase = (s: string) => s.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
@@ -90,6 +101,7 @@ if (location.hash === '#MIDINotesWindow') {
     noteElem.style.marginLeft = `-${selectedNote.w / 2}px`;
     noteElem.style.marginTop = `-${selectedNote.h / 2}px`;
     noteElem.style.backgroundColor = selectedNote.color;
+    noteElem.style.backgroundImage = `url(${selectedEmote})`;
     noteElem.style.transform = `rotate(${selectedNote.r}deg)`;
     if (selectedNote.z) noteElem.style.zIndex = `${selectedNote.z}`;
     noteElem.innerText = name;
@@ -148,7 +160,8 @@ if (location.hash === '#MIDINotesWindow') {
       } else {
         const selectedNoteConfig = noteConfig[Number(noteKeys[currentNoteIndex])];
         statusTextElem.innerText = `${selectedNoteConfig.name}`;
-        renderTestNotes(false);
+        clearNotes();
+        triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE, false);
       }
     }
 
@@ -164,7 +177,8 @@ if (location.hash === '#MIDINotesWindow') {
           selectedNoteConfig[k] = config[k];
         }
       });
-      renderTestNotes(false);
+      clearNotes();
+      triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE, false);
     };
 
     video.addEventListener('click', (event: MouseEvent) => {
@@ -173,7 +187,8 @@ if (location.hash === '#MIDINotesWindow') {
         x: event.x / videoSize.width,
         y: event.y / videoSize.height,
       });
-      renderTestNotes(false);
+      clearNotes();
+      triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE, false);
     });
     video.addEventListener('contextmenu', () => cleanup());
 
