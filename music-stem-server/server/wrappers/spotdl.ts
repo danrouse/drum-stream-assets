@@ -30,7 +30,7 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
         '--no-playlist',
         '--no-overwrites',
         '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
-        // '--max-downloads', '1',
+        '--max-downloads', '1',
         '-f', '"[height <=? 720]+bestaudio"',
         '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s %(id)s.%(ext)s')}"`,
         `"${url.toString()}"`

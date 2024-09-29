@@ -2,10 +2,10 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
-import { join, dirname, basename } from 'path';
-import { readdirSync, existsSync, statSync } from 'fs';
+import { join, dirname } from 'path';
+import { readdirSync, existsSync, statSync, unlinkSync } from 'fs';
 import { fileURLToPath } from 'url';
-import ffprobe, { FFProbeResult } from 'ffprobe';
+import ffprobe from 'ffprobe';
 import ffprobeStatic from 'ffprobe-static';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import Demucs, { DEFAULT_DEMUCS_MODEL } from './wrappers/demucs';
@@ -31,11 +31,11 @@ app.use('/stems', express.static(STEMS_PATH));
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const broadcast = createWebSocketServer(httpServer);
 let i = 0;
-const sendTwitchMessage = (message: string, reply?: string) => {
-  console.log('STM', ++i, message);
-  broadcast({ type: 'send_twitch_message', message, reply });
-};
-createStreamerbotClient(sendTwitchMessage, handleSongRequest);
+// const sendTwitchMessage = (message: string, reply?: string) => {
+//   console.log('STM', ++i, message);
+//   broadcast({ type: 'send_twitch_message', message, reply });
+// };
+createStreamerbotClient(handleSongRequest);
 
 interface DemucsSubscriber {
   song: DownloadedSong;
@@ -138,6 +138,15 @@ async function getSongTags(songBasename: string, isPath: boolean = false) {
   }
   return tags;
 }
+
+app.get('/clean', async () => {
+  for (let file of readdirSync(DOWNLOADS_PATH)) {
+    if (!existsSync(join(STEMS_PATH, file.replace(/\....$/, '')))) {
+      console.info(`Found unprocessed download, deleting`, file);
+      unlinkSync(join(DOWNLOADS_PATH, file));
+    }
+  }
+});
 
 app.get('/songs', async (req, res) => {
   const output: SongData[] = [];
