@@ -5,14 +5,11 @@ import reactVitePlugin from '@vitejs/plugin-react';
 import { join, dirname } from 'path';
 import { readdirSync, existsSync, statSync, unlinkSync } from 'fs';
 import { fileURLToPath } from 'url';
-import ffprobe from 'ffprobe';
-import ffprobeStatic from 'ffprobe-static';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import Demucs, { DEFAULT_DEMUCS_MODEL } from './wrappers/demucs';
 import createWebSocketServer from './webSocketServer';
 import createStreamerbotClient from './streamerbotClient';
-// @ts-expect-error
-import { parseFile } from 'music-metadata';
+import getSongTags from './getSongTags';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3000;
@@ -75,7 +72,7 @@ function handleSongRequest(query: string) {
   return new Promise<ProcessedSong>(async (resolve, reject) => {
     try {
       const downloadedSong = await downloadSong(query);
-      const tags = await getSongTags(downloadedSong.path, true);
+      const tags = await getSongTags(downloadedSong.path, true, DOWNLOADS_PATH);
       if (tags.format?.duration > MAX_SONG_REQUEST_DURATION) {
         reject(new SongDownloadError('TOO_LONG'));
       }
@@ -105,40 +102,6 @@ function processDownloadedSong(song: DownloadedSong, callback?: (song?: Processe
   }
 }
 
-async function getSongTags(songBasename: string, isPath: boolean = false) {
-  let tags: any = {};
-  try {
-    const songPath = isPath ? songBasename : join(DOWNLOADS_PATH, `${songBasename}.m4a`);
-    tags = await parseFile(songPath);
-  } catch (e) {
-    const possibleExtensions = ['mkv', 'mp4', 'ogg', 'webm', 'flv'];
-    const songPath = isPath ? songBasename :
-      possibleExtensions.map((ext) => join(DOWNLOADS_PATH, `${songBasename}.${ext}`))
-        .find((path) => existsSync(path));
-    if (!songPath) return tags;
-    const res = await ffprobe(songPath, { path: ffprobeStatic.path });
-
-    let duration = 0;
-    if (res.streams[0].duration) {
-      duration = Number(res.streams[0].duration)
-    } else if (res.streams[0].tags.DURATION) {
-      duration = res.streams[0].tags.DURATION.split(':').reduce((a,t)=> (60 * a) + +t, 0);
-    }
-    const partsMatch = songBasename.match(/([^-]+) - (.+)$/);
-    tags = {
-      common: {
-        artist: partsMatch?.[1],
-        title: partsMatch?.[2],
-        album: 'YouTube',
-        // album: `YouTube - ${partsMatch?.[3]}`,
-        track: { no: 1, of: 1 },
-      },
-      format: { duration },
-    };
-  }
-  return tags;
-}
-
 app.get('/clean', async () => {
   for (let file of readdirSync(DOWNLOADS_PATH)) {
     if (!existsSync(join(STEMS_PATH, file.replace(/\....$/, '')))) {
@@ -155,7 +118,7 @@ app.get('/songs', async (req, res) => {
     const stems = readdirSync(join(STEMS_PATH, songBasename));
     if (!stems.length) continue;
     const stat = statSync(join(STEMS_PATH, songBasename, stems[0]));
-    const tags = await getSongTags(songBasename);
+    const tags = await getSongTags(songBasename, false, DOWNLOADS_PATH);
     output.push({
       name: songBasename,
       artist: String(tags.common?.artist) || '',
