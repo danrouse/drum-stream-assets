@@ -25,7 +25,7 @@ const isURL = (s: string) => {
 export const MAX_SONG_REQUEST_DURATION = 600;
 function handleYouTubeDownload(url: URL, outputPath: string) {
   return new Promise<DownloadedSong>((resolve, reject) => {
-    const cmd = spawn(YT_DLP_PATH, // TODO: lol
+    const cmd = spawn(YT_DLP_PATH,
       [
         '--no-playlist',
         '--no-overwrites',
@@ -95,58 +95,68 @@ export default async function spotdl(query: string, outputPath: string, cookies:
       }
     }
 
-    const cmd = [
-      'spotdl',
-      '--output', `"${join(outputPath, '{artist} - {title}.{output-ext}')}"`,
-      '--save-file', TMP_OUTPUT_FILENAME,
-      '--skip-album-art',
-      // m4a + bitrate disable + YouTube Premium cookies
-      // result in highest quality output
-      '--format', 'm4a',
-      '--bitrate', 'disable',
-      '--cookie-file', `"${cookies}"`,
-      'download', `"${isURL(query) ? query : `'${query}'`}"`,
-    ].join(' ');
+    return new Promise((resolve, reject) => {
+      const cmd = spawn('spotdl',
+        [
+          '--output', `"${join(outputPath, '{artist} - {title}.{output-ext}')}"`,
+          '--save-file', TMP_OUTPUT_FILENAME,
+          '--skip-album-art',
+          // m4a + bitrate disable + YouTube Premium cookies
+          // result in highest quality output
+          '--format', 'm4a',
+          '--bitrate', 'disable',
+          '--cookie-file', `"${cookies}"`,
+          'download', `"${isURL(query) ? query : `'${query}'`}"`,
+        ],
+        { shell: true }
+      );
+      let resolved = false;
+      cmd.stdout.on('data', msg => {
+        // console.log('stdout', msg.toString());
+        const wasDownloaded = msg.toString().match(/Downloaded "(.+)":/i);
+        const alreadyExists = msg.toString().match(/Skipping (.+) \(file already exists\)/i);
 
-    const stdout = execSync(cmd, { encoding: 'utf8' })
-      .replace(/\s+/g, ' ');
-
-    // It's tricky to find the paths that spotdl saved to,
-    // try to parse them from its string output.
-    const wasDownloaded = stdout.match(/Downloaded "(.+)":/i);
-    const alreadyExists = stdout.match(/Skipping (.+) \(file already exists\)/i);
-    if (wasDownloaded || alreadyExists) {
-      const basename = (wasDownloaded || alreadyExists)![1].replace(/:/g, '-').replace(/\?/g, '');
-      const dstPath = join(outputPath, `${basename}.m4a`);
-      // Double check that the expected path exists first!
-      if (existsSync(dstPath)) {
-        try {
-          // Load spotdl's output for raw spotify URL
-          // to pass to syrics to download synced lyrics from spotify.
-          // spotdl can't download lyrics from spotify itself,
-          // so its lyrics are often unsynced (no timestamps)
-          // and syrics needs a direct URL
-          const song = JSON.parse(readFileSync(TMP_OUTPUT_FILENAME).toString('utf8'));
-          execSync(`syrics "${song[0].url}"`);
-        } catch (e) {
-          // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
-          // COPIUM
-          // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
+        if (wasDownloaded || alreadyExists) {
+          const basename = (wasDownloaded || alreadyExists)![1].replace(/:/g, '-').replace(/\?/g, '');
+          const dstPath = join(outputPath, `${basename}.m4a`);
+          // Double check that the expected path exists first!
+          if (existsSync(dstPath)) {
+            try {
+              // Load spotdl's output for raw spotify URL
+              // to pass to syrics to download synced lyrics from spotify.
+              // spotdl can't download lyrics from spotify itself,
+              // so its lyrics are often unsynced (no timestamps)
+              // and syrics needs a direct URL
+              const song = JSON.parse(readFileSync(TMP_OUTPUT_FILENAME).toString('utf8'));
+              execSync(`syrics "${song[0].url}"`);
+            } catch (e) {
+              // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
+              // COPIUM
+              // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
+            }
+            unlinkSync(TMP_OUTPUT_FILENAME);
+            resolved = true;
+            return resolve({
+              basename,
+              path: dstPath,
+            });
+          } else {
+            reject(new SongDownloadError());
+          }
         }
-        unlinkSync(TMP_OUTPUT_FILENAME);
-        return {
-          basename,
-          path: dstPath,
-        };
-      } else {
-        console.warn('spotdl: expected download path does not exist', dstPath);
-      }
-    }
-    console.debug('spotdl failed as it did not match a valid return string');
-    console.debug(stdout);
-    throw new SongDownloadError();
+      });
+      cmd.on('close', () => {
+        if (!resolved) {
+          console.debug('spotdl failed as it did not match a valid return string');
+          reject(new SongDownloadError());
+        }
+      });
+      cmd.on('error', () => {
+        reject(new SongDownloadError());
+      });
+    });
   } catch (err) {
-    console.debug('spotdl failed as an error was thrown');
+    console.debug('something somehow threw?', err);
     if (err instanceof SongDownloadError) throw err;
     throw new SongDownloadError();
   }
