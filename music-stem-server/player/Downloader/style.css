@@ -3,30 +3,40 @@
   /* bottom: 0; */
   position: sticky;
   top: 0;
-  padding: 12px;
+  /* padding: 12px; */
   background: #aaa;
   width: 100%;
   text-align: center;
   z-index: 1;
 }
+  .Downloader form {
+    padding: 12px;
+  }
   .Downloader input, .Downloader button {
     font-size: 16px;
     padding: 4px 8px;
   }
 
   .Downloader__status {
-    position: fixed;
-    bottom: 64px;
-    left: 0;
-    width: 100%;
+    position: sticky;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    /* bottom: 64px; */
+    /* left: 0; */
+    /* width: 100%; */
     text-align: center;
-    z-index: 3;
+    /* z-index: 3; */
+    /* margin-top: 12px; */
+    font-style: italic;
+    font-size: 14px;
+    padding: 8px;
   }
   .Downloader__status p {
-    display: inline-block;
-    padding: 8px;
-    font-size: 14px;
-    border-radius: 8px;
-    background: white;
-    border: 2px solid #aaa;
+    /* margin: -12px; */
+    /* display: inline-block; */
+    /* padding: 8px; */
+    
+    /* border-radius: 8px; */
+    /* background: white; */
+    /* border: 2px solid #aaa; */
   }

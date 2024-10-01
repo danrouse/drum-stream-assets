@@ -71,11 +71,11 @@ export default function SongBrowserUI() {
     .then(res => res.json())
     .then((songs: SongData[]) => {
       // TODO: Sorting option (download date vs artist)
-      // songs.sort((a, b) => new Date(b.downloadDate).getTime() - new Date(a.downloadDate).getTime())
-      songs.sort((a, b) =>
-        a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
-          a.album !== b.album ? a.album.localeCompare(b.album) :
-            a.track[0] - b.track[0]);
+      songs.sort((a, b) => new Date(b.downloadDate).getTime() - new Date(a.downloadDate).getTime())
+      // songs.sort((a, b) =>
+      //   a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
+      //     a.album !== b.album ? a.album.localeCompare(b.album) :
+      //       a.track[0] - b.track[0]);
       setAllSongs(songs);
     });
   

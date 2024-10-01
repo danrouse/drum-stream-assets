@@ -24,7 +24,7 @@ interface DownloaderProps {
 
 export default function Downloader({ onDownloadComplete, onInputChanged, socket, value }: DownloaderProps) {
   const [searchQuery, setSearchQuery] = useState(value || '');
-  const [processingState, setProcessingState] = useState<string | undefined>();
+  const [processingState, setProcessingState] = useState<string | undefined>('');
 
   const clearInput = () => {
     setSearchQuery('');
@@ -60,7 +60,6 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
 
   return (
     <div className="Downloader">
-      {processingState && <div className="Downloader__status"><p>{processingState}</p></div>}
       <form onSubmit={(event) => {
         event.preventDefault();
         try {
@@ -89,6 +88,7 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
         />
         <button type="submit">Begin Processing</button>
       </form>
+      {processingState && <div className="Downloader__status"><p>{processingState}</p></div>}
     </div>
   );
 }
