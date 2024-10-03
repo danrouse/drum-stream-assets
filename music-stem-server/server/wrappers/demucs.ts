@@ -66,7 +66,7 @@ export default class Demucs {
       '--mp3',
       `"${song.path}"`
     ];
-    console.info('Spawning demucs with args', args);
+    console.info('Spawning demucs on', song.path);
     this.child = spawn(
       'demucs',
       args,
@@ -88,10 +88,6 @@ export default class Demucs {
       } else if (strippedMessage.includes('Torch was not compiled with flash attention')) {
         // ignore this garbage...
         // Did I mention that I have a problem with python because of its ecosystem?
-      } else {
-        // Just notify via logs, it's probably fine
-        // Demucs spits out a fair amount of garbage in stderr sometimes
-        console.debug('demucs unhandled stderr:\n', strippedMessage);
       }
     });
     this.child.on('close', () => {
