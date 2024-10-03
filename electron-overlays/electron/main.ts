@@ -2,10 +2,11 @@ import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain } from 'el
 import { WebSocket } from 'ws';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const OBS_OVERLAY_MASK_PATH = join(__dirname, '..', 'mask.png');
 
 const defaultWindowConfig: Partial<BrowserWindowConstructorOptions> = {
   transparent: true,
@@ -23,12 +24,14 @@ function createMIDINotesWindow() {
     width: 1920,
     height: 1080,
   });
-  let isMouseEventsIgnored = true;
-  win.setIgnoreMouseEvents(isMouseEventsIgnored);
+  win.setIgnoreMouseEvents(true);
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#MIDINotesWindow');
-  ipcMain.on('toggle_mouse', () => {
-    isMouseEventsIgnored = !isMouseEventsIgnored;
-    win.setIgnoreMouseEvents(isMouseEventsIgnored);
+  ipcMain.on('enable_mouse', () => win.setIgnoreMouseEvents(false));
+  ipcMain.on('disable_mouse', () => win.setIgnoreMouseEvents(true));
+  ipcMain.on('generate_mask', async () => {
+    const image = await win.capturePage();
+    writeFileSync(OBS_OVERLAY_MASK_PATH, image.toPNG());
+    win.webContents.send('generate_mask_complete');
   });
 
   return win;
@@ -91,22 +94,35 @@ function createWindows() {
   
   // Connect to server WS to receive rebroadcast messages from remote client
   // Send all messages via IPC to individual windows
-  const ws = new WebSocket('http://127.0.0.1:3000');
-  ws.on('message', (data) => {
-    const message = JSON.parse(data.toString());
-    if (!message) {
-      console.error('Error parsing received WebSocket message:', data.toString());
-      return;
+  const createWebSocket = () => {
+    const ws = new WebSocket('http://127.0.0.1:3000');
+    ws.on('message', (data) => {
+      const message = JSON.parse(data.toString());
+      if (!message) {
+        console.error('Error parsing received WebSocket message:', data.toString());
+        return;
+      }
+      if (message.type === 'song_changed') {
+        message.lyrics = findLyrics(message.artist, message.title, message.duration);
+        message.videoPath = findVideo(message.artist, message.title);
+        const { type: _, ...payload } = message;
+        prevSongChangedPayload = payload;
+      }
+      const { type, ...payload } = message;
+      windows.forEach(win => win.webContents.send(type, payload));
+    });
+    ws.on('error', () => {});
+    return ws;
+  };
+  // Continuously check WS connection and attempt a reconnection if it is closed
+  let ws: WebSocket;
+  setInterval(() => {
+    if (!ws || (ws.readyState !== ws.CONNECTING && ws.readyState !== ws.OPEN)) {
+      try {
+        ws = createWebSocket();
+      } catch (e) {}
     }
-    if (message.type === 'song_changed') {
-      message.lyrics = findLyrics(message.artist, message.title, message.duration);
-      message.videoPath = findVideo(message.artist, message.title);
-      const { type: _, ...payload } = message;
-      prevSongChangedPayload = payload;
-    }
-    const { type, ...payload } = message;
-    windows.forEach(win => win.webContents.send(type, payload));
-  });
+  }, 1000);
 }
 
 const parseLRCTimeToFloat = (lrcTime: string) => {

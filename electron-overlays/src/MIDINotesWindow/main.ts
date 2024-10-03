@@ -23,9 +23,6 @@ if (location.hash === '#MIDINotesWindow') {
   uiContainerElem.classList.add('ui');
   globalContainerElem.appendChild(uiContainerElem);
 
-  console.log('got emotes', emotes);
-
-
   const pascalCaseToKebabCase = (s: string) => s.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
     ?.join('-')
     .toLowerCase() || s;
@@ -69,8 +66,13 @@ if (location.hash === '#MIDINotesWindow') {
     53: { name: 'RideBell', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'orangered', rim: true, base: 'Ride', },
     
     36: { name: 'Kick', x: 0, y: 0, w: 120, h: 32, r: 0, color: '#444', kick: true, z: 2, }, // #111
+    360: { name: 'Kick Secondary', x: 0, y: 0, w: 120, h: 32, r: 0, color: '#444', kick: true, z: 2, },
 
     28: { name: 'Splash', x: 0, y: 0, w: 120, h: 32, r: 0, color: '#aaa', z: 5 },
+  };
+  // Dirty way of allowing for multiple notes per key
+  const noteKeyAliases: { [key: number]: number } = {
+    36: 360,
   };
 
   // const NOTE_VELOCITY_MAX = 127;
@@ -88,7 +90,7 @@ if (location.hash === '#MIDINotesWindow') {
     // exception for broken crash2 :(
     // if ((name === 'Crash2Edge' || name === 'Crash2Bow') && velocity < 40) return;
     
-    console.info('Trigger note', note, name, pascalCaseToKebabCase(`note-${name}`), velocity);
+    // console.info('Trigger note', note, name, pascalCaseToKebabCase(`note-${name}`), velocity);
     const noteElem = document.createElement('DIV');
     noteElem.classList.add('note');
     noteElem.classList.add(pascalCaseToKebabCase(`note-${name}`));
@@ -111,6 +113,8 @@ if (location.hash === '#MIDINotesWindow') {
     }
     
     notesContainerElem.appendChild(noteElem);
+
+    if (noteKeyAliases[note]) triggerNote(noteKeyAliases[note], velocity, animated);
   }
 
   function clearNotes() {
@@ -123,6 +127,10 @@ if (location.hash === '#MIDINotesWindow') {
     Object.keys(noteConfig).forEach(k => triggerNote(Number(k), velocity, animated));
   }
 
+  window.ipcRenderer.on('generate_mask_complete', () => {
+    document.body.classList.remove('mask');
+    clearNotes();
+  });
   async function beginCalibration() {
     let video: HTMLVideoElement;
     try {
@@ -131,7 +139,8 @@ if (location.hash === '#MIDINotesWindow') {
       alert('Failed to initialize camera for calibration!')
       return false;
     }
-    window.ipcRenderer.send('toggle_mouse');
+    window.ipcRenderer.send('enable_mouse');
+    let isCalibrating = true;
 
     uiContainerElem.innerHTML = '<h2>Set Drum Position</h2>';
     const statusTextElem = document.createElement('P');
@@ -146,7 +155,14 @@ if (location.hash === '#MIDINotesWindow') {
       saveConfig();
       clearNotes();
       window.removeEventListener('keydown', keyHandler);
-      window.ipcRenderer.send('toggle_mouse');
+      window.ipcRenderer.send('disable_mouse');
+      isCalibrating = false;
+
+      document.body.classList.add('mask');
+      renderTestNotes(false);
+      setTimeout(() => {
+        window.ipcRenderer.send('generate_mask');
+      }, 100);
     }
 
     const noteKeys = Object.keys(noteConfig).sort((a, b) => noteConfig[Number(a)].name.localeCompare(noteConfig[Number(b)].name));
@@ -161,7 +177,7 @@ if (location.hash === '#MIDINotesWindow') {
         const selectedNoteConfig = noteConfig[Number(noteKeys[currentNoteIndex])];
         statusTextElem.innerText = `${selectedNoteConfig.name}`;
         clearNotes();
-        triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE, false);
+        triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE / 2, false);
       }
     }
 
@@ -178,7 +194,7 @@ if (location.hash === '#MIDINotesWindow') {
         }
       });
       clearNotes();
-      triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE, false);
+      triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE / 2, false);
     };
 
     video.addEventListener('click', (event: MouseEvent) => {
@@ -188,7 +204,7 @@ if (location.hash === '#MIDINotesWindow') {
         y: event.y / videoSize.height,
       });
       clearNotes();
-      triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE, false);
+      triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE / 2, false);
     });
     video.addEventListener('contextmenu', () => cleanup());
 
@@ -201,7 +217,12 @@ if (location.hash === '#MIDINotesWindow') {
         setConfigForAllNotesFromBase(currentNoteIndex, {
           [attr]: getVal(Number(noteConfig[Number(noteKeys[currentNoteIndex])][attr])),
         });
-        ;
+      });
+      button.addEventListener('mousedown', () => {
+        button.dataset.isActive = '1';
+      });
+      button.addEventListener('mouseup', () => {
+        button.dataset.isActive = undefined;
       });
       buttonsContainerElem.appendChild(button);
       return button;
@@ -226,7 +247,21 @@ if (location.hash === '#MIDINotesWindow') {
       if (event.key === 'd') next();
     }
     window.addEventListener('keydown', keyHandler);
-      
+    
+    const frameHandler = () => {
+      for (let button of document.getElementsByTagName('button')) {
+        const framesHeldDown = Number(button.dataset.isActive);
+        if (!isNaN(framesHeldDown)) {
+          if (framesHeldDown > 30) {
+            button.dispatchEvent(new Event('click'));
+          }
+          button.dataset.isActive = String(framesHeldDown + 1);
+        }
+      }
+
+      if (isCalibrating) requestAnimationFrame(frameHandler);
+    };
+    requestAnimationFrame(frameHandler);
 
     next();
   }

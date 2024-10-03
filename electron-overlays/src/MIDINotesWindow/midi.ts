@@ -29,4 +29,5 @@ export default async function initializeMIDIInput(handler: (note: number, veloci
       console.info('MIDI device disconnected', port);
     }
   });
+  return midiAccess;
 }
