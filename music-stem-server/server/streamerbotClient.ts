@@ -7,6 +7,37 @@ const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
 interface IdMap { [name: string]: string }
 
+async function handleStreamerbotSongRequest(
+  originalMessage: string,
+  sendTwitchMessage: (message: string, replyTo?: string) => void,
+  fromUsername: string,
+  replyTo?: string,
+) {
+  // Only send a heartbeat message if we didn't process it super quickly
+  let hasSentMessage = false;
+  setTimeout(async () => {
+    if (!hasSentMessage) await sendTwitchMessage(`Working on it, ${fromUsername}!`, replyTo);
+  }, 1000);
+
+  try {
+    const song = await handleSongRequest(originalMessage, fromUsername);
+    await sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`, replyTo);
+  } catch (e: any) {
+    let message = 'There was an error adding your song request!';
+    if (e instanceof SongDownloadError) {
+      if (e.type === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
+      if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
+      if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
+      if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
+      if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
+    }
+    await sendTwitchMessage(`@${fromUsername} ${message}`, replyTo);
+  } finally {
+    // Don't send that heartbeat message if we made it here super quickly
+    hasSentMessage = true;
+  }
+}
+
 export default function createStreamerbotClient() {
   // Store a mapping of command names to IDs so that they can be called by name
   let actions: IdMap;
@@ -34,6 +65,12 @@ export default function createStreamerbotClient() {
   client.on('Twitch.ChatMessage', (data) => {
     twitchMessageIdsByUser[data.data.message.userId] = data.data.message.msgId;
   });
+  
+  client.on('Twitch.RewardRedemption', (payload) => {
+    if (payload.data.reward.title === 'Request a Song') {
+      return handleStreamerbotSongRequest(payload.data.user_input, sendTwitchMessage, payload.data.user_name);
+    }
+  });
 
   client.on('Command.Triggered', async (payload) => {
     switch (payload.data.command) {
@@ -41,7 +78,6 @@ export default function createStreamerbotClient() {
       case '!sr':
       case '!ssr':
         const message = payload.data.message.replace(/[\udc00|\udb40]/g, '').trim();
-        const replyId = twitchMessageIdsByUser[payload.data.user.id];
 
         // Show the help command if we get an empty or nearly-empty request
         // Anything with an actual title and artist SHOULD be above this length
@@ -52,29 +88,12 @@ export default function createStreamerbotClient() {
           return;
         }
 
-        // Only send a heartbeat message if we didn't process it super quickly
-        let hasSentMessage = false;
-        setTimeout(async () => {
-          if (!hasSentMessage) await sendTwitchMessage(`Working on it!`, replyId);
-        }, 1000);
-
-        try {
-          const song = await handleSongRequest(message, payload.data.user.display_name);
-          await sendTwitchMessage(`${song.basename} was added!`, replyId);
-        } catch (e: any) {
-          let message = 'There was an error adding your song request!';
-          if (e instanceof SongDownloadError) {
-            if (e.type === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
-            if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
-            if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
-            if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-            if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
-          }
-          await sendTwitchMessage(message, replyId);
-        } finally {
-          // Don't send that heartbeat message if we made it here super quickly
-          hasSentMessage = true;
-        }
+        await handleStreamerbotSongRequest(
+          message,
+          sendTwitchMessage,
+          payload.data.user.display_name,
+          twitchMessageIdsByUser[payload.data.user.id]
+        );
       break;
     }
   });
