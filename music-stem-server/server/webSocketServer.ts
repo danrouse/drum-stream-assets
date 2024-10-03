@@ -2,6 +2,9 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { handleSongRequest } from './songRequests';
 
+const parseTime = (ts: string) =>
+  ts.split(':').reduce((a,t)=> (60 * a) + +t, 0);
+
 export default function createWebSocketServer(httpServer: Server) {
   const wsServer = new WebSocketServer({ server: httpServer });
 
@@ -15,6 +18,7 @@ export default function createWebSocketServer(httpServer: Server) {
     livesplitClient.send('starttimer');
     livesplitClient.send('pause');
   });
+  let lastSplitTime = 0;
 
   wsServer.on('connection', (ws) => {
     console.info(`WebSocket connection opened, now ${wsServer.clients.size} connected clients`);
@@ -32,10 +36,28 @@ export default function createWebSocketServer(httpServer: Server) {
             broadcast({ type: 'download_error', query: parsedPayload.query });
           }
         } else if (parsedPayload.type === 'song_changed') {
-          livesplitClient.send('resume');
-          livesplitClient.send('startorsplit');
-          livesplitClient.send('pause');
-          livesplitClient.send(`setcurrentsplitname ${parsedPayload.title} (${parsedPayload.artist})`);
+          const handleTimeReceived = () => new Promise<number>((resolve, reject) => {
+            livesplitClient.on('message', (msg) => {
+              resolve(parseTime(msg.toString()));
+              livesplitClient.onmessage = null;
+            });
+          });
+          livesplitClient.send('getcurrenttime');
+          const currentLivesplitTime = await handleTimeReceived();
+          const currentSplitTime = currentLivesplitTime - lastSplitTime;
+          lastSplitTime = currentLivesplitTime;
+          if (Math.floor(currentSplitTime) > 1) {
+            // Only move to next split if we've spent > 1 second on current one
+            livesplitClient.send('resume');
+            livesplitClient.send('startorsplit');
+            livesplitClient.send('pause');
+          }
+          // TODO: More reasonable handling of YouTube song IDs (currently stuffed into title)
+          let title = parsedPayload.title;
+          if (parsedPayload.album === 'YouTube') {
+            title = parsedPayload.title.replace(/\S+$/, '');
+          }
+          livesplitClient.send(`setcurrentsplitname ${title} (${parsedPayload.artist})`);
         } else if (parsedPayload.type === 'song_played') {
           livesplitClient.send('resume');
         } else if (parsedPayload.type === 'song_paused') {
