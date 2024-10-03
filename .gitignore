@@ -1,6 +1,8 @@
 NOTES
 streamer.bot
-music.youtube.com_cookies.txt
+*cookies.txt
 node_modules
 dist-electron
 .env
+tmp.spotdl
+mask.png
