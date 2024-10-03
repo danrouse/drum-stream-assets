@@ -33,6 +33,7 @@ type WebSocketPlayerMessage = {
   artist: string,
   title: string,
   duration: number,
+  album?: string,
 } | {
   type: 'song_progress',
   timestamp: number,

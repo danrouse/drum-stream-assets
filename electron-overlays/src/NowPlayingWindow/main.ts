@@ -68,7 +68,13 @@ if (location.hash === '#NowPlayingWindow') {
   window.ipcRenderer.send('initialize');
   window.ipcRenderer.on('song_changed', (_, payload) => {
     artist = payload.artist;
-    title = payload.title;
+    // TODO: More reasonable handling of YouTube song IDs (currently stuffed into title)
+    if (payload.album === 'YouTube') {
+      title = payload.title.replace(/\S+$/, '');
+    } else {
+      title = payload.title;
+    }
+    
     duration = payload.duration;
     currentTimestamp = 0;
     isPlaying = false;

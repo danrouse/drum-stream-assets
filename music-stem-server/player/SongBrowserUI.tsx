@@ -207,7 +207,7 @@ export default function SongBrowserUI() {
             isPlaying={isPlaying}
 
             onSongLoaded={(artist, title, duration) => {
-              broadcast({ type: 'song_changed', artist, title, duration });
+              broadcast({ type: 'song_changed', artist, title, duration, album: selectedSong?.album });
               if (!isAutoplayEnabled) {
                 setIsPlaying(false);
               }
