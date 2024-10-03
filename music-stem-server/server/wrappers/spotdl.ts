@@ -31,6 +31,7 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
         '--no-overwrites',
         '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
         '--max-downloads', '1',
+        '--cookies', `"${join(__dirname, '..', '..', 'www.youtube.com_cookies.txt')}"`,
         '-f', '"[height <=? 720]+bestaudio"',
         '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s %(id)s.%(ext)s')}"`,
         `"${url.toString()}"`
@@ -39,7 +40,9 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
     );
     let downloadedSong: DownloadedSong | undefined;
     cmd.stderr.on('data', msg => {
-      if (msg.toString().match(/\[youtube\] (.+): Video unavailable/)) {
+      const unavailableMatch = msg.toString().match(/\[youtube\] (.+): Video unavailable(.*)/);
+      if (unavailableMatch) {
+        console.warn(`YouTube video ${unavailableMatch[1]} not available: ${unavailableMatch[2]}`);
         reject(new SongDownloadError('VIDEO_UNAVAILABLE'));
       } else if (msg.toString().match(/\[youtube:tab\] YouTube said: The playlist does not exist/)) {
         reject(new SongDownloadError('VIDEO_UNAVAILABLE'));
@@ -64,7 +67,6 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
     });
     cmd.on('close', () => {
       if (downloadedSong) return resolve(downloadedSong);
-      console.error('yt-dlp closed without returning a filename');
       reject(new SongDownloadError('DOWNLOAD_FAILED'));
     });
     cmd.on('error', (err) => {
@@ -73,7 +75,10 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
     });
   });
 }
-
+const sleep = (t: number) => new Promise<void>((resolve) => setTimeout(() => resolve(), t));
+try { 
+  unlinkSync(TMP_OUTPUT_FILENAME);
+} catch (e) {}
 export default async function spotdl(query: string, outputPath: string, cookies: string): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
@@ -95,7 +100,13 @@ export default async function spotdl(query: string, outputPath: string, cookies:
       }
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      while (existsSync(TMP_OUTPUT_FILENAME)) {
+        try { 
+          unlinkSync(TMP_OUTPUT_FILENAME);
+        } catch (e) {}
+        await sleep(1000);
+      }
       const cmd = spawn('spotdl',
         [
           '--output', `"${join(outputPath, '{artist} - {title}.{output-ext}')}"`,
@@ -112,7 +123,6 @@ export default async function spotdl(query: string, outputPath: string, cookies:
       );
       let resolved = false;
       cmd.stdout.on('data', msg => {
-        // console.log('stdout', msg.toString());
         const wasDownloaded = msg.toString().match(/Downloaded "(.+)":/i);
         const alreadyExists = msg.toString().match(/Skipping (.+) \(file already exists\)/i);
 
@@ -134,7 +144,9 @@ export default async function spotdl(query: string, outputPath: string, cookies:
               // COPIUM
               // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
             }
-            unlinkSync(TMP_OUTPUT_FILENAME);
+            try { 
+              unlinkSync(TMP_OUTPUT_FILENAME);
+            } catch (e) {}
             resolved = true;
             return resolve({
               basename,
@@ -156,7 +168,6 @@ export default async function spotdl(query: string, outputPath: string, cookies:
       });
     });
   } catch (err) {
-    console.debug('something somehow threw?', err);
     if (err instanceof SongDownloadError) throw err;
     throw new SongDownloadError();
   }
