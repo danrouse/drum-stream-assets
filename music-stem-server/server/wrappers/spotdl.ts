@@ -1,6 +1,7 @@
 import { execSync, spawn } from 'child_process';
 import { join, basename } from 'path';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
+import * as Paths from '../paths';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 const YT_DLP_PATH = 'C:/Users/Dan/Downloads/yt-dlp.exe';
@@ -31,8 +32,8 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
         '--no-overwrites',
         '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
         '--max-downloads', '1',
-        '--cookies', `"${join(__dirname, '..', '..', 'www.youtube.com_cookies.txt')}"`,
-        '-f', '"[height <=? 720]+bestaudio"',
+        '--cookies', `"${join(Paths.__dirname, '..', 'www.youtube.com_cookies.txt')}"`,
+        // '-f', '"[height<=?720]+bestaudio"',
         '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s %(id)s.%(ext)s')}"`,
         `"${url.toString()}"`
       ],
@@ -106,7 +107,7 @@ export default async function spotdl(query: string, outputPath: string, cookies:
           unlinkSync(TMP_OUTPUT_FILENAME);
         } catch (e) {}
         await sleep(1000);
-      }
+      };
       const cmd = spawn('spotdl',
         [
           '--output', `"${join(outputPath, '{artist} - {title}.{output-ext}')}"`,
