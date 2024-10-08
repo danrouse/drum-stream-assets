@@ -1,4 +1,5 @@
 import { join } from 'path';
+import { unlinkSync } from 'fs';
 import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
@@ -71,6 +72,7 @@ export function handleSongRequest(
         processDownloadedSong(downloadedSong, (processedSong) => {
           if (processedSong) {
             console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
+            unlinkSync(Paths.SONG_LIST_PATH);
             broadcast({ type: 'song_request_added', name: downloadedSong.basename });
             resolve(processedSong);
           } else {

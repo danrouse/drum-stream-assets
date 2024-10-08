@@ -3,12 +3,12 @@ import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join } from 'path';
-import { readdirSync, existsSync, statSync, unlinkSync } from 'fs';
+import { readdirSync, existsSync, unlinkSync, writeFileSync, readFileSync } from 'fs';
 import createWebSocketServer from './webSocketServer';
 import createStreamerbotClient from './streamerbotClient';
-import getSongTags from './getSongTags';
 import * as Paths from './paths';
 import { setSongRequestWebSocketBroadcaster } from './songRequests';
+import generateSongList from './songList';
 
 const PORT = 3000;
 
@@ -33,26 +33,12 @@ app.get('/clean', async () => {
 });
 
 app.get('/songs', async (req, res) => {
-  const output: SongData[] = [];
-  const stemmedSongs = readdirSync(Paths.STEMS_PATH)
-    .filter(s => statSync(join(Paths.STEMS_PATH, s)).isDirectory());
-  for (let songBasename of stemmedSongs) {
-    const stems = readdirSync(join(Paths.STEMS_PATH, songBasename));
-    if (!stems.length) continue;
-    const stat = statSync(join(Paths.STEMS_PATH, songBasename, stems[0]));
-    const tags = await getSongTags(songBasename, false, Paths.DOWNLOADS_PATH);
-    output.push({
-      name: songBasename,
-      artist: String(tags.common?.artist) || '',
-      title: String(tags.common?.title) || '',
-      stems: stems,
-      downloadDate: stat.mtime,
-      album: String(tags.common?.album) || '',
-      track: [tags.common?.track.no || 1, tags.common?.track.of || 1],
-      duration: tags.format?.duration,
-    });
+  if (!existsSync(Paths.SONG_LIST_PATH)) {
+    const data = await generateSongList();
+    writeFileSync(Paths.SONG_LIST_PATH, JSON.stringify(data, null, 2));
+    return res.send(data);
   }
-  res.send(output);
+  return res.send(readFileSync(Paths.SONG_LIST_PATH));
 });
 
 // connect Vite once all of our own routes are defined

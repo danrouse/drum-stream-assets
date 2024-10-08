@@ -6,3 +6,4 @@ dist-electron
 .env
 tmp.spotdl
 mask.png
+songlist.json
