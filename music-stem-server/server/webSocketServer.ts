@@ -1,30 +1,16 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { handleSongRequest } from './songRequests';
-
-const parseTime = (ts: string) =>
-  ts.split(':').reduce((a,t)=> (60 * a) + +t, 0);
+import { handleLiveSplitMessage } from './liveSplit';
 
 export default function createWebSocketServer(httpServer: Server) {
   const wsServer = new WebSocketServer({ server: httpServer });
 
-  const livesplitClient = new WebSocket(`ws://localhost:16834/livesplit`);
-  livesplitClient.on('open', () => {
-    // Clear all old split names
-    for (let i = 0; i < 200; i++) {
-      livesplitClient.send(`setsplitname ${i} `);
-    }
-    // Start timer right away so we can just pause/resume it
-    livesplitClient.send('starttimer');
-    livesplitClient.send('pause');
-  });
-  let lastSplitTime = 0;
-
   wsServer.on('connection', (ws) => {
     console.info(`WebSocket connection opened, now ${wsServer.clients.size} connected clients`);
     ws.on('error', console.error);
-    // Broadcast all received messages to all clients
     ws.on('message', async (message) => {
+      // Broadcast all received messages to all clients
       broadcast(message.toString());
 
       try {
@@ -35,37 +21,8 @@ export default function createWebSocketServer(httpServer: Server) {
           } catch (e) {
             broadcast({ type: 'download_error', query: parsedPayload.query });
           }
-        } else if (parsedPayload.type === 'song_changed') {
-          const handleTimeReceived = () => new Promise<number>((resolve, reject) => {
-            livesplitClient.on('message', (msg) => {
-              resolve(parseTime(msg.toString()));
-              livesplitClient.onmessage = null;
-            });
-          });
-          livesplitClient.send('getcurrenttime');
-          const currentLivesplitTime = await handleTimeReceived();
-          const currentSplitTime = currentLivesplitTime - lastSplitTime;
-          lastSplitTime = currentLivesplitTime;
-          if (Math.floor(currentSplitTime) > 1) {
-            // Only move to next split if we've spent > 1 second on current one
-            livesplitClient.send('resume');
-            livesplitClient.send('startorsplit');
-            livesplitClient.send('pause');
-          }
-          // TODO: More reasonable handling of YouTube song IDs (currently stuffed into title)
-          let title = parsedPayload.title;
-          if (parsedPayload.album === 'YouTube') {
-            title = parsedPayload.title.replace(/\S+$/, '');
-          }
-          livesplitClient.send(`setcurrentsplitname ${title} (${parsedPayload.artist})`);
-        } else if (parsedPayload.type === 'song_played') {
-          livesplitClient.send('resume');
-        } else if (parsedPayload.type === 'song_paused') {
-          livesplitClient.send('pause');
-        } else if (parsedPayload.type === 'song_stopped') {
-          livesplitClient.send('split');
-          livesplitClient.send('pause');
         }
+        await handleLiveSplitMessage(parsedPayload as WebSocketPlayerMessage);
       } catch (e) {}
     });
     ws.on('close', () => {
