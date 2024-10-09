@@ -287,7 +287,7 @@ export default function MultiTrackAudioPlayer({
         </button>
         <label className="range-label">
           <span onClick={() => onPlaybackRateChanged(1)} style={{display: 'inline-block', width: '7em'}}>
-            Speed {playbackRate}x
+            Speed {Math.round((playbackRate || 1) * 100) / 100}x
           </span>
           <input
             type="range"
@@ -298,6 +298,8 @@ export default function MultiTrackAudioPlayer({
             onChange={(evt) => onPlaybackRateChanged(evt.currentTarget.valueAsNumber)}
           />
         </label>
+      </div>
+      <div style={{ marginTop: 12 }}>
         <label className="range-label">
           <span onClick={() => onVolumeChanged(1)} style={{display: 'inline-block', width: '7em'}}>
             Volume {Math.round((volume || 1) * 100)}%
@@ -305,9 +307,10 @@ export default function MultiTrackAudioPlayer({
           <input
             type="range"
             value={volume}
-            step={0.05}
-            min={0.1}
+            step={0.01}
+            min={0.01}
             max={1.0}
+            style={{ width: 'calc(80% - 48px)' }}
             onChange={(evt) => onVolumeChanged(evt.currentTarget.valueAsNumber)}
           />
         </label>

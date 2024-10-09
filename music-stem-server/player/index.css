@@ -54,7 +54,7 @@ button.inactive {
   /* display: flex;
   flex-direction: column; */
   height: 100%;
-  --player-height: 240px;
+  --player-height: 270px;
 }
   .SongBrowserUI .top {
     display: flex;
