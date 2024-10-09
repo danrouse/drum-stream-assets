@@ -31,10 +31,11 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
         '--no-playlist',
         '--no-overwrites',
         '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
-        '--max-downloads', '1',
+        // '--max-downloads', '1',
         '--cookies', `"${join(Paths.__dirname, '..', 'www.youtube.com_cookies.txt')}"`,
-        // '-f', '"[height<=?720]+bestaudio"',
-        '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s %(id)s.%(ext)s')}"`,
+        '-f', '"bv[height<=?720]+ba"',
+        '-S', '"filesize:50M"',
+        '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s [%(id)s].%(ext)s')}"`,
         `"${url.toString()}"`
       ],
       { shell: true }
