@@ -17,9 +17,9 @@ if "%ERRORLEVEL%" NEQ "0" (
 
 echo Starting music-stem-server...
 cd music-stem-server
-start cmd /k npm run dev
+start cmd /k npm run dev 2>&1 | tee log.txt
 timeout /T 3 > nul
 
 echo Starting electron-overlays...
 cd ../electron-overlays
-start cmd /k npm run dev
+start cmd /k npm run dev 2>&1 | tee log.txt
