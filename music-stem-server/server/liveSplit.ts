@@ -9,14 +9,26 @@ const clearAllSplitNames = () => {
   }
 }
 
-const livesplitClient = new WebSocket(`ws://localhost:16834/livesplit`);
-livesplitClient.on('open', () => {
-  clearAllSplitNames();
 
-  // Start timer right away so we can just pause/resume it
-  livesplitClient.send('starttimer');
-  livesplitClient.send('pause');
-});
+function createLiveSplitClient() {
+  const client = new WebSocket(`ws://localhost:16834/livesplit`);
+  client.on('open', () => {
+    clearAllSplitNames();
+  
+    // Start timer right away so we can just pause/resume it
+    client.send('starttimer');
+    client.send('pause');
+  });
+  const deferredRetry = () => {
+    setTimeout(() => {
+      livesplitClient = createLiveSplitClient();
+    }, 1000);
+  };
+  client.on('close', deferredRetry);
+  client.on('error', deferredRetry);
+  return client;
+}
+let livesplitClient = createLiveSplitClient();
 
 let lastSplitTime = 0;
 
