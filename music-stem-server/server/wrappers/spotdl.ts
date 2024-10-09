@@ -78,9 +78,6 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
   });
 }
 const sleep = (t: number) => new Promise<void>((resolve) => setTimeout(() => resolve(), t));
-try { 
-  unlinkSync(TMP_OUTPUT_FILENAME);
-} catch (e) {}
 export default async function spotdl(query: string, outputPath: string, cookies: string): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
@@ -123,7 +120,7 @@ export default async function spotdl(query: string, outputPath: string, cookies:
         ],
         { shell: true }
       );
-      let resolved = false;
+      let resolveTo: DownloadedSong | undefined;
       cmd.stdout.on('data', msg => {
         const wasDownloaded = msg.toString().match(/Downloaded "(.+)":/i);
         const alreadyExists = msg.toString().match(/Skipping (.+) \(file already exists\)/i);
@@ -133,34 +130,36 @@ export default async function spotdl(query: string, outputPath: string, cookies:
           const dstPath = join(outputPath, `${basename}.m4a`);
           // Double check that the expected path exists first!
           if (existsSync(dstPath)) {
-            try {
-              // Load spotdl's output for raw spotify URL
-              // to pass to syrics to download synced lyrics from spotify.
-              // spotdl can't download lyrics from spotify itself,
-              // so its lyrics are often unsynced (no timestamps)
-              // and syrics needs a direct URL
-              const song = JSON.parse(readFileSync(TMP_OUTPUT_FILENAME).toString('utf8'));
-              execSync(`syrics "${song[0].url}"`);
-            } catch (e) {
-              // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
-              // COPIUM
-              // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
-            }
-            try { 
-              unlinkSync(TMP_OUTPUT_FILENAME);
-            } catch (e) {}
-            resolved = true;
-            return resolve({
+            resolveTo = {
               basename,
               path: dstPath,
-            });
+            };
           } else {
             reject(new SongDownloadError());
           }
         }
       });
       cmd.on('close', () => {
-        if (!resolved) {
+        if (resolveTo) {
+          try {
+            // Load spotdl's output for raw spotify URL
+            // to pass to syrics to download synced lyrics from spotify.
+            // spotdl can't download lyrics from spotify itself,
+            // so its lyrics are often unsynced (no timestamps)
+            // and syrics needs a direct URL
+            const t = readFileSync(TMP_OUTPUT_FILENAME).toString('utf8');
+            const song = JSON.parse(t);
+            execSync(`syrics "${song[0].url}"`);
+          } catch (e) {
+            // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
+            // COPIUM
+            // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
+            console.error('syrics error', e);
+          } finally {
+            unlinkSync(TMP_OUTPUT_FILENAME);
+          }
+          resolve(resolveTo);
+        } else {
           console.debug('spotdl failed as it did not match a valid return string');
           reject(new SongDownloadError());
         }
