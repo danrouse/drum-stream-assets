@@ -26,6 +26,9 @@ type WebSocketServerMessage = {
 } | {
   type: 'song_request',
   query: string,
+} | {
+  type: 'client_remote_control',
+  action: string,
 };
 
 type WebSocketPlayerMessage = {

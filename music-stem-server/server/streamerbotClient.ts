@@ -3,7 +3,16 @@ import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl'
 import formatTime from '../player/formatTime';
 import { handleSongRequest } from './songRequests';
 
+let broadcast: WebSocketBroadcaster = () => {};
+
 const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
+
+const REWARD_IDS = {
+  SongRequest: '089b77c3-bf0d-41e4-9063-c239bcb6477b',
+  MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
+  SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
+  SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
+};
 
 interface IdMap { [name: string]: string }
 
@@ -12,6 +21,9 @@ async function handleStreamerbotSongRequest(
   sendTwitchMessage: (message: string, replyTo?: string) => void,
   fromUsername: string,
   replyTo?: string,
+  // TODO: Store rewardId, and redemptionId to mark redemptions as "fulfilled"
+  rewardId?: string,
+  redemptionId?: string,
 ) {
   // Only send a heartbeat message if we didn't process it super quickly
   let hasSentMessage = false;
@@ -21,6 +33,7 @@ async function handleStreamerbotSongRequest(
 
   try {
     const song = await handleSongRequest(originalMessage, fromUsername);
+    hasSentMessage = true;
     await sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`, replyTo);
   } catch (e: any) {
     let message = 'There was an error adding your song request!';
@@ -31,14 +44,17 @@ async function handleStreamerbotSongRequest(
       if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
       if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
     }
-    await sendTwitchMessage(`@${fromUsername} ${message}`, replyTo);
-  } finally {
-    // Don't send that heartbeat message if we made it here super quickly
     hasSentMessage = true;
+    await sendTwitchMessage(`@${fromUsername} ${message}`, replyTo);
+    // rethrow to allow to catch for refund
+    throw e;
   }
 }
 
-export default function createStreamerbotClient() {
+export default function createStreamerbotClient(broadcaster: WebSocketBroadcaster) {
+  // TODO: There's got to be a better way to handle this dependency injection
+  broadcast = broadcaster;
+
   // Store a mapping of command names to IDs so that they can be called by name
   let actions: IdMap;
   const loadActions = async () => {
@@ -66,35 +82,27 @@ export default function createStreamerbotClient() {
     twitchMessageIdsByUser[data.data.message.userId] = data.data.message.msgId;
   });
   
-  client.on('Twitch.RewardRedemption', (payload) => {
-    if (payload.data.reward.title === 'Request a Song') {
-      return handleStreamerbotSongRequest(payload.data.user_input, sendTwitchMessage, payload.data.user_name);
-    }
-  });
-
-  client.on('Command.Triggered', async (payload) => {
-    switch (payload.data.command) {
-      case '!request':
-      case '!sr':
-      case '!ssr':
-        const message = payload.data.message.replace(/[\udc00|\udb40]/g, '').trim();
-
-        // Show the help command if we get an empty or nearly-empty request
-        // Anything with an actual title and artist SHOULD be above this length
-        if (message.length < MINIMUM_SONG_REQUEST_QUERY_LENGTH) {
-          try {
-            await client.doAction(actions['!how']);
-          } catch (e) {}
-          return;
-        }
-
+  client.on('Twitch.RewardRedemption', async (payload) => {
+    if (payload.data.reward.id === REWARD_IDS.SongRequest) {
+      // if (payload.data.user_input === 'test') return;
+      try {
         await handleStreamerbotSongRequest(
-          message,
+          payload.data.user_input,
           sendTwitchMessage,
-          payload.data.user.display_name,
-          twitchMessageIdsByUser[payload.data.user.id]
+          payload.data.user_name,
+          payload.data.reward.id,
+          payload.data.id
         );
-      break;
+      } catch (e) {
+        console.info('Song reward redemption failed with error', (e as any)?.type);
+        client.doAction(actions['Refund song request'], { rewardId: payload.data.reward.id, redemptionId: payload.data.id });
+      }
+    } else {
+      const rewards = Object.entries(REWARD_IDS);
+      const matchingReward = rewards.find(([name, rewardId]) => rewardId === payload.data.reward.id);
+      if (matchingReward) {
+        broadcast({ type: 'client_remote_control', action: matchingReward[0] });
+      }
     }
   });
 

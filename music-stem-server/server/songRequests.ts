@@ -29,8 +29,8 @@ demucs.onProcessingError = (song, errorMessage) => {
   demucsSubscribers = demucsSubscribers.filter(s => s.song.basename !== song.basename);
 };
 
-// This is... bad
-export async function setSongRequestWebSocketBroadcaster(broadcaster: WebSocketBroadcaster) {
+// TODO: This is... bad
+export function setSongRequestWebSocketBroadcaster(broadcaster: WebSocketBroadcaster) {
   broadcast = broadcaster;
 }
 

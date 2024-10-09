@@ -64,6 +64,9 @@ export default function SongBrowserUI() {
   const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
   const [songRequestsToAdd, setSongRequestsToAdd] = useState<string[]>([]);
   const [socket, setSocket] = useState<WebSocket>();
+  // Previous state values for resetting from client remote control commands
+  const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<string[]>([]);
+  const [prevPlaybackRate, setPrevPlaybackRate] = useState(1);
 
   const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
 
@@ -86,6 +89,14 @@ export default function SongBrowserUI() {
   };
 
   const nextSong = () => {
+    // clear any "until next song" client remote control
+    if (prevMutedTrackNames.join('') !== mutedTrackNames.join('')) {
+      setMutedTrackNames(prevMutedTrackNames);
+    }
+    if (prevPlaybackRate !== playbackRate) {
+      setPlaybackRate(prevPlaybackRate);
+    }
+
     const songList = isPlayingFromPlaylist ? playlists[selectedPlaylistIndex].songs : filteredSongs;
     const currentSelectedSongIndex = songList.indexOf(selectedSong!);
     // If we're at the end of a playlist, playing sequentially, stop
@@ -139,6 +150,9 @@ export default function SongBrowserUI() {
         setPlaylists(loadedState.playlists);
         setSelectedPlaylistIndex(loadedState.selectedPlaylistIndex);
         setIsInitialLoad(false);
+
+        setPrevMutedTrackNames(loadedState.mutedTrackNames);
+        setPrevPlaybackRate(loadedState.playbackRate);
       });
     } else {
       saveState({
@@ -151,6 +165,8 @@ export default function SongBrowserUI() {
         playlists,
         selectedPlaylistIndex,
       });
+      // TODO: persist mutedTrackNames and playbackRate changes
+      // into the prev values, but only if the changes came from UI (not from client remote control)
     }
   }, [
     isAutoplayEnabled,
@@ -163,6 +179,16 @@ export default function SongBrowserUI() {
     selectedPlaylistIndex,
   ]);
 
+  const handleClientRemoteControl = (action: string) => {
+    if (action === 'MuteCurrentSongDrums') {
+      setMutedTrackNames([...mutedTrackNames, 'drums']);
+    } else if (action === 'SpeedUpCurrentSong') {
+      setPlaybackRate(r => r + 0.1);
+    } else if (action === 'SlowDownCurrentSong') {
+      setPlaybackRate(r => r - 0.1);
+    }
+  };
+
   // One-time componentDidMount effects
   useEffect(() => {
     fetchNewSongListData();
@@ -174,6 +200,8 @@ export default function SongBrowserUI() {
       const message: WebSocketServerMessage = JSON.parse(e.data.toString());
       if (message?.type === 'song_request_added') {
         setSongRequestsToAdd([...songRequestsToAdd, message.name]);
+      } else if (message?.type === 'client_remote_control') {
+        handleClientRemoteControl(message.action);
       }
     };
     ws.addEventListener('message', handleMessage);

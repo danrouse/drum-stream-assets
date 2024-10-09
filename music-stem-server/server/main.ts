@@ -21,7 +21,7 @@ app.use('/stems', express.static(Paths.STEMS_PATH));
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const broadcast = createWebSocketServer(httpServer);
 setSongRequestWebSocketBroadcaster(broadcast);
-createStreamerbotClient();
+createStreamerbotClient(broadcast);
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
