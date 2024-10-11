@@ -5,6 +5,7 @@
   "main": "server/main.ts",
   "type": "module",
   "scripts": {
+    "start": "npm run dev 2>&1 | tee --append log.txt",
     "dev": "tsx watch server/main.ts"
   },
   "keywords": [],
