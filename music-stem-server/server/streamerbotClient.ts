@@ -31,6 +31,9 @@ async function handleStreamerbotSongRequest(
     if (!hasSentMessage) await sendTwitchMessage(`Working on it, ${fromUsername}!`, replyTo);
   }, 1000);
 
+  // Strip accidental inclusions on the original message
+  const userInput = originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
+
   try {
     const song = await handleSongRequest(userInput, {
       requesterName: fromUsername,
