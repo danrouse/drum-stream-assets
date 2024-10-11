@@ -150,13 +150,12 @@ export default async function spotdl(query: string, outputPath: string, cookies:
             const t = readFileSync(TMP_OUTPUT_FILENAME).toString('utf8');
             const song = JSON.parse(t);
             execSync(`syrics "${song[0].url}"`);
+            unlinkSync(TMP_OUTPUT_FILENAME);
           } catch (e) {
             // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
             // COPIUM
             // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
             console.error('syrics error', e);
-          } finally {
-            unlinkSync(TMP_OUTPUT_FILENAME);
           }
           resolve(resolveTo);
         } else {
