@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { unlinkSync } from 'fs';
+import { unlinkSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
@@ -56,9 +56,19 @@ function processDownloadedSong(song: DownloadedSong, callback?: (song?: Processe
   }
 }
 
+const updateSongRequestMetadata = (request: SongRequestSource, song: ProcessedSong) => {
+  const jsonPath = join(Paths.__dirname, 'songrequests.json');
+  const requests = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, 'utf-8')) : [];
+  requests.push({
+    ...request,
+    ...song,
+  } satisfies SongRequest);
+  writeFileSync(jsonPath, JSON.stringify(requests, null, 2));
+};
+
 export function handleSongRequest(
   query: string,
-  requesterName?: string
+  request?: SongRequestSource
 ) {
   return new Promise<ProcessedSong>(async (resolve, reject) => {
     try {
@@ -73,6 +83,7 @@ export function handleSongRequest(
           if (processedSong) {
             console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
             unlinkSync(Paths.SONG_LIST_PATH);
+            if (request) updateSongRequestMetadata(request, processedSong);
             broadcast({ type: 'song_request_added', name: downloadedSong.basename });
             resolve(processedSong);
           } else {

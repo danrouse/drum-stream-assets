@@ -21,6 +21,7 @@ export default function SongList({ songs, selectedSong, renderActions }: SongLis
             <div>
               <p className="album">{song.album}</p>
               <p className="trackNumber">{song.track[0]}/{song.track[1]}</p>
+              {song.requesterName && <p className="requesterName">{song.requesterName}</p>}
             </div>
             <div>
               <p className="duration">{formatTime(song.duration)}</p>

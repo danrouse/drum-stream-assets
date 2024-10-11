@@ -32,7 +32,11 @@ async function handleStreamerbotSongRequest(
   }, 1000);
 
   try {
-    const song = await handleSongRequest(originalMessage, fromUsername);
+    const song = await handleSongRequest(userInput, {
+      requesterName: fromUsername,
+      rewardId, redemptionId,
+      time: new Date(),
+    });
     hasSentMessage = true;
     await sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`, replyTo);
   } catch (e: any) {

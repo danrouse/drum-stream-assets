@@ -60,6 +60,9 @@ interface SongData {
   album: string;
   track: [number, number];
   duration: number;
+
+  requesterName?: string;
+  requestTime?: Date;
 }
 
 interface DownloadedSong {
@@ -72,3 +75,11 @@ interface ProcessedSong {
   songPath: string;
   stemsPath: string;
 }
+
+interface SongRequestSource {
+  requesterName: string;
+  rewardId?: string;
+  redemptionId?: string;
+  time: Date;
+}
+type SongRequest = SongRequestSource & ProcessedSong;
