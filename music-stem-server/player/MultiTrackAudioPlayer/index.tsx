@@ -292,7 +292,7 @@ export default function MultiTrackAudioPlayer({
           <input
             type="range"
             value={playbackRate}
-            step={0.1}
+            step={0.05}
             min={0.1}
             max={2.0}
             onChange={(evt) => onPlaybackRateChanged(evt.currentTarget.valueAsNumber)}

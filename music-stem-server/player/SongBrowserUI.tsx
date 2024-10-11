@@ -183,9 +183,9 @@ export default function SongBrowserUI() {
     if (action === 'MuteCurrentSongDrums') {
       setMutedTrackNames([...mutedTrackNames, 'drums']);
     } else if (action === 'SpeedUpCurrentSong') {
-      setPlaybackRate(r => r + 0.1);
+      setPlaybackRate(r => r + 0.15);
     } else if (action === 'SlowDownCurrentSong') {
-      setPlaybackRate(r => r - 0.1);
+      setPlaybackRate(r => r - 0.15);
     }
   };
 
