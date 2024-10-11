@@ -82,7 +82,7 @@ export function handleSongRequest(
         processDownloadedSong(downloadedSong, (processedSong) => {
           if (processedSong) {
             console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-            unlinkSync(Paths.SONG_LIST_PATH);
+            try { unlinkSync(Paths.SONG_LIST_PATH); } catch (e) {}
             if (request) updateSongRequestMetadata(request, processedSong);
             broadcast({ type: 'song_request_added', name: downloadedSong.basename });
             resolve(processedSong);
