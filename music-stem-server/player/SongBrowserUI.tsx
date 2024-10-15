@@ -10,6 +10,11 @@ const DEFAULT_PLAYLISTS: Playlist[] = [
   { title: 'Base Playlist', songs: [] },
   { title: SONG_REQUEST_PLAYLIST_NAME, songs: [] },
 ];
+
+// client remote control settings
+const RC_SPEED_CHANGE_AMOUNT = 0.1;
+const RC_SPEED_CHANGE_DURATION = 180000;
+
 interface SavedState {
   isAutoplayEnabled: boolean;
   isShuffleEnabled: boolean;
@@ -183,9 +188,11 @@ export default function SongBrowserUI() {
     if (action === 'MuteCurrentSongDrums') {
       setMutedTrackNames([...mutedTrackNames, 'drums']);
     } else if (action === 'SpeedUpCurrentSong') {
-      setPlaybackRate(r => r + 0.15);
+      setPlaybackRate(r => r + RC_SPEED_CHANGE_AMOUNT);
+      setTimeout(() => setPlaybackRate(r => r - RC_SPEED_CHANGE_AMOUNT), RC_SPEED_CHANGE_DURATION);
     } else if (action === 'SlowDownCurrentSong') {
-      setPlaybackRate(r => r - 0.15);
+      setPlaybackRate(r => r - RC_SPEED_CHANGE_AMOUNT);
+      setTimeout(() => setPlaybackRate(r => r + RC_SPEED_CHANGE_AMOUNT), RC_SPEED_CHANGE_DURATION);
     }
   };
 
