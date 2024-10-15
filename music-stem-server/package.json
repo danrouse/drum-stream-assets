@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "npm run dev 2>&1 | tee --append logs/log.txt",
-    "dev": "tsx watch server/main.ts"
+    "dev": "tsx watch server/main.ts",
+    "lint": "tslint --project . --format stylish"
   },
   "keywords": [],
   "author": "",
@@ -40,6 +41,7 @@
     "@types/howler": "^2.2.11",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/ws": "^8.5.12"
+    "@types/ws": "^8.5.12",
+    "tslint": "^5.20.1"
   }
 }
