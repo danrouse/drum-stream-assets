@@ -2,9 +2,10 @@ import { execSync, spawn } from 'child_process';
 import { join, basename } from 'path';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import * as Paths from '../paths';
+import { isURL, sleep } from '../util';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
-const YT_DLP_PATH = 'C:/Users/Dan/Downloads/yt-dlp.exe';
+export const MAX_SONG_REQUEST_DURATION = 600;
 
 export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS' | 'TOO_LONG';
 export class SongDownloadError extends Error {
@@ -15,18 +16,9 @@ export class SongDownloadError extends Error {
   }
 }
 
-const isURL = (s: string) => {
-  try {
-    return Boolean(new URL(s));
-  } catch (err) {
-    return false;
-  }
-};
-
-export const MAX_SONG_REQUEST_DURATION = 600;
 function handleYouTubeDownload(url: URL, outputPath: string) {
   return new Promise<DownloadedSong>((resolve, reject) => {
-    const cmd = spawn(YT_DLP_PATH,
+    const cmd = spawn(Paths.YT_DLP_PATH,
       [
         '--no-playlist',
         '--no-overwrites',
@@ -77,7 +69,6 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
     });
   });
 }
-const sleep = (t: number) => new Promise<void>((resolve) => setTimeout(() => resolve(), t));
 export default async function spotdl(query: string, outputPath: string, cookies: string): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
