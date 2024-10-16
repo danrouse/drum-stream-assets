@@ -41,14 +41,17 @@ app.get('/songs', async (req, res) => {
   return res.send(readFileSync(Paths.SONG_LIST_PATH));
 });
 
-// connect Vite once all of our own routes are defined
-const viteServer = await createViteServer({
-  root: 'player',
-  server: {
-    middlewareMode: true,
-    host: true,
-  },
-  clearScreen: false,
-  plugins: [ reactVitePlugin() ],
-});
-app.use(viteServer.middlewares);
+if (process.env.NODE_ENV === 'production') {
+  app.use('/', express.static(Paths.PLAYER_DIST));
+} else {
+  const viteServer = await createViteServer({
+    root: 'player',
+    server: {
+      middlewareMode: true,
+      host: true,
+    },
+    clearScreen: false,
+    plugins: [ reactVitePlugin() ],
+  });
+  app.use(viteServer.middlewares);
+}
