@@ -50,6 +50,8 @@ const saveState = (state: Partial<SavedState>) => {
   }));
 }
 
+let clientRemoteControlResetTimers: NodeJS.Timeout[] = [];
+
 export default function SongBrowserUI() {
   // Track initial loading so locally-persisted state doesn't get overwritten
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -93,6 +95,14 @@ export default function SongBrowserUI() {
     broadcast({ type: 'song_stopped' });
   };
 
+  const handlePlaybackRateChanged = (rate: number) => {
+    // When manually changing playback rate, remove any timers to reset
+    // client remote control playback rates
+    clientRemoteControlResetTimers.forEach(timer => clearTimeout(timer));
+    clientRemoteControlResetTimers = [];
+    setPlaybackRate(rate);
+  };
+
   const nextSong = () => {
     // clear any "until next song" client remote control
     if (prevMutedTrackNames.join('') !== mutedTrackNames.join('')) {
@@ -125,6 +135,38 @@ export default function SongBrowserUI() {
     // console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
+
+  const handleClientRemoteControl = (action: string) => {
+    if (action === 'MuteCurrentSongDrums') {
+      setMutedTrackNames([...mutedTrackNames, 'drums']);
+    } else if (action === 'SpeedUpCurrentSong') {
+      setPlaybackRate(r => r + RC_SPEED_CHANGE_AMOUNT);
+      clientRemoteControlResetTimers.push(
+        setTimeout(() => setPlaybackRate(r => r - RC_SPEED_CHANGE_AMOUNT), RC_SPEED_CHANGE_DURATION)
+      );
+    } else if (action === 'SlowDownCurrentSong') {
+      setPlaybackRate(r => r - RC_SPEED_CHANGE_AMOUNT);
+      clientRemoteControlResetTimers.push(
+        setTimeout(() => setPlaybackRate(r => r + RC_SPEED_CHANGE_AMOUNT), RC_SPEED_CHANGE_DURATION)
+      );
+    }
+  };
+
+  // Change price of speed up/slow down as we change playback rate
+  useEffect(() => {
+    const speedDiffSteps = Math.abs(1 - playbackRate) / RC_SPEED_CHANGE_AMOUNT;
+    const isFaster = playbackRate > 1;
+    broadcast({
+      type: 'price_change',
+      action: 'SlowDownCurrentSong',
+      price: Math.round(isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30)),
+    });
+    broadcast({
+      type: 'price_change',
+      action: 'SpeedUpCurrentSong',
+      price: Math.round(!isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30)),
+    });
+  }, [playbackRate]);
 
   // Add song requests to the Requests playlist when they become available
   useEffect(() => {
@@ -183,18 +225,6 @@ export default function SongBrowserUI() {
     playlists,
     selectedPlaylistIndex,
   ]);
-
-  const handleClientRemoteControl = (action: string) => {
-    if (action === 'MuteCurrentSongDrums') {
-      setMutedTrackNames([...mutedTrackNames, 'drums']);
-    } else if (action === 'SpeedUpCurrentSong') {
-      setPlaybackRate(r => r + RC_SPEED_CHANGE_AMOUNT);
-      setTimeout(() => setPlaybackRate(r => r - RC_SPEED_CHANGE_AMOUNT), RC_SPEED_CHANGE_DURATION);
-    } else if (action === 'SlowDownCurrentSong') {
-      setPlaybackRate(r => r - RC_SPEED_CHANGE_AMOUNT);
-      setTimeout(() => setPlaybackRate(r => r + RC_SPEED_CHANGE_AMOUNT), RC_SPEED_CHANGE_DURATION);
-    }
-  };
 
   // One-time componentDidMount effects
   useEffect(() => {
@@ -277,7 +307,7 @@ export default function SongBrowserUI() {
             autoplay={isAutoplayEnabled}
             onAutoplayChanged={setIsAutoplayEnabled}
             playbackRate={playbackRate}
-            onPlaybackRateChanged={setPlaybackRate}
+            onPlaybackRateChanged={handlePlaybackRateChanged}
             volume={volume}
             onVolumeChanged={setVolume} 
           />

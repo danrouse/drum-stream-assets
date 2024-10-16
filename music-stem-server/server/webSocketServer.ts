@@ -1,10 +1,10 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { handleSongRequest } from './songRequests';
-import { handleLiveSplitMessage } from './liveSplit';
 
 export default function createWebSocketServer(httpServer: Server) {
   const wsServer = new WebSocketServer({ server: httpServer });
+  const handlers: WebSocketMessageHandler[] = [];
 
   wsServer.on('connection', (ws) => {
     console.info(`WebSocket connection opened, now ${wsServer.clients.size} connected clients`);
@@ -22,7 +22,9 @@ export default function createWebSocketServer(httpServer: Server) {
             broadcast({ type: 'download_error', query: parsedPayload.query });
           }
         }
-        await handleLiveSplitMessage(parsedPayload as WebSocketPlayerMessage);
+        for (let handler of handlers) {
+          await handler(parsedPayload);
+        }
       } catch (e) {}
     });
     ws.on('close', () => {
@@ -39,5 +41,5 @@ export default function createWebSocketServer(httpServer: Server) {
       ws.send(typeof payload === 'string' ? payload : JSON.stringify(payload)));
   }
 
-  return broadcast;
+  return { broadcast, handlers };
 }

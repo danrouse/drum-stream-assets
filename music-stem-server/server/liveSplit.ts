@@ -39,7 +39,7 @@ const handleTimeReceived = () => new Promise<number>((resolve, reject) => {
   });
 });
 
-export async function handleLiveSplitMessage(message: WebSocketPlayerMessage) {
+export async function handleLiveSplitMessage(message: WebSocketPlayerMessage | WebSocketServerMessage) {
   if (message.type === 'song_changed') {
     livesplitClient.send('getcurrenttime');
     const currentLivesplitTime = await handleTimeReceived();

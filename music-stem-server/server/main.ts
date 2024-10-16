@@ -9,6 +9,7 @@ import createStreamerbotClient from './streamerbotClient';
 import * as Paths from './paths';
 import { setSongRequestWebSocketBroadcaster } from './songRequests';
 import generateSongList from './songList';
+import { handleLiveSplitMessage } from './liveSplit';
 
 const PORT = 3000;
 
@@ -19,9 +20,11 @@ app.use('/downloads', express.static(Paths.DOWNLOADS_PATH));
 app.use('/stems', express.static(Paths.STEMS_PATH));
 
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
-const broadcast = createWebSocketServer(httpServer);
+const { broadcast, handlers: wsHandlers } = createWebSocketServer(httpServer);
 setSongRequestWebSocketBroadcaster(broadcast);
-createStreamerbotClient(broadcast);
+const streamerbotWsHandler = createStreamerbotClient(broadcast);
+wsHandlers.push(streamerbotWsHandler);
+wsHandlers.push(handleLiveSplitMessage);
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {

@@ -28,7 +28,7 @@ type WebSocketServerMessage = {
   query: string,
 } | {
   type: 'client_remote_control',
-  action: string,
+  action: string, // TODO: type connect this with price_change (should be an enum~ish)
 };
 
 type WebSocketPlayerMessage = {
@@ -47,9 +47,14 @@ type WebSocketPlayerMessage = {
   type: 'song_paused',
 } | {
   type: 'song_stopped',
+} | {
+  type: 'price_change',
+  action: string, // TODO: type connect this with client_remote_control (should be an enum~ish)
+  price: number,
 };
 
 type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;
+type WebSocketMessageHandler = (payload: WebSocketServerMessage | WebSocketPlayerMessage) => void;
 
 interface SongData {
   name: string; // for paths

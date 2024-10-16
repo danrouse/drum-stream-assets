@@ -7,7 +7,7 @@ let broadcast: WebSocketBroadcaster = () => {};
 
 const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
-const REWARD_IDS = {
+const REWARD_IDS: { [name: string]: string } = {
   SongRequest: '089b77c3-bf0d-41e4-9063-c239bcb6477b',
   MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
   SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
@@ -113,5 +113,12 @@ export default function createStreamerbotClient(broadcaster: WebSocketBroadcaste
     }
   });
 
-  return client;
+  const wsHandler: WebSocketMessageHandler = (payload) => {
+    if (payload.type === 'price_change') {
+      const rewardId = REWARD_IDS[payload.action];
+      client.doAction(actions['Change reward price'], { rewardId, ...payload });
+    }
+  };
+
+  return wsHandler;
 }
