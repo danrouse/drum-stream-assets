@@ -12,8 +12,8 @@ const DEFAULT_PLAYLISTS: Playlist[] = [
 ];
 
 // client remote control settings
-const RC_SPEED_CHANGE_AMOUNT = 0.1;
-const RC_SPEED_CHANGE_DURATION = 180000;
+const RC_SPEED_CHANGE_AMOUNT = 0.15;
+const RC_SPEED_CHANGE_DURATION = 120000;
 
 interface SavedState {
   isAutoplayEnabled: boolean;
