@@ -3,10 +3,11 @@ import { WebSocket } from 'ws';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const OBS_OVERLAY_MASK_PATH = join(__dirname, '..', 'mask.png');
+const OBS_OVERLAY_MASK_PATH = join(__dirname, '..');
 
 const defaultWindowConfig: Partial<BrowserWindowConstructorOptions> = {
   transparent: true,
@@ -28,10 +29,13 @@ function createMIDINotesWindow() {
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#MIDINotesWindow');
   ipcMain.on('enable_mouse', () => win.setIgnoreMouseEvents(false));
   ipcMain.on('disable_mouse', () => win.setIgnoreMouseEvents(true));
-  ipcMain.on('generate_mask', async () => {
+  ipcMain.on('generate_mask', async (_, i) => {
     const image = await win.capturePage();
-    writeFileSync(OBS_OVERLAY_MASK_PATH, image.toPNG());
-    win.webContents.send('generate_mask_complete');
+    writeFileSync(join(OBS_OVERLAY_MASK_PATH, `mask-${i}.png`), image.toPNG());
+    win.webContents.send('generate_mask_complete', i);
+    if (i === 10) {
+      execSync('magick mogrify -transparent white mask-*.png');
+    }
   });
 
   return win;

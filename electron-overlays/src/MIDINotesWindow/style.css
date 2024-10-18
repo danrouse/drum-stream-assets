@@ -70,6 +70,18 @@
     opacity: 0;
   }
 }
+.note-container {
+  position: absolute;
+  left: 0; right: 0;
+  top: 0; bottom: 0;
+  /* mask-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/3/sun.svg'); */
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.calibrating .note-container {
+  mask-image: none !important;
+}
 .note {
   position: absolute;
 
@@ -93,6 +105,8 @@
 
   opacity: 1;
   transform-origin: center center;
+
+  /* mask-image: linear-gradient(rgb(0 0 0 / 100%), transparent);url(../../mask.png); */
 }
 /* .note:after {
   content: '';
@@ -113,7 +127,7 @@
 } */
 .note.animated {
   /* animation: noteScroll 1 linear 2000ms forwards, */
-  animation: noteFade 1 ease-out 400ms forwards;
+  animation: noteFade 1 ease-out 700ms forwards;
 }
 .note-kick {
 
@@ -123,11 +137,14 @@
   background-blend-mode: normal;
 }
 .note-kick-secondary.animated {
-  animation-duration: 1200ms;
+  animation-duration: 1600ms;
 }
 
 .mask {
   background-color: black !important;
+}
+.mask .note-container {
+  mask-image: none !important;
 }
 .mask .note {
   background-image: none !important;

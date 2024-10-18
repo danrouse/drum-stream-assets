@@ -42,24 +42,24 @@ if (location.hash === '#MIDINotesWindow') {
   }
 
   let noteConfig: { [key: number]: NoteConfig } = {
-    38: { name: 'Snare', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(223, 25, 25)', z: 8,},
+    38: { name: 'Snare', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(223, 25, 25)', z: 7,},
     37: { name: 'SnareCrossStick', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(223, 25, 25)', rim: true, base: 'Snare', },
     40: { name: 'SnareRim', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(223, 25, 25)', rim: true, base: 'Snare', },
 
-    48: { name: 'Tom1', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(94 120 231)', z: 7 },
+    48: { name: 'Tom1', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(94 120 231)', z: 6 },
     50: { name: 'Tom1Rim', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(94 120 231)', rim: true, base: 'Tom1', },
-    45: { name: 'Tom2', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(94 201 231)', z: 6 },
+    45: { name: 'Tom2', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(94 201 231)', z: 5 },
     47: { name: 'Tom2Rim', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(94 201 231)', rim: true, base: 'Tom2', },
-    43: { name: 'Tom3', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(77 218 134)', z: 5 },
+    43: { name: 'Tom3', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(77 218 134)', z: 4 },
     58: { name: 'Tom3Rim', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(77 218 134)', rim: true, base: 'Tom3', },
-    41: { name: 'Tom4', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(60 145 40)', z: 4 },
+    41: { name: 'Tom4', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(60 145 40)', z: 3 },
     39: { name: 'Tom4Rim', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(60 145 40)', rim: true, base: 'Tom4', },
 
-    26: { name: 'HiHatEdge', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(206 179 57)', z: 9, }, //rgb(249 231 94)
-    46: { name: 'HiHatBow', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(206 179 57)', z: 9, base: 'HiHatEdge' },
+    26: { name: 'HiHatEdge', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(206 179 57)', z: 8, }, //rgb(249 231 94)
+    46: { name: 'HiHatBow', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(206 179 57)', z: 8, base: 'HiHatEdge' },
     44: { name: 'HiHatPedal', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(206 179 57)', base: 'HiHatEdge', rim: true, },
 
-    49: { name: 'Crash1', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(248 16 138)', z: 10, },
+    49: { name: 'Crash1', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(248 16 138)', z: 9, },
     52: { name: 'Crash2Edge', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(209 102 255)', z: 1 },
     57: { name: 'Crash2Bow', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'rgb(209 102 255)', base: 'Crash2Edge' },
     51: { name: 'Ride', x: 0, y: 0, w: 120, h: 32, r: 0, color: 'orangered', z: 1 },
@@ -75,6 +75,8 @@ if (location.hash === '#MIDINotesWindow') {
     36: 360,
   };
 
+  const existingNoteByType: { [key: number]: HTMLElement } = {};
+
   // const NOTE_VELOCITY_MAX = 127;
   const VELOCITY_FULLY_OPAQUE = 100;
   const NOTE_ANIMATION_DURATION_MS = 2000;
@@ -86,6 +88,11 @@ if (location.hash === '#MIDINotesWindow') {
     }
 
     const { name } = selectedNote;
+
+    if (existingNoteByType[note]) {
+      existingNoteByType[note].remove();
+      delete existingNoteByType[note];
+    }
 
     // exception for broken crash2 :(
     // if ((name === 'Crash2Edge' || name === 'Crash2Bow') && velocity < 40) return;
@@ -111,8 +118,13 @@ if (location.hash === '#MIDINotesWindow') {
       noteElem.classList.add('animated');
       setTimeout(() => noteElem.remove(), NOTE_ANIMATION_DURATION_MS);
     }
-    
-    notesContainerElem.appendChild(noteElem);
+    // notesContainerElem.appendChild(noteElem);
+    const container = document.createElement('div');
+    container.classList.add('note-container');
+    container.style.maskImage = `url('/mask-${Math.min((selectedNote.z || 0) + 1, 10)}.png')`;
+    container.appendChild(noteElem);
+    notesContainerElem.appendChild(container);
+    existingNoteByType[note] = container;
 
     if (noteKeyAliases[note]) triggerNote(noteKeyAliases[note], velocity, animated);
   }
@@ -127,8 +139,10 @@ if (location.hash === '#MIDINotesWindow') {
     Object.keys(noteConfig).forEach(k => triggerNote(Number(k), velocity, animated));
   }
 
-  window.ipcRenderer.on('generate_mask_complete', () => {
-    document.body.classList.remove('mask');
+  window.ipcRenderer.on('generate_mask_complete', (_, i) => {
+    if (i === 10) {
+      document.body.classList.remove('mask');
+    }
     clearNotes();
   });
   async function beginCalibration() {
@@ -145,8 +159,9 @@ if (location.hash === '#MIDINotesWindow') {
     uiContainerElem.innerHTML = '<h2>Set Drum Position</h2>';
     const statusTextElem = document.createElement('P');
     uiContainerElem.appendChild(statusTextElem);
+    document.body.classList.add('calibrating');
 
-    function cleanup() {
+    async function cleanup() {
       for (let track of (video.srcObject as MediaStream)!.getTracks()) {
         track.stop();
       }
@@ -156,13 +171,24 @@ if (location.hash === '#MIDINotesWindow') {
       clearNotes();
       window.removeEventListener('keydown', keyHandler);
       window.ipcRenderer.send('disable_mouse');
+      document.body.classList.remove('calibrating');
       isCalibrating = false;
 
-      document.body.classList.add('mask');
-      renderTestNotes(false);
-      setTimeout(() => {
-        window.ipcRenderer.send('generate_mask');
-      }, 100);
+      const sleep = (t: number) => new Promise<void>((resolve) => setTimeout(() => resolve(), t));
+      for (let i = 0; i <= 10; i++) {
+        document.body.classList.add('mask');
+        clearNotes();
+        Object.keys(noteConfig).forEach(k => {
+          console.log(i, k, noteConfig[Number(k)].z)
+          if (noteConfig[Number(k)].z !== undefined && noteConfig[Number(k)].z! >= i) {
+            triggerNote(Number(k), VELOCITY_FULLY_OPAQUE, false);
+          }
+        });
+        setTimeout(() => {
+          window.ipcRenderer.send('generate_mask', i);
+        }, 50);
+        await sleep(250);
+      }
     }
 
     const noteKeys = Object.keys(noteConfig).sort((a, b) => noteConfig[Number(a)].name.localeCompare(noteConfig[Number(b)].name));
@@ -275,7 +301,7 @@ if (location.hash === '#MIDINotesWindow') {
       const config = JSON.parse(savedString);
       noteConfig = { ...noteConfig };
       for (let key in noteConfig) {
-        noteConfig[key] = { ...noteConfig[key], ...(config[key] || {}), color: noteConfig[key].color };
+        noteConfig[key] = { ...noteConfig[key], ...(config[key] || {}), color: noteConfig[key].color, z: noteConfig[key].z };
       }
     }
   }
