@@ -46,6 +46,7 @@
   let currentTimestamp = 0;
   let lastFrameTime = 0;
   let hasVideo = false;
+  let playbackRate = 1.0;
   const handleFrame = (ts: number) => {
     const dt = ts - lastFrameTime;
     lastFrameTime = ts;
@@ -56,7 +57,7 @@
       // event from the client
       // this should give smoother intervals instead of only updating
       // from websocket event receipts
-      currentTimestamp += dt / 1000;
+      currentTimestamp += (dt / 1000) * playbackRate;
     }
 
     renderLyrics(currentTimestamp);
@@ -79,7 +80,7 @@
     renderLyrics();
   });
   window.ipcRenderer.on('song_progress', (_, payload) => {
-    if (hasVideo && Math.round(videoElem.currentTime) !== Math.round(payload.timestamp)) {
+    if (hasVideo && Math.abs(videoElem.currentTime - payload.timestamp) > (1 * playbackRate)) {
       videoElem.currentTime = payload.timestamp;
     }
     currentTimestamp = payload.timestamp;
@@ -99,6 +100,10 @@
   window.ipcRenderer.on('song_paused', () => {
     if (hasVideo) videoElem.pause();
     isPlaying = false;
+  });
+  window.ipcRenderer.on('song_speed', (_, payload) => {
+    playbackRate = payload.speed;
+    videoElem.playbackRate = playbackRate;
   });
   window.onerror = (error, url, line) => window.ipcRenderer.send('error', { error, url, line });
 })();

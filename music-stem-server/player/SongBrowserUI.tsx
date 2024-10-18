@@ -101,6 +101,7 @@ export default function SongBrowserUI() {
     clientRemoteControlResetTimers.forEach(timer => clearTimeout(timer));
     clientRemoteControlResetTimers = [];
     setPlaybackRate(rate);
+    broadcast({ type: 'song_speed', speed: rate });
   };
 
   const nextSong = () => {

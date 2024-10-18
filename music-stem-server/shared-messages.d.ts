@@ -48,6 +48,9 @@ type WebSocketPlayerMessage = {
 } | {
   type: 'song_stopped',
 } | {
+  type: 'song_speed',
+  speed: number,
+} | {
   type: 'price_change',
   action: string, // TODO: type connect this with client_remote_control (should be an enum~ish)
   price: number,
