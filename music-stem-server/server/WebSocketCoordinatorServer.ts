@@ -32,7 +32,7 @@ export default class WebSocketCoordinatorServer {
     });
   }
 
-  public broadcast(payload: WebSocketServerMessage | string) {
+  public broadcast = (payload: WebSocketServerMessage | string) => {
     this.wss.clients.forEach(ws =>
       ws.send(typeof payload === 'string' ? payload : JSON.stringify(payload)));
   }

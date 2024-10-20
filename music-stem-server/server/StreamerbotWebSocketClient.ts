@@ -32,8 +32,8 @@ export default class StreamerbotWebSocketClient {
       await this.loadActions();
       await this.loadEmotes();
     });
-    this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage);
-    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
+    this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
+    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
 
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
@@ -68,10 +68,15 @@ export default class StreamerbotWebSocketClient {
     // don't include the messageId which triggered them, but the Twitch.ChatMessage
     // event gets triggered first, so store a mapping of userIds to messageIds for replies
     this.twitchMessageIdsByUser[payload.data.message.userId] = payload.data.message.msgId;
+    
     const words = payload.data.message.message.split(' ');
-    const matchingEmote = words.find(word => this.emotes.hasOwnProperty(word));
-    if (matchingEmote) {
-      this.broadcast({ type: 'emote_used', emote: matchingEmote });
+    const emotes = [
+      ...payload.data.message.emotes.map(e => e.imageUrl),
+      ...words.filter(word => this.emotes.hasOwnProperty(word))
+    ];
+    if (emotes.length) {
+      const emote = emotes[Math.floor(Math.random() * emotes.length)];
+      this.broadcast({ type: 'emote_used', emote });
     }
   }
 
