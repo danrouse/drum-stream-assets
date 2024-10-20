@@ -74,7 +74,6 @@
   position: absolute;
   left: 0; right: 0;
   top: 0; bottom: 0;
-  /* mask-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/3/sun.svg'); */
   mask-repeat: no-repeat;
   mask-position: center;
   mask-size: contain;
@@ -105,28 +104,9 @@
 
   opacity: 1;
   transform-origin: center center;
+}
 
-  /* mask-image: linear-gradient(rgb(0 0 0 / 100%), transparent);url(../../mask.png); */
-}
-/* .note:after {
-  content: '';
-  display: block;
-  position: absolute;
-  top: -10%;
-  left: 30%;
-  width: 40%;
-  height: 20%;
-  border-radius: 50%;
-  border: 4px solid rgba(0, 0, 0, 0.8);
-  background: rgba(255, 255, 255, 0.8);
-  margin-left: -2px;
-  margin-top: -1px;
-}
-.note.rim:after {
-  border-color: rgba(255, 255, 255, 0.8);
-} */
 .note.animated {
-  /* animation: noteScroll 1 linear 2000ms forwards, */
   animation: noteFade 1 ease-out 700ms forwards;
 }
 .note-kick {

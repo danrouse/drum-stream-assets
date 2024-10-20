@@ -30,12 +30,14 @@ function createMIDINotesWindow() {
   ipcMain.on('enable_mouse', () => win.setIgnoreMouseEvents(false));
   ipcMain.on('disable_mouse', () => win.setIgnoreMouseEvents(true));
   ipcMain.on('generate_mask', async (_, i) => {
-    const image = await win.capturePage();
-    writeFileSync(join(OBS_OVERLAY_MASK_PATH, `mask-${i}.png`), image.toPNG());
-    win.webContents.send('generate_mask_complete', i);
-    if (i === 10) {
-      execSync('magick mogrify -transparent white mask-*.png');
+    if (i !== -1) {
+      const image = await win.capturePage();
+      writeFileSync(join(OBS_OVERLAY_MASK_PATH, `mask-${i}.png`), image.toPNG());
     }
+    win.webContents.send('generate_mask_complete', i);
+  });
+  ipcMain.on('generate_mask_finalize', () => {
+    execSync('magick mogrify -transparent white mask-*.png');
   });
 
   return win;
