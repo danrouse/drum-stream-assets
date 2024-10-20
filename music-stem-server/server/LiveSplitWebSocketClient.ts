@@ -14,6 +14,9 @@ export default class LiveSplitWebSocketClient {
       this.ws.send('starttimer');
       this.ws.send('pause');
     });
+    this.ws.on('error', () => {
+      console.error(`Failed to connect to LiveSplit at ${url}`);
+    });
   }
 
   private clearAllSplitNames() {

@@ -4,12 +4,16 @@ import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync, writeFileSync, readFileSync } from 'fs';
-import WebSocketCoordinatorServer from './webSocketServer';
-import StreamerbotWebSocketClient from './streamerbotClient';
-import LiveSplitWebSocketClient from './liveSplit';
+import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
+import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
+import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import * as Paths from './paths';
-import SongRequestHandler from './songRequests';
+import SongRequestHandler from './SongRequestHandler';
 import generateSongList from './songList';
+
+process.on('unhandledRejection', (reason: any) => {
+  console.error(reason?.message || reason);
+});
 
 const PORT = 3000;
 
@@ -33,19 +37,11 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
   }
 });
 
-try {
-  const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler);
-  webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
-} catch (e) {
-  console.error('Failed to connect to Streamerbot, these features will be disabled');
-}
+const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler);
+webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
-try {
-  const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
-  webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
-} catch (e) {
-  console.error('Failed to connect to LiveSplit, these features will be disabled');
-}
+const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
+webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {

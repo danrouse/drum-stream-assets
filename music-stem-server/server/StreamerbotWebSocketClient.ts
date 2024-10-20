@@ -1,7 +1,7 @@
 import { StreamerbotClient, StreamerbotEventPayload } from '@streamerbot/client';
 import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import formatTime from '../player/formatTime';
-import SongRequestHandler from './songRequests';
+import SongRequestHandler from './SongRequestHandler';
 import { loadEmotes } from '../../shared/7tv';
 
 // const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
@@ -25,7 +25,8 @@ export default class StreamerbotWebSocketClient {
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler) {
     this.client = new StreamerbotClient({
-      onConnect: () => this.loadActions(),
+      onConnect: () => this.loadActions(),      
+      retries: 0,
     });
     this.client.on('Application.*', async () => {
       await this.loadActions();
