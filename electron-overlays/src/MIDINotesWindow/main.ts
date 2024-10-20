@@ -1,6 +1,6 @@
 import initializeCamera from './camera';
 import initializeMIDIInput from './midi';
-import { loadEmotes } from './7tv';
+import { loadEmotes } from '../../../shared/7tv';
 
 if (location.hash === '#MIDINotesWindow') {
   import('./style.css');
@@ -8,10 +8,22 @@ if (location.hash === '#MIDINotesWindow') {
   const emotes = await loadEmotes();
   const emoteURLs = Object.values(emotes);
   let selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+  let hasUserEmote = false;
+  let userEmoteResetTimer: NodeJS.Timeout | undefined;
   setInterval(() => {
-    selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
-    console.log('selected emote is now', selectedEmote);
+    if (!hasUserEmote) {
+      selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+    }
   }, 5000);
+  window.ipcRenderer.on('emote_used', (_, payload) => {
+    if (emotes[payload.emote]) {
+      selectedEmote = emotes[payload.emote];
+      hasUserEmote = true;
+      if (userEmoteResetTimer) clearTimeout(userEmoteResetTimer);
+      userEmoteResetTimer = setTimeout(() => hasUserEmote = false, 10000);
+    }
+    console.log('emote used', payload);
+  });
 
   const globalContainerElem = document.body.querySelector<HTMLDivElement>('#app')!;
 
@@ -254,8 +266,8 @@ if (location.hash === '#MIDINotesWindow') {
       return button;
     }
 
-    createAdjustmentButton('↺', 'r', r => r - 1);
-    createAdjustmentButton('↻', 'r', r => r + 1);
+    createAdjustmentButton('↺', 'r', r => r - 0.5);
+    createAdjustmentButton('↻', 'r', r => r + 0.5);
     
     createAdjustmentButton('w+', 'w', w => w + 2);
     createAdjustmentButton('w-', 'w', w => w - 2);

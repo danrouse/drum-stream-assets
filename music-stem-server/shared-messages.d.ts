@@ -29,6 +29,9 @@ type WebSocketServerMessage = {
 } | {
   type: 'client_remote_control',
   action: string, // TODO: type connect this with price_change (should be an enum~ish)
+} | {
+  type: 'emote_used',
+  emote: string,
 };
 
 type WebSocketPlayerMessage = {
