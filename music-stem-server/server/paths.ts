@@ -11,3 +11,4 @@ export const SONG_LIST_PATH = join(__dirname, 'songlist.json');
 export const PLAYER_DIST = join(__dirname, '..', 'player', 'dist');
 
 export const YT_DLP_PATH = join(__dirname, '..', '..', 'bin', 'yt-dlp.exe');
+export const YT_MUSIC_COOKIES = join(__dirname, '..', 'music.youtube.com_cookies.txt');

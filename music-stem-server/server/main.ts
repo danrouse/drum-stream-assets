@@ -4,12 +4,12 @@ import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync, writeFileSync, readFileSync } from 'fs';
-import createWebSocketServer from './webSocketServer';
-import createStreamerbotClient from './streamerbotClient';
+import WebSocketCoordinatorServer from './webSocketServer';
+import StreamerbotWebSocketClient from './streamerbotClient';
+import LiveSplitWebSocketClient from './liveSplit';
 import * as Paths from './paths';
-import { setSongRequestWebSocketBroadcaster } from './songRequests';
+import SongRequestHandler from './songRequests';
 import generateSongList from './songList';
-import { handleLiveSplitMessage } from './liveSplit';
 
 const PORT = 3000;
 
@@ -20,11 +20,32 @@ app.use('/downloads', express.static(Paths.DOWNLOADS_PATH));
 app.use('/stems', express.static(Paths.STEMS_PATH));
 
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
-const { broadcast, handlers: wsHandlers } = createWebSocketServer(httpServer);
-setSongRequestWebSocketBroadcaster(broadcast);
-const streamerbotWsHandler = createStreamerbotClient(broadcast);
-wsHandlers.push(streamerbotWsHandler);
-wsHandlers.push(handleLiveSplitMessage);
+const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
+
+const songRequestHandler = new SongRequestHandler(webSocketCoordinatorServer.broadcast);
+webSocketCoordinatorServer.handlers.push(async (payload) => {
+  if (payload.type === 'song_request') {
+    try {
+      await songRequestHandler.execute(payload.query);
+    } catch (e) {
+      webSocketCoordinatorServer.broadcast({ type: 'download_error', query: payload.query });
+    }
+  }
+});
+
+try {
+  const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler);
+  webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
+} catch (e) {
+  console.error('Failed to connect to Streamerbot, these features will be disabled');
+}
+
+try {
+  const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
+  webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
+} catch (e) {
+  console.error('Failed to connect to LiveSplit, these features will be disabled');
+}
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {

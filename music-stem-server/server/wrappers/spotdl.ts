@@ -69,7 +69,7 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
     });
   });
 }
-export default async function spotdl(query: string, outputPath: string, cookies: string): Promise<DownloadedSong> {
+export default async function spotdl(query: string, outputPath: string): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
       const url = new URL(query);
@@ -106,7 +106,7 @@ export default async function spotdl(query: string, outputPath: string, cookies:
           // result in highest quality output
           '--format', 'm4a',
           '--bitrate', 'disable',
-          '--cookie-file', `"${cookies}"`,
+          '--cookie-file', `"${Paths.YT_MUSIC_COOKIES}"`,
           'download', `"${isURL(query) ? query : `'${query}'`}"`,
         ],
         { shell: true }

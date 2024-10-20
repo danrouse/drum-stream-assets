@@ -4,6 +4,7 @@ import ffprobe from 'ffprobe';
 import ffprobeStatic from 'ffprobe-static';
 // @ts-expect-error
 import { parseFile } from 'music-metadata';
+import { parseTime } from './util';
 
 export default async function getSongTags(songBasename: string, isPath: boolean = false, basePath: string) {
   let tags: any = {};
@@ -20,9 +21,9 @@ export default async function getSongTags(songBasename: string, isPath: boolean 
 
     let duration = 0;
     if (res.streams[0].duration) {
-      duration = Number(res.streams[0].duration)
+      duration = Number(res.streams[0].duration);
     } else if (res.streams[0].tags.DURATION) {
-      duration = res.streams[0].tags.DURATION.split(':').reduce((a,t)=> (60 * a) + +t, 0);
+      duration = parseTime(res.streams[0].tags.DURATION);
     }
     const partsMatch = songBasename.match(/([^-]+) - (.+)$/);
     tags = {

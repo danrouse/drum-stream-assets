@@ -1,11 +1,12 @@
-import { StreamerbotClient } from '@streamerbot/client';
+import { StreamerbotClient, StreamerbotEventPayload } from '@streamerbot/client';
 import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import formatTime from '../player/formatTime';
-import { handleSongRequest } from './songRequests';
+import SongRequestHandler from './songRequests';
+import { loadEmotes } from '../../shared/7tv';
 
-let broadcast: WebSocketBroadcaster = () => {};
+// const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
-const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
+interface IdMap { [name: string]: string }
 
 const REWARD_IDS: { [name: string]: string } = {
   SongRequest: '089b77c3-bf0d-41e4-9063-c239bcb6477b',
@@ -14,111 +15,126 @@ const REWARD_IDS: { [name: string]: string } = {
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
 };
 
-interface IdMap { [name: string]: string }
+export default class StreamerbotWebSocketClient {
+  private client: StreamerbotClient;
+  private broadcast: WebSocketBroadcaster;
+  private songRequestHandler: SongRequestHandler;
+  private actions: IdMap = {};
+  private twitchMessageIdsByUser: IdMap = {};
+  private emotes: IdMap = {};
 
-async function handleStreamerbotSongRequest(
-  originalMessage: string,
-  sendTwitchMessage: (message: string, replyTo?: string) => void,
-  fromUsername: string,
-  replyTo?: string,
-  // TODO: Store rewardId, and redemptionId to mark redemptions as "fulfilled"
-  rewardId?: string,
-  redemptionId?: string,
-) {
-  // Only send a heartbeat message if we didn't process it super quickly
-  let hasSentMessage = false;
-  setTimeout(async () => {
-    if (!hasSentMessage) await sendTwitchMessage(`Working on it, ${fromUsername}!`, replyTo);
-  }, 1000);
-
-  // Strip accidental inclusions on the original message
-  const userInput = originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
-
-  try {
-    const song = await handleSongRequest(userInput, {
-      requesterName: fromUsername,
-      rewardId, redemptionId,
-      time: new Date(),
+  constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler) {
+    this.client = new StreamerbotClient({
+      onConnect: () => this.loadActions(),
     });
-    hasSentMessage = true;
-    await sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`, replyTo);
-  } catch (e: any) {
-    let message = 'There was an error adding your song request!';
-    if (e instanceof SongDownloadError) {
-      if (e.type === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
-      if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
-      if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
-      if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-      if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
-    }
-    hasSentMessage = true;
-    await sendTwitchMessage(`@${fromUsername} ${message}`, replyTo);
-    // rethrow to allow to catch for refund
-    throw e;
+    this.client.on('Application.*', async () => {
+      await this.loadActions();
+      await this.loadEmotes();
+    });
+    this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage);
+    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
+
+    this.broadcast = broadcast;
+    this.songRequestHandler = songRequestHandler;
   }
-}
 
-export default function createStreamerbotClient(broadcaster: WebSocketBroadcaster) {
-  // TODO: There's got to be a better way to handle this dependency injection
-  broadcast = broadcaster;
+  public messageHandler(payload: WebSocketServerMessage | WebSocketPlayerMessage) {
+    if (payload.type === 'price_change') {
+      const rewardId = REWARD_IDS[payload.action];
+      this.client.doAction(this.actions['Change reward price'], { rewardId, ...payload });
+    }
+  }
 
-  // Store a mapping of command names to IDs so that they can be called by name
-  let actions: IdMap;
-  const loadActions = async () => {
+  private async loadActions() {
     const mapping: IdMap = {};
-    const res = await client.getActions();
+    const res = await this.client.getActions();
     res.actions.forEach((action) => {
       mapping[action.name] = action.id;
     });
-    return mapping;
-  };
-  const client = new StreamerbotClient({
-    onConnect: async () => actions = await loadActions()
-  });
-  client.on('Application.*', async () => actions = await loadActions());
+    this.actions = mapping;
+  }
 
-  // Send Twitch messages by calling the Streamerbot action made for it
-  const sendTwitchMessage = (message: string, replyTo?: string) =>
-    client.doAction(actions['Twitch chat message'], { message, replyTo });
-  
-  // Streamerbot Command.Triggered events which were triggered by Twitch messages
-  // don't include the messageId which triggered them, but the Twitch.ChatMessage
-  // event gets triggered first, so store a mapping of userIds to messageIds for replies
-  const twitchMessageIdsByUser: IdMap = {};
-  client.on('Twitch.ChatMessage', (data) => {
-    twitchMessageIdsByUser[data.data.message.userId] = data.data.message.msgId;
-  });
-  
-  client.on('Twitch.RewardRedemption', async (payload) => {
+  private async loadEmotes() {
+    this.emotes = await loadEmotes();
+  }
+
+  public sendTwitchMessage(message: string, replyTo?: string) {
+    this.client.doAction(this.actions['Twitch chat message'], { message, replyTo });
+  }
+
+  private async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
+    // Streamerbot Command.Triggered events which were triggered by Twitch messages
+    // don't include the messageId which triggered them, but the Twitch.ChatMessage
+    // event gets triggered first, so store a mapping of userIds to messageIds for replies
+    this.twitchMessageIdsByUser[payload.data.message.userId] = payload.data.message.msgId;
+    const words = payload.data.message.message.split(' ');
+    const matchingEmote = words.find(word => this.emotes.hasOwnProperty(word));
+    if (matchingEmote) {
+      this.broadcast({ type: 'emote_used', emote: matchingEmote });
+    }
+  }
+
+  private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
     if (payload.data.reward.id === REWARD_IDS.SongRequest) {
-      // if (payload.data.user_input === 'test') return;
       try {
-        await handleStreamerbotSongRequest(
+        await this.handleSongRequest(
           payload.data.user_input,
-          sendTwitchMessage,
           payload.data.user_name,
           payload.data.reward.id,
           payload.data.id
         );
       } catch (e) {
         console.info('Song reward redemption failed with error', (e as any)?.type);
-        client.doAction(actions['Refund song request'], { rewardId: payload.data.reward.id, redemptionId: payload.data.id });
+        this.client.doAction(this.actions['Refund song request'], {
+          rewardId: payload.data.reward.id,
+          redemptionId: payload.data.id,
+        });
       }
     } else {
       const rewards = Object.entries(REWARD_IDS);
       const matchingReward = rewards.find(([name, rewardId]) => rewardId === payload.data.reward.id);
       if (matchingReward) {
-        broadcast({ type: 'client_remote_control', action: matchingReward[0] });
+        this.broadcast({ type: 'client_remote_control', action: matchingReward[0] });
       }
     }
-  });
+  }
 
-  const wsHandler: WebSocketMessageHandler = (payload) => {
-    if (payload.type === 'price_change') {
-      const rewardId = REWARD_IDS[payload.action];
-      client.doAction(actions['Change reward price'], { rewardId, ...payload });
+  private async handleSongRequest(
+    originalMessage: string,
+    fromUsername: string,
+    rewardId?: string,
+    redemptionId?: string,
+  ) {
+    // Only send a heartbeat message if we didn't process it super quickly
+    let hasSentMessage = false;
+    setTimeout(async () => {
+      if (!hasSentMessage) await this.sendTwitchMessage(`Working on it, ${fromUsername}!`);
+    }, 1000);
+
+    // Strip accidental inclusions on the original message
+    const userInput = originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
+
+    try {
+      const song = await this.songRequestHandler.execute(userInput, {
+        requesterName: fromUsername,
+        rewardId, redemptionId,
+        time: new Date(),
+      });
+      hasSentMessage = true;
+      await this.sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`);
+    } catch (e: any) {
+      let message = 'There was an error adding your song request!';
+      if (e instanceof SongDownloadError) {
+        if (e.type === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
+        if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
+        if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
+        if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
+        if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
+      }
+      hasSentMessage = true;
+      await this.sendTwitchMessage(`@${fromUsername} ${message}`);
+      // rethrow to allow to catch for refund
+      throw e;
     }
-  };
-
-  return wsHandler;
+  }
 }
