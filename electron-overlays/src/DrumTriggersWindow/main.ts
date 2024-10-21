@@ -1,4 +1,4 @@
-import { midiNoteDefinitions, MIDINoteDefinition } from '../../../shared/midiNoteDefinitions';
+import { midiNoteDefinitions, MIDINoteDefinition, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { ChannelPointReward } from '../../../shared/messages';
 
 if (location.hash === '#DrumTriggersWindow') {
@@ -6,8 +6,9 @@ if (location.hash === '#DrumTriggersWindow') {
     [drumName in MIDINoteDefinition['name']]?: string
   } = {};
 
-  function triggerSound(audioPath: string) {
+  function triggerSound(audioPath: string, volume: number = 1.0) {
     const audio = new Audio(audioPath);
+    audio.volume = volume;
     audio.addEventListener('canplaythrough', () => audio.play());
     audio.addEventListener('ended', () => audio.remove());
   }
@@ -15,7 +16,7 @@ if (location.hash === '#DrumTriggersWindow') {
   function handleMIDINote(midiNote: number, velocity: number) {
     const drumName = midiNoteDefinitions.find(def => def.keys.includes(midiNote))?.name;
     if (drumName && drumReplacementSounds[drumName]) {
-      triggerSound(drumReplacementSounds[drumName]);
+      triggerSound(drumReplacementSounds[drumName], velocity / MIDI_TRIGGER_VELOCITY_MAX);
     }
   }
 

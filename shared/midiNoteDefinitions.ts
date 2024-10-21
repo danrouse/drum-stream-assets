@@ -33,3 +33,5 @@ export const midiNoteKeysByName = midiNoteDefinitions.reduce((acc, def) => {
   acc[def.name] = def.keys;
   return acc;
 }, {} as { [name: string]: number[] });
+
+export const MIDI_TRIGGER_VELOCITY_MAX = 127;

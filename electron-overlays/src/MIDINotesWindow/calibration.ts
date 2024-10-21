@@ -1,5 +1,5 @@
 import initializeCamera from './camera';
-import { MIDINoteDisplayDefinition } from '../../../shared/midiNoteDefinitions';
+import { MIDINoteDisplayDefinition, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 
 let isFrameHandlerActive = false;
 let currentNoteIndex = -1;
@@ -113,35 +113,10 @@ export async function beginCalibration(
     } else {
       statusTextElem.innerText = config[currentNoteIndex].name;
       clearNotes();
-      renderNote(config[currentNoteIndex].keys[0], 1000, false, config); // VELOCITY_FULLY_OPAQUE / 2
+      renderNote(config[currentNoteIndex].keys[0], MIDI_TRIGGER_VELOCITY_MAX, false, config);
     }
   }
 
-  // const setConfigForAllNotesFromBase = (index: number, config: Partial<NoteConfig>) => {
-  //   [
-  //     noteConfig[Number(noteKeys[index])],
-  //     ...Object.values(noteConfig).filter(selectedNoteConfig =>
-  //       selectedNoteConfig.base === noteConfig[Number(noteKeys[index])].name
-  //     )
-  //   ].forEach((selectedNoteConfig) => {
-  //     let k: keyof NoteConfig;
-  //     for (k in config) {
-  //       selectedNoteConfig[k] = config[k];
-  //     }
-  //   });
-  //   clearNotes();
-  //   triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE / 2, false);
-  // };
-
-  // video.addEventListener('click', (event: MouseEvent) => {
-  //   const videoSize = video.getBoundingClientRect();
-  //   setConfigForAllNotesFromBase(currentNoteIndex, {
-  //     x: event.x / videoSize.width,
-  //     y: event.y / videoSize.height,
-  //   });
-  //   clearNotes();
-  //   triggerNote(Number(noteKeys[currentNoteIndex]), VELOCITY_FULLY_OPAQUE / 2, false);
-  // });
   video.addEventListener('contextmenu', () => finishCalibration());
 
   const buttons = createAdjustmentButtons(config, renderNote, clearNotes);

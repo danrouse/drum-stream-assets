@@ -1,6 +1,6 @@
 
 import initializeMIDIInput from './midi';
-import { MIDINoteDisplayDefinition, midiNoteDefinitions } from '../../../shared/midiNoteDefinitions';
+import { MIDINoteDisplayDefinition, midiNoteDefinitions, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
 import { loadEmotes } from '../../../shared/7tv';
 
@@ -69,8 +69,6 @@ if (location.hash === '#MIDINotesWindow') {
 
   const existingNoteByType: { [key: number]: HTMLElement } = {};
 
-  // const NOTE_VELOCITY_MAX = 127;
-  const VELOCITY_FULLY_OPAQUE = 100;
   const NOTE_ANIMATION_DURATION_MS = 2000;
   function triggerNote(note: number, velocity: number, animated: boolean = true, noteConfigs = config) {
     const selectedNoteConfigs = noteConfigs.filter(def => def.keys.includes(note));
@@ -88,7 +86,7 @@ if (location.hash === '#MIDINotesWindow') {
       const noteElem = document.createElement('DIV');
       noteElem.classList.add('note');
       noteElem.classList.add(pascalCaseToKebabCase(`note-${name}`));
-      noteElem.style.opacity = '1';//String((velocity + 25) / VELOCITY_FULLY_OPAQUE);
+      noteElem.style.opacity = String((velocity + 25) / MIDI_TRIGGER_VELOCITY_MAX);
       noteElem.style.left = `${noteConfig.x}px`;
       noteElem.style.top = `${noteConfig.y}px`;
       noteElem.style.width = `${noteConfig.w}px`;
@@ -118,7 +116,7 @@ if (location.hash === '#MIDINotesWindow') {
   function clearNotes() {
     notesContainerElem.innerHTML = '';
   }
-  function renderTestNotes(animated: boolean =  true, velocity: number = VELOCITY_FULLY_OPAQUE) {
+  function renderTestNotes(animated: boolean =  true, velocity: number = MIDI_TRIGGER_VELOCITY_MAX) {
     clearNotes();
     config.forEach(def => triggerNote(def.keys[0], velocity, animated));
   }
@@ -131,7 +129,7 @@ if (location.hash === '#MIDINotesWindow') {
       if (i < Z_INDEX_MAX) {
         config
           .filter(def => def.z > i)
-          .forEach(def => triggerNote(def.keys[0], VELOCITY_FULLY_OPAQUE, false));
+          .forEach(def => triggerNote(def.keys[0], MIDI_TRIGGER_VELOCITY_MAX, false));
         await sleep(500);
         window.ipcRenderer.send('generate_mask', i + 1);
       } else {
