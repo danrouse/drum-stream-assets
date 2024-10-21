@@ -67,7 +67,7 @@ export default class StreamerbotWebSocketClient {
       const isFaster = playbackRate > 1;
       const nextSlowDownPrice = Math.round(isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30));
       const nextSpeedUpPrice = Math.round(!isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30));
-      const MIN_PLAYBACK_SPEED = 0.2; // TODO: Share this somehow
+      const MIN_PLAYBACK_SPEED = 0.25; // TODO: Share this somehow, should be 0.1 + reward_amount
 
       await this.client.doAction(this.actions['Reward: Change Price'], {
         rewardId: REWARD_IDS.SlowDownCurrentSong,

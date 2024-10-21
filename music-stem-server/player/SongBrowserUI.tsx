@@ -143,7 +143,7 @@ export default function SongBrowserUI() {
         setTimeout(() => setPlaybackRate(r => r - amount!), duration)
       );
     } else if (action === 'SlowDownCurrentSong') {
-      const MIN_PLAYBACK_SPEED = 0.2; // TODO: Share this somehow
+      const MIN_PLAYBACK_SPEED = 0.25; // TODO: Share this somehow
       setPlaybackRate(r => Math.max(r - amount!, MIN_PLAYBACK_SPEED));
       clientRemoteControlResetTimers.push(
         setTimeout(() => setPlaybackRate(r => r + amount!), duration)
