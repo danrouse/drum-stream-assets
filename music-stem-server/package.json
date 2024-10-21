@@ -22,6 +22,7 @@
     "ffprobe": "^1.1.2",
     "ffprobe-static": "^3.1.0",
     "howler": "^2.2.4",
+    "midi": "^2.0.0",
     "music-metadata": "^10.5.0",
     "node-id3tag": "^0.9.8",
     "react": "^18.3.1",
@@ -39,6 +40,7 @@
     "@types/ffprobe": "^1.1.8",
     "@types/ffprobe-static": "^2.0.3",
     "@types/howler": "^2.2.11",
+    "@types/midi": "^2.0.3",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@types/ws": "^8.5.12"

@@ -9,6 +9,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import * as Paths from './paths';
 import SongRequestHandler from './SongRequestHandler';
+import MIDIOutputController from './MIDIOutputController';
 import generateSongList from './songList';
 
 process.on('unhandledRejection', (reason: any) => {
@@ -42,6 +43,8 @@ webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandl
 
 const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
 webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
+
+const midiController = new MIDIOutputController();
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
