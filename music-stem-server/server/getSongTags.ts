@@ -4,7 +4,7 @@ import ffprobe from 'ffprobe';
 import ffprobeStatic from 'ffprobe-static';
 // @ts-expect-error
 import { parseFile } from 'music-metadata';
-import { parseTime } from './util';
+import { parseTime } from '../../shared/util';
 
 export default async function getSongTags(songBasename: string, isPath: boolean = false, basePath: string) {
   let tags: any = {};

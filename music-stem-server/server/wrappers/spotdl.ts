@@ -2,7 +2,7 @@ import { execSync, spawn } from 'child_process';
 import { join, basename } from 'path';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import * as Paths from '../paths';
-import { isURL, sleep } from '../util';
+import { isURL, sleep } from '../../../shared/util';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 export const MAX_SONG_REQUEST_DURATION = 600;
