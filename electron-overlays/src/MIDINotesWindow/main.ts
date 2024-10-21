@@ -96,7 +96,7 @@ if (location.hash === '#MIDINotesWindow') {
       noteElem.style.marginLeft = `-${noteConfig.w / 2}px`;
       noteElem.style.marginTop = `-${noteConfig.h / 2}px`;
       noteElem.style.backgroundColor = noteConfig.color;
-      // noteElem.style.backgroundImage = `url(${selectedEmote})`;
+      noteElem.style.backgroundImage = `url(${selectedEmote})`;
       noteElem.style.transform = `rotate(${noteConfig.r}deg)`;
       noteElem.style.zIndex = `${noteConfig.z}`;
       noteElem.innerText = noteConfig.name;
