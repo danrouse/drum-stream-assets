@@ -1,11 +1,11 @@
-export interface NoteDefinition {
+export interface MIDINoteDefinition {
   name: string;
   color: string;
   z: number;
   keys: number[];
 }
 
-export interface UserNoteDefinition extends NoteDefinition {
+export interface MIDINoteDisplayDefinition extends MIDINoteDefinition {
   x: number;
   y: number;
   w: number;
@@ -13,7 +13,7 @@ export interface UserNoteDefinition extends NoteDefinition {
   r: number;
 };
 
-export const baseNotes: NoteDefinition[] = [
+export const midiNoteDefinitions: MIDINoteDefinition[] = [
   { name: 'Snare', keys: [37, 38, 40], color: 'rgb(223, 25, 25)', z: 7 },
   { name: 'Tom1', keys: [48, 50], color: 'rgb(94 120 231)', z: 6 },
   { name: 'Tom2', keys: [45, 47], color: 'rgb(94 201 231)', z: 5 },
@@ -28,3 +28,8 @@ export const baseNotes: NoteDefinition[] = [
   { name: 'Kick', keys: [36], color: '#444', z: 2 },
   { name: 'Kick Secondary', keys: [36], color: '#444', z: 2 },
 ];
+
+export const midiNoteKeysByName = midiNoteDefinitions.reduce((acc, def) => {
+  acc[def.name] = def.keys;
+  return acc;
+}, {} as { [name: string]: number[] });

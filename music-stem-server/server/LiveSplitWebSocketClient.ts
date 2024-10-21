@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import { parseTime } from '../../shared/util';
+import { WebSocketPlayerMessage, WebSocketServerMessage } from '../../shared/messages';
 
 export default class LiveSplitWebSocketClient {
   private ws: WebSocket;

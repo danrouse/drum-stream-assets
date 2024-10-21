@@ -28,10 +28,16 @@ type WebSocketServerMessage = {
   query: string,
 } | {
   type: 'client_remote_control',
-  action: string, // TODO: type connect this with price_change (should be an enum~ish)
+  action: ChannelPointReward['name'],
+  duration?: number,
+  amount?: number,
 } | {
   type: 'emote_used',
   emote: string,
+} | {
+  type: 'midi_note_on',
+  note: number,
+  velocity: number,
 };
 
 type WebSocketPlayerMessage = {
@@ -55,8 +61,26 @@ type WebSocketPlayerMessage = {
   speed: number,
 } | {
   type: 'price_change',
-  action: string, // TODO: type connect this with client_remote_control (should be an enum~ish)
+  action: ChannelPointReward['name'],
   price: number,
+};
+
+export type ChannelPointReward = {
+  name: 'SongRequest',
+} | {
+  name: 'MuteCurrentSongDrums',
+  duration: number,
+} | {
+  name: 'SlowDownCurrentSong',
+  duration: number,
+  amount: number,
+} | {
+  name: 'SpeedUpCurrentSong',
+  duration: number,
+  amount: number,
+} | {
+  name: 'OopsAllFarts',
+  duration: number,
 };
 
 type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;

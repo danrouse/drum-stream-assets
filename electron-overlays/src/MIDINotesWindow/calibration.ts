@@ -1,17 +1,17 @@
 import initializeCamera from './camera';
-import { UserNoteDefinition } from './noteConfig';
+import { MIDINoteDisplayDefinition } from '../../../shared/midiNoteDefinitions';
 
 let isFrameHandlerActive = false;
 let currentNoteIndex = -1;
 
 function createAdjustmentButtons(
-  config: UserNoteDefinition[],
-  renderNote: (key: number, velocity: number, animated: boolean, configs: UserNoteDefinition[]) => void,
+  config: MIDINoteDisplayDefinition[],
+  renderNote: (key: number, velocity: number, animated: boolean, configs: MIDINoteDisplayDefinition[]) => void,
   clearNotes: () => void,
 ) {
   const containerElem = document.createElement('div');
   
-  const createAdjustmentButton = (symbol: string, attr: keyof UserNoteDefinition, getVal: (k: number) => number) => {
+  const createAdjustmentButton = (symbol: string, attr: keyof MIDINoteDisplayDefinition, getVal: (k: number) => number) => {
     const button = document.createElement('button');
     button.innerText = symbol;
     button.addEventListener('click', () => {
@@ -60,10 +60,10 @@ function createAdjustmentButtons(
 
 export async function beginCalibration(
   globalContainerElem: HTMLElement,
-  config: UserNoteDefinition[],
-  renderNote: (key: number, velocity: number, animated: boolean, configs: UserNoteDefinition[]) => void,
+  config: MIDINoteDisplayDefinition[],
+  renderNote: (key: number, velocity: number, animated: boolean, configs: MIDINoteDisplayDefinition[]) => void,
   clearNotes: () => void,
-  onComplete: (config: UserNoteDefinition[]) => void,
+  onComplete: (config: MIDINoteDisplayDefinition[]) => void,
 ) {
   let video: HTMLVideoElement;
   try {

@@ -2,6 +2,7 @@ import { join } from 'path';
 import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
+import { SongRequest, SongData } from '../../shared/messages';
 
 async function getSongData(songBasename: string, requests?: SongRequest[]): Promise<SongData | undefined> {
   const stems = readdirSync(join(Paths.STEMS_PATH, songBasename));

@@ -3,6 +3,7 @@ import { join, basename } from 'path';
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import * as Paths from '../paths';
 import { isURL, sleep } from '../../../shared/util';
+import { DownloadedSong } from '../../../shared/messages';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 export const MAX_SONG_REQUEST_DURATION = 600;

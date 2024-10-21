@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { WebSocketServerMessage } from '../../../shared/messages';
 import './style.css';
 
 async function submitDownloadQuery(q: string, socket: WebSocket) {

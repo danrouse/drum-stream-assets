@@ -1,6 +1,6 @@
 
 import initializeMIDIInput from './midi';
-import { UserNoteDefinition, baseNotes } from './noteConfig';
+import { MIDINoteDisplayDefinition, midiNoteDefinitions } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
 import { loadEmotes } from '../../../shared/7tv';
 
@@ -43,11 +43,11 @@ if (location.hash === '#MIDINotesWindow') {
 
   // LOAD/SAVE CONFIG
   const LOCAL_STORAGE_KEY = 'noteconfig2';
-  function saveConfig(config: UserNoteDefinition[]) {
+  function saveConfig(config: MIDINoteDisplayDefinition[]) {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
   }
-  function loadConfig(): UserNoteDefinition[] {
-    const config: UserNoteDefinition[] = baseNotes.map(def => ({
+  function loadConfig(): MIDINoteDisplayDefinition[] {
+    const config: MIDINoteDisplayDefinition[] = midiNoteDefinitions.map(def => ({
       ...def,
       x: 100,
       y: 100,
@@ -57,9 +57,9 @@ if (location.hash === '#MIDINotesWindow') {
     }));
     const savedString = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (savedString) {
-      const loadedDefs = JSON.parse(savedString) as UserNoteDefinition[];
+      const loadedDefs = JSON.parse(savedString) as MIDINoteDisplayDefinition[];
       return loadedDefs.map(def => {
-        const baseDef = baseNotes.find(n => n.name === def.name);
+        const baseDef = midiNoteDefinitions.find(n => n.name === def.name);
         return {...def, ...baseDef};
       });
     }

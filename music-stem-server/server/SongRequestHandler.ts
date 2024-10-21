@@ -5,6 +5,7 @@ import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
 import { saveSongData } from './songList';
+import { SongRequestSource, SongRequest, ProcessedSong, DownloadedSong, WebSocketBroadcaster } from '../../shared/messages';
 
 interface DemucsCallback {
   song: DownloadedSong;

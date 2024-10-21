@@ -1,6 +1,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { ProcessedSong, DownloadedSong } from '../../../shared/messages';
 
 type DemucsModel =
   'htdemucs' | 'htdemucs_ft' | 'htdemucs_6s' | 'hdemucs_mmi' | 

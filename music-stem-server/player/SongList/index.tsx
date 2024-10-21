@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import formatTime from '../formatTime';
+import { SongData } from '../../../shared/messages';
 import './style.css';
 
 interface SongListProps {

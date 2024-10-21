@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
+import { WebSocketServerMessage, WebSocketPlayerMessage, WebSocketMessageHandler } from '../../shared/messages';
 
 export default class WebSocketCoordinatorServer {
   public handlers: WebSocketMessageHandler[] = [];
