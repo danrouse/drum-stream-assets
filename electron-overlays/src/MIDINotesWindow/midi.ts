@@ -1,3 +1,5 @@
+// TODO: Scrap all of this and use midi note messages broadcast from the coordinator
+
 const MIDI_EVENT_SYSTEM   = 0b1111;
 const MIDI_EVENT_NOTE_OFF = 0b1000;
 const MIDI_EVENT_NOTE_ON  = 0b1001;

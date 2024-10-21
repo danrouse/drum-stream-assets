@@ -2,28 +2,48 @@ import { StreamerbotClient, StreamerbotEventPayload } from '@streamerbot/client'
 import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import formatTime from '../player/formatTime';
 import SongRequestHandler from './SongRequestHandler';
+import MIDIIOController from './MIDIIOController';
 import { loadEmotes } from '../../shared/7tv';
+import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 
 // const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
 interface IdMap { [name: string]: string }
 
-const REWARD_IDS: { [name: string]: string } = {
+const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   SongRequest: '089b77c3-bf0d-41e4-9063-c239bcb6477b',
   MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
   SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
+  OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
 };
+
+const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
+  MuteCurrentSongDrums: 120000,
+  SlowDownCurrentSong: 120000,
+  SpeedUpCurrentSong: 120000,
+  OopsAllFarts: 30000,
+};
+
+const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
+  SlowDownCurrentSong: 0.15,
+  SpeedUpCurrentSong: 0.15,
+};
+
+const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
+  ['OopsAllFarts'],
+];
 
 export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
+  private midiController: MIDIIOController;
   private broadcast: WebSocketBroadcaster;
   private songRequestHandler: SongRequestHandler;
   private actions: IdMap = {};
   private twitchMessageIdsByUser: IdMap = {};
   private emotes: IdMap = {};
 
-  constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler) {
+  constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
       onConnect: () => this.loadActions(),      
       retries: 0,
@@ -37,12 +57,13 @@ export default class StreamerbotWebSocketClient {
 
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
+    this.midiController = midiController;
   }
 
   public messageHandler(payload: WebSocketServerMessage | WebSocketPlayerMessage) {
     if (payload.type === 'price_change') {
       const rewardId = REWARD_IDS[payload.action];
-      this.client.doAction(this.actions['Change reward price'], { rewardId, ...payload });
+      this.client.doAction(this.actions['Reward: Change Price'], { rewardId, ...payload });
     }
   }
 
@@ -97,10 +118,32 @@ export default class StreamerbotWebSocketClient {
         });
       }
     } else {
-      const rewards = Object.entries(REWARD_IDS);
-      const matchingReward = rewards.find(([name, rewardId]) => rewardId === payload.data.reward.id);
-      if (matchingReward) {
-        this.broadcast({ type: 'client_remote_control', action: matchingReward[0] });
+      let rewardName: ChannelPointReward['name'];
+      for (rewardName in REWARD_IDS) {
+        if (REWARD_IDS[rewardName] === payload.data.reward.id) {
+          this.broadcast({
+            type: 'client_remote_control',
+            action: rewardName,
+            duration: REWARD_DURATIONS[rewardName],
+            amount: REWARD_AMOUNTS[rewardName],
+          });
+          if (rewardName === 'OopsAllFarts') {
+            this.midiController.muteToms();
+            setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
+          }
+
+          const mutuallyExclusiveGroup = MUTUALLY_EXCLUSIVE_REWARD_GROUPS.find(rewardNames => rewardNames.includes(rewardName));
+          if (mutuallyExclusiveGroup) {
+            mutuallyExclusiveGroup.forEach((otherRewardName) =>
+              this.client.doAction(this.actions['Reward: Pause'], { rewardId: REWARD_IDS[otherRewardName] }));
+            setTimeout(() => {
+              mutuallyExclusiveGroup.forEach((otherRewardName) =>
+                this.client.doAction(this.actions['Reward: Unpause'], { rewardId: REWARD_IDS[otherRewardName] }));
+            }, REWARD_DURATIONS[rewardName])
+          }
+
+          break;
+        }
       }
     }
   }

@@ -9,7 +9,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import * as Paths from './paths';
 import SongRequestHandler from './SongRequestHandler';
-import MIDIOutputController from './MIDIOutputController';
+import MIDIIOController from './MIDIIOController';
 import { generateSongDataList } from './songList';
 
 process.on('unhandledRejection', (reason: any) => {
@@ -27,6 +27,8 @@ app.use('/stems', express.static(Paths.STEMS_PATH));
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 
+const midiController = new MIDIIOController(webSocketCoordinatorServer.broadcast);
+
 const songRequestHandler = new SongRequestHandler(webSocketCoordinatorServer.broadcast);
 webSocketCoordinatorServer.handlers.push(async (payload) => {
   if (payload.type === 'song_request') {
@@ -38,13 +40,11 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
   }
 });
 
-const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler);
+const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler, midiController);
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
 const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
 webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
-
-const midiController = new MIDIOutputController();
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
