@@ -1,9 +1,10 @@
 import { join } from 'path';
-import { unlinkSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
+import { saveSongData } from './songList';
 
 interface DemucsCallback {
   song: DownloadedSong;
@@ -29,8 +30,9 @@ export default class SongRequestHandler {
     this.demucs = new Demucs(Paths.DEMUCS_OUTPUT_PATH);
     this.demucs.onProcessingStart = (song) => broadcast({ type: 'demucs_start', name: song.basename });
     this.demucs.onProcessingProgress = (song, progress) => broadcast({ type: 'demucs_progress', progress, name: song.basename });
-    this.demucs.onProcessingComplete = (song) => {
+    this.demucs.onProcessingComplete = async (song) => {
       broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
+      await saveSongData(song.basename);
       this.demucsCallbacks.filter(s => s.song.basename === song.basename).forEach(s => s.callback(song));
       this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
     };
@@ -79,7 +81,6 @@ export default class SongRequestHandler {
           this.processDownloadedSong(downloadedSong, (processedSong) => {
             if (processedSong) {
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              try { unlinkSync(Paths.SONG_LIST_PATH); } catch (e) {}
               if (request) updateSongRequestMetadata(request, processedSong);
               this.broadcast({ type: 'song_request_added', name: downloadedSong.basename });
               resolve(processedSong);

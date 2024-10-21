@@ -3,14 +3,14 @@ import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join } from 'path';
-import { readdirSync, existsSync, unlinkSync, writeFileSync, readFileSync } from 'fs';
+import { readdirSync, existsSync, unlinkSync, readFileSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import * as Paths from './paths';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIOutputController from './MIDIOutputController';
-import generateSongList from './songList';
+import { generateSongDataList } from './songList';
 
 process.on('unhandledRejection', (reason: any) => {
   console.error(reason?.message || reason);
@@ -57,8 +57,7 @@ app.get('/clean', async () => {
 
 app.get('/songs', async (req, res) => {
   if (!existsSync(Paths.SONG_LIST_PATH)) {
-    const data = await generateSongList();
-    writeFileSync(Paths.SONG_LIST_PATH, JSON.stringify(data, null, 2));
+    const data = await generateSongDataList();
     return res.send(data);
   }
   return res.send(readFileSync(Paths.SONG_LIST_PATH));
