@@ -1,9 +1,8 @@
-import { useEffect, useState, useRef, ElementRef } from 'react';
+import { useEffect, useState } from 'react';
 import { unstable_batchedUpdates } from 'react-dom';
 
 import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongBrowserPlaylists from './SongBrowserPlaylists';
-import DrumTriggers from './DrumTriggers';
 import { ChannelPointReward, SongData, WebSocketPlayerMessage, WebSocketServerMessage } from '../../shared/messages';
 
 // localStorage persistence of user state
@@ -71,7 +70,6 @@ export default function SongBrowserUI() {
   const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
   const [songRequestsToAdd, setSongRequestsToAdd] = useState<string[]>([]);
   const [socket, setSocket] = useState<WebSocket>();
-  const [triggers, setTriggers] = useState<[string, string][]>([]);
   // Previous state values for resetting from client remote control commands
   const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<string[]>([]);
   const [prevPlaybackRate, setPrevPlaybackRate] = useState(1);
@@ -153,16 +151,6 @@ export default function SongBrowserUI() {
         setTimeout(() => setPlaybackRate(r => r + amount!), duration)
       );
       prevSpeedChangeAmount = amount!;
-    } else if (action === 'OopsAllFarts') {
-      setTriggers([
-        ['Tom1', '/Fart 1.wav'],
-        ['Tom2', '/Fart 2.wav'],
-        ['Tom3', '/Fart 3.wav'],
-        ['Tom4', '/Fart 4.wav'],
-      ]);
-      clientRemoteControlResetTimers.push(
-        setTimeout(() => setTriggers(t => t.filter(s => !s[0].startsWith('Tom'))), duration)
-      );
     }
   };
 
@@ -253,13 +241,6 @@ export default function SongBrowserUI() {
         setSongRequestsToAdd([...songRequestsToAdd, message.name]);
       } else if (message?.type === 'client_remote_control') {
         handleClientRemoteControl(message.action, message.duration, message.amount);
-      } else if (message?.type === 'midi_note_on') {
-        /*
-          const triggers = [
-,
-  ];
-  */
-        drumTriggerRef.current?.trigger(message.note, message.velocity);
       }
     };
     ws.addEventListener('message', handleMessage);
@@ -279,11 +260,8 @@ export default function SongBrowserUI() {
     };
   }, []);
 
-  const drumTriggerRef = useRef<ElementRef<typeof DrumTriggers>>(null);
-
   return (
     <div className="SongBrowserUI">
-      <DrumTriggers ref={drumTriggerRef} triggers={triggers} />
       <div className="top">
         {socket &&
           <MultiTrackAudioPlayer

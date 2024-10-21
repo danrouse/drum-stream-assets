@@ -10,6 +10,8 @@ export default class MIDIIOController {
   private static KIT_ID_NO_TOMS = 90;
   private static KIT_ID_NO_CYMBALS = 91;
 
+  private static MIDI_CHANNEL_DRUM_KIT_CONTROL = 10;
+
   private static MIDI_NOTE_ON = 0x99;
 
   constructor(broadcast: WebSocketBroadcaster, deviceName: string = 'TD-30') {
@@ -46,7 +48,11 @@ export default class MIDIIOController {
   }
 
   changeKit(kitNumber: number) {
-    this.output.sendMessage([0xc9, kitNumber - 1, 0]);
+    this.output.sendMessage([
+      0xc0 + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL - 1,
+      kitNumber - 1,
+      0
+    ]);
   }
 
   resetKit() {

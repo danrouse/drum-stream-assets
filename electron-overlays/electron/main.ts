@@ -69,6 +69,19 @@ function createSyncedLyricsWindow() {
   return win;
 }
 
+function createDrumTriggersWindow() {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'Drum Triggers',
+    width: 128,
+    height: 128,
+  });
+  win.setIgnoreMouseEvents(true);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#DrumTriggersWindow');
+
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 function findLyrics(artist: string, title: string, duration: number) {
@@ -96,6 +109,7 @@ function createWindows() {
     createMIDINotesWindow(),
     createNowPlayingWindow(),
     createSyncedLyricsWindow(),
+    createDrumTriggersWindow(),
   ];
   
   // Connect to server WS to receive rebroadcast messages from remote client
