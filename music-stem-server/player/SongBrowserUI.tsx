@@ -49,7 +49,6 @@ const saveState = (state: Partial<SavedState>) => {
 }
 
 let clientRemoteControlResetTimers: NodeJS.Timeout[] = [];
-let prevSpeedChangeAmount = 0.15;
 
 export default function SongBrowserUI() {
   // Track initial loading so locally-persisted state doesn't get overwritten
@@ -100,7 +99,6 @@ export default function SongBrowserUI() {
     clientRemoteControlResetTimers.forEach(timer => clearTimeout(timer));
     clientRemoteControlResetTimers = [];
     setPlaybackRate(rate);
-    broadcast({ type: 'song_speed', speed: rate });
   };
 
   const nextSong = () => {
@@ -144,30 +142,18 @@ export default function SongBrowserUI() {
       clientRemoteControlResetTimers.push(
         setTimeout(() => setPlaybackRate(r => r - amount!), duration)
       );
-      prevSpeedChangeAmount = amount!;
     } else if (action === 'SlowDownCurrentSong') {
-      setPlaybackRate(r => r - amount!);
+      const MIN_PLAYBACK_SPEED = 0.2; // TODO: Share this somehow
+      setPlaybackRate(r => Math.max(r - amount!, MIN_PLAYBACK_SPEED));
       clientRemoteControlResetTimers.push(
         setTimeout(() => setPlaybackRate(r => r + amount!), duration)
       );
-      prevSpeedChangeAmount = amount!;
     }
   };
 
-  // Change price of speed up/slow down as we change playback rate
+  // Keep the coordinator informed of song speed at all times
   useEffect(() => {
-    const speedDiffSteps = Math.abs(1 - playbackRate) / prevSpeedChangeAmount;
-    const isFaster = playbackRate > 1;
-    broadcast({
-      type: 'price_change',
-      action: 'SlowDownCurrentSong',
-      price: Math.round(isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30)),
-    });
-    broadcast({
-      type: 'price_change',
-      action: 'SpeedUpCurrentSong',
-      price: Math.round(!isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30)),
-    });
+    broadcast({ type: 'song_speed', speed: playbackRate });
   }, [playbackRate]);
 
   // Add song requests to the Requests playlist when they become available

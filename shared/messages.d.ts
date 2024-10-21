@@ -59,10 +59,6 @@ type WebSocketPlayerMessage = {
 } | {
   type: 'song_speed',
   speed: number,
-} | {
-  type: 'price_change',
-  action: ChannelPointReward['name'],
-  price: number,
 };
 
 export type ChannelPointReward = {

@@ -60,12 +60,28 @@ export default class StreamerbotWebSocketClient {
     this.midiController = midiController;
   }
 
-  public messageHandler(payload: WebSocketServerMessage | WebSocketPlayerMessage) {
-    if (payload.type === 'price_change') {
-      const rewardId = REWARD_IDS[payload.action];
-      this.client.doAction(this.actions['Reward: Change Price'], { rewardId, ...payload });
+  public messageHandler = async (payload: WebSocketServerMessage | WebSocketPlayerMessage) => {
+    if (payload.type === 'song_speed') {
+      const playbackRate = payload.speed;
+      const speedDiffSteps = Math.abs(1 - playbackRate) / REWARD_AMOUNTS.SpeedUpCurrentSong!;
+      const isFaster = playbackRate > 1;
+      const nextSlowDownPrice = Math.round(isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30));
+      const nextSpeedUpPrice = Math.round(!isFaster ? 100 - (speedDiffSteps * 15) : 100 + (speedDiffSteps * 30));
+      const MIN_PLAYBACK_SPEED = 0.2; // TODO: Share this somehow
+
+      await this.client.doAction(this.actions['Reward: Change Price'], {
+        rewardId: REWARD_IDS.SlowDownCurrentSong,
+        price: nextSlowDownPrice,
+      });
+      await this.client.doAction(this.actions['Reward: Change Price'], {
+        rewardId: REWARD_IDS.SpeedUpCurrentSong,
+        price: nextSpeedUpPrice,
+      });
+
+      const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
+      await this.client.doAction(this.actions[slowDownRewardAction], { rewardId: REWARD_IDS.SlowDownCurrentSong });
     }
-  }
+  };
 
   private async loadActions() {
     const mapping: IdMap = {};
