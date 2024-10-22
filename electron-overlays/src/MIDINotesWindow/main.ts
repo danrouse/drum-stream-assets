@@ -85,7 +85,7 @@ if (location.hash === '#MIDINotesWindow') {
     for (let noteConfig of selectedNoteConfigs) {
       const noteElem = document.createElement('DIV');
       noteElem.classList.add('note');
-      noteElem.classList.add(pascalCaseToKebabCase(`note-${name}`));
+      noteElem.classList.add(pascalCaseToKebabCase(`note-${noteConfig.name}`));
       noteElem.style.opacity = String((velocity + 25) / MIDI_TRIGGER_VELOCITY_MAX);
       noteElem.style.left = `${noteConfig.x}px`;
       noteElem.style.top = `${noteConfig.y}px`;
