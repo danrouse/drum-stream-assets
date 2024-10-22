@@ -32,8 +32,8 @@ export default class SongRequestHandler {
     this.demucs.onProcessingStart = (song) => broadcast({ type: 'demucs_start', name: song.basename });
     this.demucs.onProcessingProgress = (song, progress) => broadcast({ type: 'demucs_progress', progress, name: song.basename });
     this.demucs.onProcessingComplete = async (song) => {
-      broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
       await saveSongData(song.basename);
+      broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
       this.demucsCallbacks.filter(s => s.song.basename === song.basename).forEach(s => s.callback(song));
       this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
     };
