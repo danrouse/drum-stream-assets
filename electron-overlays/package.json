@@ -20,7 +20,9 @@
   },
   "main": "dist-electron/main.js",
   "dependencies": {
+    "@types/howler": "^2.2.12",
     "bufferutil": "^4.0.8",
+    "howler": "^2.2.4",
     "react-router": "^6.26.2",
     "react-router-dom": "^6.26.2",
     "utf-8-validate": "^6.0.4",

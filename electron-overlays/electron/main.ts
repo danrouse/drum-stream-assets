@@ -2,7 +2,7 @@ import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain } from 'el
 import { WebSocket } from 'ws';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, readdirSync } from 'fs';
 import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -78,6 +78,10 @@ function createDrumTriggersWindow() {
   });
   win.setIgnoreMouseEvents(true);
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#DrumTriggersWindow');
+  ipcMain.on('get_samples', ({ reply }) => {
+    const samples = readdirSync(join(__dirname, '..', 'samples'));
+    reply('get_samples', samples);
+  });
 
   return win;
 }
