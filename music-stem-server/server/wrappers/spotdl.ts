@@ -113,12 +113,14 @@ export default async function spotdl(query: string, outputPath: string): Promise
         { shell: true }
       );
       let resolveTo: DownloadedSong | undefined;
+      let buf: string = '';
       cmd.stdout.on('data', msg => {
-        const wasDownloaded = msg.toString().match(/Downloaded "(.+)":/i);
-        const alreadyExists = msg.toString().match(/Skipping (.+) \(file already exists\)/i);
+        buf += msg.toString().replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ');
+        const wasDownloaded = buf.match(/Downloaded "(.+)":/i);
+        const alreadyExists = buf.match(/Skipping (.+) \(file already exists\)/i);
 
         if (wasDownloaded || alreadyExists) {
-          const basename = (wasDownloaded || alreadyExists)![1].replace(/:/g, '-').replace(/\?/g, '');
+          const basename = (wasDownloaded || alreadyExists)![1].replace(/:/g, '-').replace(/\?/g, '').replace(/"/g, "'");
           const dstPath = join(outputPath, `${basename}.m4a`);
           // Double check that the expected path exists first!
           if (existsSync(dstPath)) {
