@@ -36,7 +36,7 @@ export default class LiveSplitWebSocketClient {
     });
   }
   
-  public async messageHandler(message: WebSocketPlayerMessage | WebSocketServerMessage) {
+  public messageHandler = async (message: WebSocketPlayerMessage | WebSocketServerMessage) => {
     if (message.type === 'song_changed') {
       const currentLivesplitTime = await this.getCurrentTime();
       const currentSplitTime = currentLivesplitTime - this.lastSplitTime;
