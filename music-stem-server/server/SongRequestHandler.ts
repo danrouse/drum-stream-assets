@@ -12,7 +12,7 @@ interface DemucsCallback {
   callback: (song?: ProcessedSong) => void;
 }
 
-const updateSongRequestMetadata = (request: SongRequestSource, song: ProcessedSong) => {
+const updateSongRequestMetadata = (request: SongRequestSource, song: DownloadedSong) => {
   const jsonPath = join(Paths.__dirname, 'songrequests.json');
   const requests = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, 'utf-8')) : [];
   requests.push({
@@ -79,10 +79,10 @@ export default class SongRequestHandler {
             reject(new SongDownloadError('TOO_LONG'));
           }
 
+          if (request) updateSongRequestMetadata(request, downloadedSong);
           this.processDownloadedSong(downloadedSong, (processedSong) => {
             if (processedSong) {
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              if (request) updateSongRequestMetadata(request, processedSong);
               this.broadcast({ type: 'song_request_added', name: downloadedSong.basename });
               resolve(processedSong);
             } else {

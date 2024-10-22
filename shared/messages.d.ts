@@ -113,4 +113,4 @@ interface SongRequestSource {
   redemptionId?: string;
   time: Date;
 }
-type SongRequest = SongRequestSource & ProcessedSong;
+type SongRequest = SongRequestSource & DownloadedSong;
