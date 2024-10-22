@@ -22,7 +22,7 @@ const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
   MuteCurrentSongDrums: 120000,
   SlowDownCurrentSong: 120000,
   SpeedUpCurrentSong: 120000,
-  OopsAllFarts: 60000,
+  OopsAllFarts: 30000,
 };
 
 const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
