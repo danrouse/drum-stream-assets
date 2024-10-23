@@ -5,6 +5,7 @@ import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { loadEmotes } from '../../shared/7tv';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
+import { getKitDefinition } from '../../shared/td30Kits';
 
 // const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
@@ -16,6 +17,7 @@ const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
   OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
+  ChangeDrumKit: '6e366bb7-508d-4419-89a4-32fdcf952419',
 };
 
 const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -23,6 +25,7 @@ const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
   SlowDownCurrentSong: 120000,
   SpeedUpCurrentSong: 120000,
   OopsAllFarts: 30000,
+  ChangeDrumKit: 120000,
 };
 
 const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -31,7 +34,7 @@ const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
 };
 
 const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
-  ['OopsAllFarts'],
+  ['OopsAllFarts', 'ChangeDrumKit'],
 ];
 
 export default class StreamerbotWebSocketClient {
@@ -117,6 +120,10 @@ export default class StreamerbotWebSocketClient {
     }
   }
 
+  private refundTwitchRewardRedemption(rewardId: string, redemptionId: string) {
+    return this.client.doAction(this.actions['Refund'], { rewardId, redemptionId });
+  }
+
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
     if (payload.data.reward.id === REWARD_IDS.SongRequest) {
       try {
@@ -128,39 +135,51 @@ export default class StreamerbotWebSocketClient {
         );
       } catch (e) {
         console.info('Song reward redemption failed with error', (e as any)?.type);
-        this.client.doAction(this.actions['Refund song request'], {
-          rewardId: payload.data.reward.id,
-          redemptionId: payload.data.id,
-        });
+        await this.refundTwitchRewardRedemption(payload.data.reward.id, payload.data.id);
       }
-    } else {
-      let rewardName: ChannelPointReward['name'];
-      for (rewardName in REWARD_IDS) {
-        if (REWARD_IDS[rewardName] === payload.data.reward.id) {
-          this.broadcast({
-            type: 'client_remote_control',
-            action: rewardName,
-            duration: REWARD_DURATIONS[rewardName],
-            amount: REWARD_AMOUNTS[rewardName],
-          });
-          if (rewardName === 'OopsAllFarts') {
-            this.midiController.muteToms();
-            setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
-          }
+      return;
+    }
+    
+    if (!Object.values(REWARD_IDS).includes(payload.data.reward.id)) {
+      // A reward was redeemed that is not defined here, nothing to do!
+      return;
+    }
 
-          const mutuallyExclusiveGroup = MUTUALLY_EXCLUSIVE_REWARD_GROUPS.find(rewardNames => rewardNames.includes(rewardName));
-          if (mutuallyExclusiveGroup) {
-            mutuallyExclusiveGroup.forEach((otherRewardName) =>
-              this.client.doAction(this.actions['Reward: Pause'], { rewardId: REWARD_IDS[otherRewardName] }));
-            setTimeout(() => {
-              mutuallyExclusiveGroup.forEach((otherRewardName) =>
-                this.client.doAction(this.actions['Reward: Unpause'], { rewardId: REWARD_IDS[otherRewardName] }));
-            }, REWARD_DURATIONS[rewardName])
-          }
+    const rewardName = Object.entries(REWARD_IDS)
+      .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
+    console.log('Redeem', payload.data.reward.id);
 
-          break;
-        }
+    if (rewardName === 'OopsAllFarts') {
+      this.midiController.muteToms();
+      setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
+    } else if (rewardName === 'ChangeDrumKit') {
+      const kit = getKitDefinition(payload.data.user_input);
+      if (!kit) {
+        this.sendTwitchMessage(`${payload.data.user_name}, you must include one of the numbers or names of a drum kit from here: https://pastebin.com/jnbXevGR (refunded!)`);
+        await this.refundTwitchRewardRedemption(payload.data.reward.id, payload.data.id);
+        return;
       }
+      this.midiController.changeKit(kit[0]);
+    }
+
+    // If we haven't returned from an error yet, broadcast changes to the player UI
+    this.broadcast({
+      type: 'client_remote_control',
+      action: rewardName,
+      duration: REWARD_DURATIONS[rewardName],
+      amount: REWARD_AMOUNTS[rewardName],
+    });
+    
+    // For mutually-exclusive rewards, pause everything in the category
+    // until this redemption expires
+    const mutuallyExclusiveGroup = MUTUALLY_EXCLUSIVE_REWARD_GROUPS.find(rewardNames => rewardNames.includes(rewardName));
+    if (mutuallyExclusiveGroup) {
+      mutuallyExclusiveGroup.forEach((otherRewardName) =>
+        this.client.doAction(this.actions['Reward: Pause'], { rewardId: REWARD_IDS[otherRewardName] }));
+      setTimeout(() => {
+        mutuallyExclusiveGroup.forEach((otherRewardName) =>
+          this.client.doAction(this.actions['Reward: Unpause'], { rewardId: REWARD_IDS[otherRewardName] }));
+      }, REWARD_DURATIONS[rewardName])
     }
   }
 
