@@ -18,21 +18,21 @@ if (location.hash === '#MIDINotesWindow') {
   // EMOTE STUFF
   const emotes = await loadEmotes();
   const emoteURLs = Object.values(emotes);
-  let selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+  const EMOTE_RANDOM_SWAP_TIME = 5000;
+  const EMOTE_USER_DURATION = 15000;
+  let selectedEmoteURL = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
   let hasUserEmote = false;
   let userEmoteResetTimer: NodeJS.Timeout | undefined;
   setInterval(() => {
     if (!hasUserEmote) {
-      selectedEmote = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+      selectedEmoteURL = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
     }
-  }, 5000);
+  }, EMOTE_RANDOM_SWAP_TIME);
   window.ipcRenderer.on('emote_used', (_, payload) => {
-    if (emotes[payload.emote]) {
-      selectedEmote = emotes[payload.emote];
-      hasUserEmote = true;
-      if (userEmoteResetTimer) clearTimeout(userEmoteResetTimer);
-      userEmoteResetTimer = setTimeout(() => hasUserEmote = false, 15000);
-    }
+    selectedEmoteURL = payload.emoteURL;
+    hasUserEmote = true;
+    if (userEmoteResetTimer) clearTimeout(userEmoteResetTimer);
+    userEmoteResetTimer = setTimeout(() => hasUserEmote = false, EMOTE_USER_DURATION);
   });
 
   // ELEMENT INIT
@@ -94,7 +94,7 @@ if (location.hash === '#MIDINotesWindow') {
       noteElem.style.marginLeft = `-${noteConfig.w / 2}px`;
       noteElem.style.marginTop = `-${noteConfig.h / 2}px`;
       noteElem.style.backgroundColor = noteConfig.color;
-      noteElem.style.backgroundImage = `url(${selectedEmote})`;
+      noteElem.style.backgroundImage = `url(${selectedEmoteURL})`;
       noteElem.style.transform = `rotate(${noteConfig.r}deg)`;
       noteElem.style.zIndex = `${noteConfig.z}`;
       noteElem.innerText = noteConfig.name;

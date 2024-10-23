@@ -33,7 +33,7 @@ type WebSocketServerMessage = {
   amount?: number,
 } | {
   type: 'emote_used',
-  emote: string,
+  emoteURL: string,
 } | {
   type: 'midi_note_on',
   note: number,

@@ -48,7 +48,10 @@ export default class StreamerbotWebSocketClient {
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
-      onConnect: () => this.loadActions(),      
+      onConnect: () => {
+        this.loadActions();
+        this.loadEmotes();
+      },
       retries: 0,
     });
     this.client.on('Application.*', async () => {
@@ -112,11 +115,11 @@ export default class StreamerbotWebSocketClient {
     const words = payload.data.message.message.split(' ');
     const emotes = [
       ...payload.data.message.emotes.map(e => e.imageUrl),
-      ...words.filter(word => this.emotes.hasOwnProperty(word))
+      ...words.filter(word => this.emotes.hasOwnProperty(word)).map(emote => this.emotes[emote])
     ];
     if (emotes.length) {
-      const emote = emotes[Math.floor(Math.random() * emotes.length)];
-      this.broadcast({ type: 'emote_used', emote });
+      const emoteURL = emotes[Math.floor(Math.random() * emotes.length)];
+      this.broadcast({ type: 'emote_used', emoteURL });
     }
   }
 
