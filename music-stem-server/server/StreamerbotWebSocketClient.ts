@@ -5,7 +5,7 @@ import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { loadEmotes } from '../../shared/7tv';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
-import { getKitDefinition } from '../../shared/td30Kits';
+import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 
 // const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
 
@@ -100,7 +100,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   public sendTwitchMessage(message: string, replyTo?: string) {
-    this.client.doAction(this.actions['Twitch chat message'], { message, replyTo });
+    return this.client.doAction(this.actions['Twitch chat message'], { message, replyTo });
   }
 
   private async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
@@ -155,11 +155,12 @@ export default class StreamerbotWebSocketClient {
     } else if (rewardName === 'ChangeDrumKit') {
       const kit = getKitDefinition(payload.data.user_input);
       if (!kit) {
-        this.sendTwitchMessage(`${payload.data.user_name}, you must include one of the numbers or names of a drum kit from here: https://pastebin.com/jnbXevGR (refunded!)`);
+        await this.sendTwitchMessage(`${payload.data.user_name}, please include one of the numbers or names of a kit from here: ${td30KitsPastebin} (refunded!)`);
         await this.refundTwitchRewardRedemption(payload.data.reward.id, payload.data.id);
         return;
       }
       this.midiController.changeKit(kit[0]);
+      await this.sendTwitchMessage(`Drum kit has been changed to ${kit[1]} for two minutes!`);
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI

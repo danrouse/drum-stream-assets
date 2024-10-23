@@ -1,4 +1,5 @@
-// Kit ID:Name mapping posted at https://pastebin.com/jnbXevGR
+// Kits are posted to pastebin for viewing
+export const td30KitsPastebin = 'https://pastebin.com/hDsiNT2k';
 
 export const kitNames = [
   'Studio',
@@ -45,7 +46,7 @@ export const kitNames = [
   'Hard BeBop',
   'Rock Solid',
   '2nd Line',
-  'ROBO TAP',
+  'ROBO',
   'SATURATED',
   'piccolo',
   'FAT',
@@ -85,7 +86,7 @@ export const kitNames = [
 
 const sanitizeKitName = (name: string) => name
   .toLowerCase()
-  .replace(/\W/g, '');
+  .replace(/[\W\s\-\_]/g, '');
 
 const sanitizedKitNames = kitNames.map(n => sanitizeKitName(n));
 
@@ -94,7 +95,7 @@ export function getKitDefinition(name: string | number): [number, string] | unde
     if (name < 1 || name > kitNames.length) return;
     return [name, kitNames[name - 1]];
   }
-  const kitIndex = sanitizedKitNames.indexOf(name);
+  const kitIndex = sanitizedKitNames.indexOf(sanitizeKitName(name));
   if (kitIndex === -1) return;
   return [kitIndex + 1, kitNames[kitIndex]];
 }
