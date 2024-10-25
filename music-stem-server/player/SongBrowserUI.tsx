@@ -218,21 +218,31 @@ export default function SongBrowserUI() {
   useEffect(() => {
     fetchNewSongListData();
 
-    const ws = new WebSocket(`ws://${location.host}`);
-    setSocket(ws);
+    const setupWebSocket = () => {
+      const ws = new WebSocket(`ws://${location.host}`);
+      setSocket(ws);
 
-    const handleMessage = (e: MessageEvent) => {
-      const message: WebSocketServerMessage = JSON.parse(e.data.toString());
-      if (message?.type === 'song_request_added') {
-        setSongRequestsToAdd([...songRequestsToAdd, message.name]);
-      } else if (message?.type === 'client_remote_control') {
-        handleClientRemoteControl(message.action, message.duration, message.amount);
-      }
+      const handleMessage = (e: MessageEvent) => {
+        const message: WebSocketServerMessage = JSON.parse(e.data.toString());
+        if (message?.type === 'song_request_added') {
+          setSongRequestsToAdd([...songRequestsToAdd, message.name]);
+        } else if (message?.type === 'client_remote_control') {
+          handleClientRemoteControl(message.action, message.duration, message.amount);
+        }
+      };
+      ws.addEventListener('message', handleMessage);
+      // if connection fails, this close event will still get triggered
+      // allowing this to retry connecting indefinitely
+      ws.addEventListener('close', () => {
+        setTimeout(() => {
+          setupWebSocket();
+        }, 1000)
+      });
+      return ws;
     };
-    ws.addEventListener('message', handleMessage);
+    const ws = setupWebSocket();
 
     return () => {
-      ws.removeEventListener('message', handleMessage);
       if (ws.readyState === ws.OPEN) {
         ws.close();
       } else {
