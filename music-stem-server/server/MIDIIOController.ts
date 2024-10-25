@@ -2,8 +2,8 @@ import midi, { MidiMessage } from 'midi';
 import { WebSocketBroadcaster } from '../../shared/messages';
 
 export default class MIDIIOController {
-  private input: midi.Input;
-  private output: midi.Output;
+  private input?: midi.Input;
+  private output?: midi.Output;
   private broadcast: WebSocketBroadcaster;
 
   public selectedKitNumber = 0;
@@ -24,36 +24,58 @@ export default class MIDIIOController {
   constructor(broadcast: WebSocketBroadcaster, deviceName: string = 'TD-30') {
     // TODO: handle not finding ports at instantiation time
     // TODO: reconnect if device disconnects
-    this.input = new midi.Input();
+    
+    this.broadcast = broadcast;
+
+    try {
+      this.initializePorts(deviceName);
+    } catch (e) {
+      const retry = setInterval(() => {
+        if (!this.input) {
+          try {
+            this.initializePorts(deviceName);
+            clearInterval(retry);
+          } catch (e) {
+            this.input = undefined;
+            this.output = undefined;
+          }
+        }
+      }, 100000);
+    }
+  }
+
+  private initializePorts(deviceName: string) {
+    const input = new midi.Input();
     let inputPort = 0;
-    for (let i = 0; i < this.input.getPortCount(); i++) {
-      if (this.input.getPortName(i).match(deviceName)) {
+    for (let i = 0; i < input.getPortCount(); i++) {
+      if (input.getPortName(i).match(deviceName)) {
         inputPort = i;
         break;
       }
     }
-    this.input.openPort(inputPort);
-    this.input.on('message', this.handleMessage);
+    input.openPort(inputPort);
+    input.on('message', this.handleMessage);
 
-    this.output = new midi.Output();
+    const output = new midi.Output();
     let outputPort = 0;
-    for (let i = 0; i < this.output.getPortCount(); i++) {
-      if (this.output.getPortName(i).match(deviceName)) {
+    for (let i = 0; i < output.getPortCount(); i++) {
+      if (output.getPortName(i).match(deviceName)) {
         outputPort = i;
         break;
       }
     }
-    this.output.openPort(outputPort);
+    output.openPort(outputPort);
+
+    this.input = input;
+    this.output = output;
 
     process.on('beforeExit', () => {
-      this.output.closePort();
+      this.output?.closePort();
     });
-
-    this.broadcast = broadcast;
   }
 
   playNote(note: number, velocity: number = 0x7f) {
-    this.output.sendMessage([0x92, note, velocity]);
+    this.output?.sendMessage([0x92, note, velocity]);
   }
 
   changeKit(kitNumber: number) {
@@ -67,7 +89,7 @@ export default class MIDIIOController {
   }
 
   setVolume(volume: number) {
-    this.output.sendMessage([
+    this.output?.sendMessage([
       MIDIIOController.MIDI_BANK_SELECT  + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL,
       0x07,
       Math.floor(volume * 0x7f)
