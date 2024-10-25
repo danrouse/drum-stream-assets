@@ -6,12 +6,12 @@ export default class MIDIIOController {
   private output: midi.Output;
   private broadcast: WebSocketBroadcaster;
 
-  public selectedKitId = 0;
-  public previousKitId = 0;
+  public selectedKitNumber = 0;
+  public previousKitNumber = 0;
 
   // private static KIT_ID_DEFAULT = 47;
-  private static KIT_ID_NO_TOMS = 90;
-  private static KIT_ID_NO_CYMBALS = 91;
+  private static KIT_NUMBER_NO_TOMS = 90;
+  private static KIT_NUMBER_NO_CYMBALS = 91;
 
   private static MIDI_CHANNEL_DRUM_KIT_CONTROL = 0x9; // Ch. 10 (Ch 1 is 0x0)
 
@@ -56,14 +56,14 @@ export default class MIDIIOController {
     this.output.sendMessage([0x92, note, velocity]);
   }
 
-  changeKit(kitId: number) {
-    this.output.sendMessage([
+  changeKit(kitNumber: number) {
+    this.output?.sendMessage([
       MIDIIOController.MIDI_PROGRAM_SELECT + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL,
-      kitId - 1,
+      kitNumber - 1,
       0
     ]);
-    this.previousKitId = this.selectedKitId;
-    this.selectedKitId = kitId;
+    this.previousKitNumber = this.selectedKitNumber;
+    this.selectedKitNumber = kitNumber;
   }
 
   setVolume(volume: number) {
@@ -75,23 +75,23 @@ export default class MIDIIOController {
   }
 
   resetKit() {
-    this.changeKit(this.previousKitId);
+    this.changeKit(this.previousKitNumber);
   }
 
   muteToms() {
-    this.changeKit(MIDIIOController.KIT_ID_NO_TOMS);
+    this.changeKit(MIDIIOController.KIT_NUMBER_NO_TOMS);
   }
 
   muteCymbals() {
-    this.changeKit(MIDIIOController.KIT_ID_NO_CYMBALS);
+    this.changeKit(MIDIIOController.KIT_NUMBER_NO_CYMBALS);
   }
 
   handleMessage = (dt: number, message: MidiMessage) => {
     if (message[0] === MIDIIOController.MIDI_NOTE_ON + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL) {
       this.broadcast({ type: 'midi_note_on', note: message[1], velocity: message[2] });
     } else if (message[0] === MIDIIOController.MIDI_PROGRAM_SELECT + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL) {
-      this.previousKitId = this.selectedKitId;
-      this.selectedKitId = message[1];
+      this.previousKitNumber = this.selectedKitNumber;
+      this.selectedKitNumber = message[1] + 1;
     } else {
       // console.log('MIDI Message', message);
     }
