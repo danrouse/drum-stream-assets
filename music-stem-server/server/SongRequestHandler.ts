@@ -83,7 +83,7 @@ export default class SongRequestHandler {
           this.processDownloadedSong(downloadedSong, (processedSong) => {
             if (processedSong) {
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              this.broadcast({ type: 'song_request_added', name: downloadedSong.basename });
+              this.broadcast({ type: 'song_request_added', name: downloadedSong.basename.replace(/\.$/, '') });
               resolve(processedSong);
             } else {
               reject();

@@ -49,7 +49,7 @@ export default class Demucs {
       throw new Error('already have a spawned process');
     }
     // check to see if it's not already been processed first
-    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, song.basename);
+    const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, song.basename.replace(/\.$/, ''));
     if (existsSync(dstPath)) {
       if (this.onProcessingComplete) {
         this.onProcessingComplete({

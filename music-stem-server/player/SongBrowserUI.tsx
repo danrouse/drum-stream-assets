@@ -134,6 +134,15 @@ export default function SongBrowserUI() {
     socket.send(JSON.stringify(payload));
   };
 
+  const handleWebSocketMessage = (e: MessageEvent) => {
+    const message: WebSocketServerMessage = JSON.parse(e.data.toString());
+    if (message?.type === 'song_request_added') {
+      setSongRequestsToAdd([...songRequestsToAdd, message.name]);
+    } else if (message?.type === 'client_remote_control') {
+      handleClientRemoteControl(message.action, message.duration, message.amount);
+    }
+  };
+
   const handleClientRemoteControl = (action: ChannelPointReward['name'], duration?: number, amount?: number) => {
     if (action === 'MuteCurrentSongDrums') {
       setMutedTrackNames([...mutedTrackNames, 'drums']);
@@ -221,16 +230,7 @@ export default function SongBrowserUI() {
     const setupWebSocket = () => {
       const ws = new WebSocket(`ws://${location.host}`);
       setSocket(ws);
-
-      const handleMessage = (e: MessageEvent) => {
-        const message: WebSocketServerMessage = JSON.parse(e.data.toString());
-        if (message?.type === 'song_request_added') {
-          setSongRequestsToAdd([...songRequestsToAdd, message.name]);
-        } else if (message?.type === 'client_remote_control') {
-          handleClientRemoteControl(message.action, message.duration, message.amount);
-        }
-      };
-      ws.addEventListener('message', handleMessage);
+      ws.addEventListener('message', handleWebSocketMessage);
       // if connection fails, this close event will still get triggered
       // allowing this to retry connecting indefinitely
       ws.addEventListener('close', () => {

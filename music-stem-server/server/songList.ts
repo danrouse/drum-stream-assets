@@ -5,15 +5,16 @@ import * as Paths from './paths';
 import { SongRequest, SongData } from '../../shared/messages';
 
 async function getSongData(songBasename: string, requests?: SongRequest[]): Promise<SongData | undefined> {
-  const stems = readdirSync(join(Paths.STEMS_PATH, songBasename));
+  const sanitizedBaseName = songBasename.replace(/\.$/, '');
+  const stems = readdirSync(join(Paths.STEMS_PATH, sanitizedBaseName));
   if (!stems.length) return;
   requests ||= JSON.parse(readFileSync(join(Paths.__dirname, 'songrequests.json'), 'utf-8')) as SongRequest[];
   
-  const stat = statSync(join(Paths.STEMS_PATH, songBasename, stems[0]));
+  const stat = statSync(join(Paths.STEMS_PATH, sanitizedBaseName, stems[0]));
   const tags = await getSongTags(songBasename, false, Paths.DOWNLOADS_PATH);
   const matchingRequest = requests.findLast(req => req.basename === songBasename);
   return {
-    name: songBasename,
+    name: sanitizedBaseName,
     artist: String(tags.common?.artist) || '',
     title: String(tags.common?.title) || '',
     stems: stems,
