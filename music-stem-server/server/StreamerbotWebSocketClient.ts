@@ -25,7 +25,7 @@ const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
   SlowDownCurrentSong: 120000,
   SpeedUpCurrentSong: 120000,
   OopsAllFarts: 30000,
-  ChangeDrumKit: 120000,
+  ChangeDrumKit: 60000,
 };
 
 const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -150,7 +150,7 @@ export default class StreamerbotWebSocketClient {
 
     const rewardName = Object.entries(REWARD_IDS)
       .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
-    console.log('Redeem', payload.data.reward.id);
+    console.log('Redeem', rewardName);
 
     if (rewardName === 'OopsAllFarts') {
       this.midiController.muteToms();
@@ -164,6 +164,7 @@ export default class StreamerbotWebSocketClient {
       }
       this.midiController.changeKit(kit[0]);
       await this.sendTwitchMessage(`Drum kit has been changed to ${kit[1]} for two minutes!`);
+      setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI
