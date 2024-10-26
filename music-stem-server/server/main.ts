@@ -56,6 +56,13 @@ app.get('/clean', async () => {
   }
 });
 
+const sanitizePathsToURLs = (songs: SongData[]) => songs.map((song) => ({
+  ...song,
+  stemsPath: `/stems/${song.stemsPath.replace(Paths.STEMS_PATH, '')}`,
+  downloadPath: song.downloadPath ? `/downloads/${song.downloadPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
+  lyricsPath: song.lyricsPath ? `/downloads/${song.lyricsPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
+}));
+
 app.get('/songs', async (req, res) => {
   const songs = await db.selectFrom('songs')
     .leftJoin('downloads', 'downloads.id', 'downloadId')
@@ -66,11 +73,11 @@ app.get('/songs', async (req, res) => {
       'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId'
     ])
     .execute() satisfies SongData[];
-  res.send(songs);
+  res.send(sanitizePathsToURLs(songs));
 });
 
 app.get('/requests', async (req, res) => {
-  const requests = await db.selectFrom('songs')
+  const songs = await db.selectFrom('songs')
     .innerJoin('downloads', 'downloads.id', 'downloadId')
     .innerJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
     .where('songRequests.status', '=', 'ready')
@@ -80,7 +87,7 @@ app.get('/requests', async (req, res) => {
       'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId'
     ])
     .execute() satisfies SongRequestData[];
-  res.send(requests);
+  res.send(sanitizePathsToURLs(songs));
 });
 
 app.get('/seed', async (req, res) => {

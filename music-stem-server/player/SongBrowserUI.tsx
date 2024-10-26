@@ -3,7 +3,7 @@ import { unstable_batchedUpdates } from 'react-dom';
 
 import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongBrowserPlaylists from './SongBrowserPlaylists';
-import { ChannelPointReward, SongData, WebSocketPlayerMessage, WebSocketServerMessage } from '../../shared/messages';
+import { ChannelPointReward, SongData, SongRequestData, WebSocketPlayerMessage, WebSocketServerMessage } from '../../shared/messages';
 
 // localStorage persistence of user state
 const SONG_REQUEST_PLAYLIST_NAME = 'Requests';
@@ -12,6 +12,7 @@ const DEFAULT_PLAYLISTS: Playlist[] = [
   { title: SONG_REQUEST_PLAYLIST_NAME, songs: [] },
 ];
 
+const SONG_STEMS = ['bass.mp3', 'drums.mp3', 'other.mp3', 'vocals.mp3'];
 
 interface SavedState {
   isAutoplayEnabled: boolean;
@@ -67,24 +68,33 @@ export default function SongBrowserUI() {
   const [selectedSong, setSelectedSong] = useState<SongData>();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
-  const [songRequestsToAdd, setSongRequestsToAdd] = useState<string[]>([]);
   const [socket, setSocket] = useState<WebSocket>();
   // Previous state values for resetting from client remote control commands
   const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<string[]>([]);
   const [prevPlaybackRate, setPrevPlaybackRate] = useState(1);
 
-  const filteredSongs = allSongs.filter(s => s.name.match(new RegExp(songSearchQuery, 'i')));
+  const filteredSongs = allSongs.filter(s => `${s.artist} ${s.title}`.match(new RegExp(songSearchQuery, 'i')));
 
   const fetchNewSongListData = () => fetch('/songs')
     .then(res => res.json())
     .then((songs: SongData[]) => {
       // TODO: Sorting option (download date vs artist)
-      songs.sort((a, b) => new Date(b.downloadDate).getTime() - new Date(a.downloadDate).getTime())
+      songs.sort((a, b) => b.id - a.id);
       // songs.sort((a, b) =>
       //   a.artist !== b.artist ? a.artist.localeCompare(b.artist) :
       //     a.album !== b.album ? a.album.localeCompare(b.album) :
       //       a.track[0] - b.track[0]);
       setAllSongs(songs);
+    });
+  const fetchNewRequestData = () => fetch('/requests')
+    .then(res => res.json())
+    .then((songs: SongRequestData[]) => {
+      setPlaylists(playlists.map(playlist => {
+        if (playlist.title === SONG_REQUEST_PLAYLIST_NAME) {
+          return { title: SONG_REQUEST_PLAYLIST_NAME, songs };
+        }
+        return playlist;
+      }));
     });
   
   const stopPlayback = () => {
@@ -137,7 +147,7 @@ export default function SongBrowserUI() {
   const handleWebSocketMessage = (e: MessageEvent) => {
     const message: WebSocketServerMessage = JSON.parse(e.data.toString());
     if (message?.type === 'song_request_added') {
-      setSongRequestsToAdd([...songRequestsToAdd, message.name]);
+      fetchNewRequestData();
     } else if (message?.type === 'client_remote_control') {
       handleClientRemoteControl(message.action, message.duration, message.amount);
     }
@@ -164,21 +174,6 @@ export default function SongBrowserUI() {
   useEffect(() => {
     broadcast({ type: 'song_speed', speed: playbackRate });
   }, [playbackRate]);
-
-  // Add song requests to the Requests playlist when they become available
-  useEffect(() => {
-    const songRequestPlaylistIndex = playlists.findIndex(p => p.title === SONG_REQUEST_PLAYLIST_NAME);
-    for (let i in songRequestsToAdd) {
-      const song = allSongs.find(song => songRequestsToAdd[i] === song.name);
-      if (song) {
-        setPlaylists(playlists.toSpliced(songRequestPlaylistIndex, 1, {
-          ...playlists[songRequestPlaylistIndex],
-          songs: [...playlists[songRequestPlaylistIndex].songs, song]
-        }));
-        delete songRequestsToAdd[i];
-      }
-    }
-  }, [songRequestsToAdd, allSongs]);
 
   // User state persistence in localStorage
   useEffect(() => {
@@ -263,10 +258,10 @@ export default function SongBrowserUI() {
           <MultiTrackAudioPlayer
             artist={selectedSong?.artist}
             title={selectedSong?.title}
-            tracks={selectedSong?.stems.map(s => ({
-              title: s.replace(/\.mp3$/, ''),
-              src: `/stems/${selectedSong.name}/${s}`
-            }))}
+            tracks={selectedSong?.stemsPath ? SONG_STEMS.map(basename => ({
+              title: basename.replace(/\.mp3$/, ''),
+              src: `${selectedSong.stemsPath}/${basename}`
+            })) : undefined}
             isPlaying={isPlaying}
 
             onSongLoaded={(artist, title, duration) => {

@@ -198,10 +198,13 @@ export async function populateDatabaseFromJSON() {
     .values(songs.map(s => {
       const srId = songRequestIds.find(({id, query}) => query === s.name)!.id;
       const downloadId = downloadIds.find(({id, songRequestId}) => songRequestId === srId)!.id;
+      const youtubeId = s.title.match(/(.+) \[(.{11})\]$/);
+      const title = youtubeId ? youtubeId[1] : s.title;
+      const album = youtubeId ? `YouTube [${youtubeId[2]}]` : s.album;
       return {
         artist: s.artist,
-        title: s.title,
-        album: s.album,
+        title,
+        album,
         track: s.track?.[0],
         duration: s.duration,
         stemsPath: join(Paths.STEMS_PATH, s.name),
