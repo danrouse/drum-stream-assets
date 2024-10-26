@@ -73,6 +73,7 @@ export default class SongRequestHandler {
           const songRequest = await db.insertInto('songRequests').values({
             query,
             priority: 0,
+            order: 0,
             status: 'processing',
             requester: request?.requesterName,
             twitchRewardId: request?.rewardId,
@@ -104,6 +105,7 @@ export default class SongRequestHandler {
                   downloadId: download[0].id,
                 }).returning('id as id').execute();
               }
+              // TODO: calculate ordering here and update in this request
               await db.updateTable('songRequests')
                 .set({ status: 'ready', songId: song[0].id })
                 .where('id', '=', songRequest[0].id)

@@ -40,7 +40,20 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
     }
   } else if (payload.type === 'song_request_completed') {
     console.info('Set song request', payload.id, 'fulfilled');
-    await db.updateTable('songRequests').set({ status: 'fulfilled' }).where('id', '=', payload.id).execute();
+    // Update song request in the database
+    await db.updateTable('songRequests')
+      .set({ status: 'fulfilled' })
+      .where('id', '=', payload.id)
+      .execute();
+    // Update song request redemption on Twitch
+    const twitchIds = await db.selectFrom('songRequests')
+      .select(['twitchRewardId', 'twitchRedemptionId'])
+      .where('id', '=', payload.id)
+      .execute();
+    if (twitchIds[0].twitchRewardId && twitchIds[0].twitchRedemptionId) {
+      await streamerbotWebSocketClient.updateTwitchRedemption(twitchIds[0].twitchRewardId, twitchIds[0].twitchRedemptionId, 'fulfill');
+    }
+    // Notify client to reload song request list
     webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
   }
 });
@@ -60,7 +73,10 @@ app.get('/clean', async () => {
   }
 });
 
-const sanitizePathsToURLs = (songs: SongData[]) => songs.map((song) => ({
+// since everything is stored on local machine, convert these
+// into routes served by the http server.
+// probably temporary, until this data is stored In The Cloud
+const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
   ...song,
   stemsPath: `/stems/${song.stemsPath.replace(Paths.STEMS_PATH, '')}`,
   downloadPath: song.downloadPath ? `/downloads/${song.downloadPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
@@ -77,7 +93,7 @@ app.get('/songs', async (req, res) => {
       'songRequests.requester', // 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId',
     ])
     .execute() satisfies SongData[];
-  res.send(sanitizePathsToURLs(songs));
+  res.send(convertLocalPathsToURLs(songs));
 });
 
 app.get('/requests', async (req, res) => {
@@ -90,8 +106,9 @@ app.get('/requests', async (req, res) => {
       'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
       'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt'
     ])
+    .orderBy(['songRequests.order asc', 'songRequests.id asc'])
     .execute() satisfies SongRequestData[];
-  res.send(sanitizePathsToURLs(songs));
+  res.send(convertLocalPathsToURLs(songs));
 });
 
 app.get('/seed', async (req, res) => {

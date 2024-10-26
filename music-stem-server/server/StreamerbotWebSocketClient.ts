@@ -125,8 +125,8 @@ export default class StreamerbotWebSocketClient {
     }
   }
 
-  private refundTwitchRewardRedemption(rewardId: string, redemptionId: string) {
-    return this.client.doAction(this.actions['Refund'], { rewardId, redemptionId });
+  public updateTwitchRedemption(rewardId: string, redemptionId: string, action: 'cancel' | 'fulfill') {
+    return this.client.doAction(this.actions['Reward: Update Redemption'], { rewardId, redemptionId, action });
   }
 
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
@@ -140,7 +140,7 @@ export default class StreamerbotWebSocketClient {
         );
       } catch (e) {
         console.info('Song reward redemption failed with error', (e as any)?.type);
-        await this.refundTwitchRewardRedemption(payload.data.reward.id, payload.data.id);
+        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
       }
       return;
     }
@@ -161,7 +161,7 @@ export default class StreamerbotWebSocketClient {
       const kit = getKitDefinition(payload.data.user_input);
       if (!kit) {
         await this.sendTwitchMessage(`${payload.data.user_name}, please include one of the numbers or names of a kit from here: ${td30KitsPastebin} (refunded!)`);
-        await this.refundTwitchRewardRedemption(payload.data.reward.id, payload.data.id);
+        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
         return;
       }
       this.midiController.changeKit(kit[0]);
