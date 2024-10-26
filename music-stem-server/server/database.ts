@@ -26,6 +26,7 @@ interface SongRequestsTable {
   twitchRedemptionId: string | null;
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   priority: number;
+  songId: number | null;
 }
 
 interface DownloadsTable {
@@ -107,6 +108,7 @@ export async function initializeDatabase() {
     .addColumn('twitchRedemptionId', 'varchar(255)')
     .addColumn('status', 'varchar(32)', (cb) => cb.notNull())
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
     .execute();
 
   await db.schema.createTable('downloads')
@@ -211,5 +213,13 @@ export async function populateDatabaseFromJSON() {
         downloadId,
       };
     }))
+    .returning(['id as id', 'downloadId as downloadId'])
     .execute();
+  
+  for (let s of songs) {
+    const srId = songRequestIds.find(({query}) => query === s.name)!.id;
+    const dlId = downloadIds.find(({songRequestId}) => songRequestId === srId)!.id;
+    const songId = songIds.find(({downloadId}) => downloadId === dlId)!.id;
+    await db.updateTable('songRequests').set({ songId }).where('id', '=', srId).execute();
+  }
 }

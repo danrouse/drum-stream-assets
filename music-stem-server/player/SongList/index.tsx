@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import formatTime from '../formatTime';
+import { formatTime } from '../../../shared/util';
 import { SongData } from '../../../shared/messages';
 import './style.css';
 

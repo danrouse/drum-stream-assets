@@ -146,7 +146,7 @@ export default function SongBrowserUI() {
 
   const handleWebSocketMessage = (e: MessageEvent) => {
     const message: WebSocketServerMessage = JSON.parse(e.data.toString());
-    if (message?.type === 'song_request_added') {
+    if (message?.type === 'song_requests_updated') {
       fetchNewRequestData();
     } else if (message?.type === 'client_remote_control') {
       handleClientRemoteControl(message.action, message.duration, message.amount);
@@ -221,6 +221,7 @@ export default function SongBrowserUI() {
   // One-time componentDidMount effects
   useEffect(() => {
     fetchNewSongListData();
+    fetchNewRequestData();
 
     const setupWebSocket = () => {
       const ws = new WebSocket(`ws://${location.host}`);
@@ -285,6 +286,9 @@ export default function SongBrowserUI() {
                 nextSong();
               } else {
                 setIsPlaying(false);
+              }
+              if (selectedSong?.songRequestId) {
+                broadcast({ type: 'song_request_completed', id: selectedSong?.songRequestId });
               }
             }}
             onSongSkipped={() => {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Downloader from './Downloader';
 import SongList from './SongList';
+import { SongData } from '../../shared/messages';
 
 interface SongBrowserPlaylistsProps {
   songs: SongData[];
@@ -34,9 +35,10 @@ export default function SongBrowserPlaylists({
   socket,
   onDownloadComplete,
 }: SongBrowserPlaylistsProps) {
+  const isRequestsPlaylistSelected = playlists[selectedPlaylistIndex].title === 'Requests';
   const isDefaultPlaylistSelected =
     playlists[selectedPlaylistIndex].title === 'Base Playlist' ||
-    playlists[selectedPlaylistIndex].title === 'Requests';
+    isRequestsPlaylistSelected;
   return (
     <div className={`SongBrowserPlaylists ${className || ''}`}>
       <div className={isPlayingFromPlaylist ? '' : 'active'}>
@@ -50,18 +52,22 @@ export default function SongBrowserPlaylists({
         }
         <div className="playlist-top">
           <h2>Song Index</h2>
-          <button onClick={() => setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-            ...playlists[selectedPlaylistIndex],
-            songs: [...playlists[selectedPlaylistIndex].songs, ...songs.slice()]
-          }))}>
-            <i className="fa-solid fa-plus" /> Queue All
-          </button>
-          <button onClick={() => setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-            ...playlists[selectedPlaylistIndex],
-            songs: [...playlists[selectedPlaylistIndex].songs, ...songs.slice().toSorted(() => Math.random() - 0.5)]
-          }))}>
-            <i className="fa-solid fa-shuffle" /> Queue All (Shuffled)
-          </button>
+          {!isRequestsPlaylistSelected &&
+            <>
+              <button onClick={() => setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
+                ...playlists[selectedPlaylistIndex],
+                songs: [...playlists[selectedPlaylistIndex].songs, ...songs.slice()]
+              }))}>
+                <i className="fa-solid fa-plus" /> Queue All
+              </button>
+              <button onClick={() => setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
+                ...playlists[selectedPlaylistIndex],
+                songs: [...playlists[selectedPlaylistIndex].songs, ...songs.slice().toSorted(() => Math.random() - 0.5)]
+              }))}>
+                <i className="fa-solid fa-shuffle" /> Queue All (Shuffled)
+              </button>
+            </>
+          }
         </div>
         <SongList
           songs={songs}
@@ -74,16 +80,18 @@ export default function SongBrowserPlaylists({
               }}>
                 <i className="fa-solid fa-play" /> Select
               </button>
-              <button onClick={() => {
-                if (!playlists[selectedPlaylistIndex].songs.includes(song)) {
-                  setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-                    ...playlists[selectedPlaylistIndex],
-                    songs: [...playlists[selectedPlaylistIndex].songs, song]
-                  }));
-                }
-              }}>
-                <i className="fa-solid fa-plus" /> Queue
-              </button>
+              {!isRequestsPlaylistSelected &&
+                <button onClick={() => {
+                  if (!playlists[selectedPlaylistIndex].songs.includes(song)) {
+                    setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
+                      ...playlists[selectedPlaylistIndex],
+                      songs: [...playlists[selectedPlaylistIndex].songs, song]
+                    }));
+                  }
+                }}>
+                  <i className="fa-solid fa-plus" /> Queue
+                </button>
+              }
             </>
           )}
         />

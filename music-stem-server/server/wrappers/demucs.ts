@@ -15,7 +15,7 @@ export default class Demucs {
   onProcessingStart?: (song: DownloadedSong) => void;
   onProcessingError?: (song: DownloadedSong, errorMessage: string) => void;
   onProcessingProgress?: (song: DownloadedSong, progress: number) => void;
-  onProcessingComplete?: (song: ProcessedSong) => void;
+  onProcessingComplete?: (song: ProcessedSong, isDuplicate?: boolean) => void;
   
   private child?: ChildProcessWithoutNullStreams = undefined;
   private _queue: DownloadedSong[] = [];
@@ -56,7 +56,7 @@ export default class Demucs {
           basename: song.basename,
           songPath: song.path,
           stemsPath: dstPath,
-        });
+        }, true);
       }
       return;
     }

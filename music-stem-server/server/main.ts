@@ -38,6 +38,10 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
     } catch (e) {
       webSocketCoordinatorServer.broadcast({ type: 'download_error', query: payload.query });
     }
+  } else if (payload.type === 'song_request_completed') {
+    console.info('Set song request', payload.id, 'fulfilled');
+    await db.updateTable('songRequests').set({ status: 'fulfilled' }).where('id', '=', payload.id).execute();
+    webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
   }
 });
 
@@ -68,23 +72,23 @@ app.get('/songs', async (req, res) => {
     .leftJoin('downloads', 'downloads.id', 'downloadId')
     .leftJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
     .select([
-      'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
+      'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.createdAt',
       'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId'
+      'songRequests.requester', // 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId',
     ])
     .execute() satisfies SongData[];
   res.send(sanitizePathsToURLs(songs));
 });
 
 app.get('/requests', async (req, res) => {
-  const songs = await db.selectFrom('songs')
-    .innerJoin('downloads', 'downloads.id', 'downloadId')
-    .innerJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
+  const songs = await db.selectFrom('songRequests')
+    .innerJoin('songs', 'songs.id', 'songRequests.songId')
+    .innerJoin('downloads', 'downloads.id', 'songs.downloadId')
     .where('songRequests.status', '=', 'ready')
     .select([
       'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
       'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId'
+      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt'
     ])
     .execute() satisfies SongRequestData[];
   res.send(sanitizePathsToURLs(songs));

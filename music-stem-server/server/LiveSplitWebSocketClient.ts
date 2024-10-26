@@ -47,14 +47,8 @@ export default class LiveSplitWebSocketClient {
         this.ws.send('startorsplit');
         this.ws.send('pause');
       }
-      // TODO: More reasonable handling of YouTube song IDs (currently stuffed into title)
-      let title = message.title;
-      if (message.album === 'YouTube') {
-        title = message.title.replace(/\S+$/, '');
-      }
-      this.ws.send(`setcurrentsplitname ${title} (${message.artist})`);
+      this.ws.send(`setcurrentsplitname ${message.title} (${message.artist})`);
     } else if (message.type === 'song_played') {
-      
       this.ws.send('resume');
     } else if (message.type === 'song_paused') {
       this.ws.send('pause');

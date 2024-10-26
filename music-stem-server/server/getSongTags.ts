@@ -23,7 +23,6 @@ export default async function getSongTags(songPath: string) {
         artist: partsMatch?.[1],
         title: partsMatch?.[2],
         album: 'YouTube',
-        // album: `YouTube - ${partsMatch?.[3]}`,
         track: { no: 1, of: 1 },
       },
       format: { duration },

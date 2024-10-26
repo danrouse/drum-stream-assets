@@ -2,12 +2,12 @@ import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
-import { db } from './database';
+import { db, Song } from './database';
 import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster } from '../../shared/messages';
 
 interface DemucsCallback {
   song: DownloadedSong;
-  callback: (song?: ProcessedSong) => void;
+  callback: (song?: ProcessedSong, isDuplicate?: boolean) => void;
 }
 
 export default class SongRequestHandler {
@@ -19,9 +19,9 @@ export default class SongRequestHandler {
     this.demucs = new Demucs(Paths.DEMUCS_OUTPUT_PATH);
     this.demucs.onProcessingStart = (song) => broadcast({ type: 'demucs_start', name: song.basename });
     this.demucs.onProcessingProgress = (song, progress) => broadcast({ type: 'demucs_progress', progress, name: song.basename });
-    this.demucs.onProcessingComplete = async (song) => {      
+    this.demucs.onProcessingComplete = async (song, isDuplicate) => {      
       for (let callback of this.demucsCallbacks.filter(s => s.song.basename === song.basename)) {
-        await callback.callback(song);
+        await callback.callback(song, isDuplicate);
       }
       this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
       broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
@@ -37,7 +37,7 @@ export default class SongRequestHandler {
     this.broadcast = broadcast;
   }
 
-  private processDownloadedSong(song: DownloadedSong, callback?: (song?: ProcessedSong) => void) {
+  private processDownloadedSong(song: DownloadedSong, callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void) {
     this.demucs.queue(song);
     if (callback) {
       this.demucsCallbacks.push({ song, callback });
@@ -85,24 +85,37 @@ export default class SongRequestHandler {
             songRequestId: songRequest[0].id,
           }).returning('id as id').execute();
 
-          this.processDownloadedSong(downloadedSong, async (processedSong) => {
-            await db.updateTable('songRequests')
-              .set({ status: processedSong ? 'ready' : 'cancelled' })
-              .where('id', '=', songRequest[0].id);
+          this.processDownloadedSong(downloadedSong, async (processedSong, isDuplicate) => {
             if (processedSong) {
-              await db.insertInto('songs').values({
-                artist: String(tags.common?.artist) || '',
-                title: String(tags.common?.title) || '',
-                album: String(tags.common?.album) || '',
-                track: Number(tags.common?.track.no),
-                duration: Number(tags.format!.duration),
-                stemsPath: processedSong.stemsPath,
-                downloadId: download[0].id,
-              }).execute();
+              let song: Partial<Song>[];
+              if (isDuplicate) {
+                song = await db.selectFrom('songs')
+                  .select('id')
+                  .where('stemsPath', '=', processedSong.stemsPath)
+                  .execute();
+              } else {
+                song = await db.insertInto('songs').values({
+                  artist: String(tags.common?.artist) || '',
+                  title: String(tags.common?.title) || '',
+                  album: String(tags.common?.album) || '',
+                  track: Number(tags.common?.track.no),
+                  duration: Number(tags.format!.duration),
+                  stemsPath: processedSong.stemsPath,
+                  downloadId: download[0].id,
+                }).returning('id as id').execute();
+              }
+              await db.updateTable('songRequests')
+                .set({ status: 'ready', songId: song[0].id })
+                .where('id', '=', songRequest[0].id)
+                .execute();
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              this.broadcast({ type: 'song_request_added', id: songRequest[0].id });
+              this.broadcast({ type: 'song_requests_updated' });
               resolve(processedSong);
             } else {
+              await db.updateTable('songRequests')
+                .set({ status: 'cancelled' })
+                .where('id', '=', songRequest[0].id)
+                .execute();
               reject();
             }
           });

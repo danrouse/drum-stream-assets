@@ -21,8 +21,7 @@ type WebSocketServerMessage = {
   type: 'demucs_error',
   message: string,
 } | {
-  type: 'song_request_added',
-  id: number,
+  type: 'song_requests_updated',
 } | {
   type: 'song_request',
   query: string,
@@ -59,6 +58,9 @@ type WebSocketPlayerMessage = {
 } | {
   type: 'song_speed',
   speed: number,
+} | {
+  type: 'song_request_completed',
+  id: number,
 };
 
 export type ChannelPointReward = {
@@ -87,6 +89,7 @@ type WebSocketMessageHandler = (payload: WebSocketServerMessage | WebSocketPlaye
 
 interface SongData {
   id: number;
+  createdAt: Date | null;
   artist: string;
   title: string;
   album: string | null;
@@ -95,10 +98,10 @@ interface SongData {
   downloadPath: string | null;
   isVideo: number | null;
   lyricsPath: string | null;
-  requester: string | null;
-  priority: number | null;
-  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | null;
-  songRequestId: number | null;
+  requester?: string | null;
+  priority?: number | null;
+  status?: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | null;
+  songRequestId?: number | null;
 }
 
 interface SongRequestData extends SongData {
@@ -109,6 +112,7 @@ interface SongRequestData extends SongData {
   priority: number;
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   songRequestId: number;
+  createdAt: Date;
 }
 
 interface LegacySongData {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Howl, Howler } from 'howler';
 import MultiTrackAudioPlayerTrack from './MultiTrackAudioPlayerTrack';
-import formatTime from '../formatTime';
+import { formatTime } from '../../../shared/util';
 import './style.css';
 
 interface MultiTrackAudioPlayerProps {
@@ -121,7 +121,7 @@ export default function MultiTrackAudioPlayer({
     // since many onload handlers will get called simultaneously,
     // before react handles state updates!
     let isAllHowlsLoaded = false;
-    const newSources = tracks.map(track => {
+    const newSources = tracks.map((track, i) => {
       const howl = new Howl({
         src: track.src,
         preload: true,
@@ -163,7 +163,8 @@ export default function MultiTrackAudioPlayer({
         howl.once('load', handleHowlLoaded);
       }
       howl.on('end', () => {
-        onSongEnded();
+        // only trigger callback on one of the stems
+        if (i === 0) onSongEnded();
       });
       return howl;
     });
