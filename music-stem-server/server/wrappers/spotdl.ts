@@ -57,6 +57,7 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
         downloadedSong = {
           basename: basename(match[1]).replace(/\.(m4a|mkv|mp4|ogg|webm|flv)$/i, ''),
           path: match[1],
+          isVideo: true,
         };
       }
     });
@@ -127,6 +128,7 @@ export default async function spotdl(query: string, outputPath: string): Promise
             resolveTo = {
               basename,
               path: dstPath,
+              isVideo: false,
             };
           } else {
             reject(new SongDownloadError());
@@ -145,6 +147,7 @@ export default async function spotdl(query: string, outputPath: string): Promise
             const song = JSON.parse(t);
             execSync(`syrics "${song[0].url}"`);
             unlinkSync(TMP_OUTPUT_FILENAME);
+            resolveTo.lyricsPath = resolveTo.path.substring(0, resolveTo.path.lastIndexOf('.')) + '.lrc';
           } catch (e) {
             // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
             // COPIUM

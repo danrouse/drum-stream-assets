@@ -16,6 +16,7 @@
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "@streamerbot/client": "^1.5.1",
     "@vitejs/plugin-react": "^4.3.1",
+    "better-sqlite3": "^11.5.0",
     "body-parser": "^1.20.3",
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
@@ -23,6 +24,8 @@
     "ffprobe": "^1.1.2",
     "ffprobe-static": "^3.1.0",
     "howler": "^2.2.4",
+    "kysely": "^0.27.4",
+    "kysely-d1": "^0.3.0",
     "midi": "^2.0.0",
     "music-metadata": "^10.5.0",
     "node-id3tag": "^0.9.8",
@@ -37,6 +40,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
     "@types/express": "^4.17.21",
     "@types/ffprobe": "^1.1.8",
     "@types/ffprobe-static": "^2.0.3",
@@ -44,6 +48,7 @@
     "@types/midi": "^2.0.3",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/ws": "^8.5.12"
+    "@types/ws": "^8.5.12",
+    "typescript": "^5.6.3"
   }
 }

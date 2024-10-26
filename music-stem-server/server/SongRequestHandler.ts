@@ -1,26 +1,14 @@
-import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
 import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
-import { saveSongData } from './songList';
-import { SongRequestSource, SongRequest, ProcessedSong, DownloadedSong, WebSocketBroadcaster } from '../../shared/messages';
+import { db } from './database';
+import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster } from '../../shared/messages';
 
 interface DemucsCallback {
   song: DownloadedSong;
   callback: (song?: ProcessedSong) => void;
 }
-
-const updateSongRequestMetadata = (request: SongRequestSource, song: DownloadedSong) => {
-  const jsonPath = join(Paths.__dirname, 'songrequests.json');
-  const requests = existsSync(jsonPath) ? JSON.parse(readFileSync(jsonPath, 'utf-8')) : [];
-  requests.push({
-    ...request,
-    ...song,
-  } satisfies SongRequest);
-  writeFileSync(jsonPath, JSON.stringify(requests, null, 2));
-};
 
 export default class SongRequestHandler {
   private demucs: Demucs;
@@ -31,16 +19,19 @@ export default class SongRequestHandler {
     this.demucs = new Demucs(Paths.DEMUCS_OUTPUT_PATH);
     this.demucs.onProcessingStart = (song) => broadcast({ type: 'demucs_start', name: song.basename });
     this.demucs.onProcessingProgress = (song, progress) => broadcast({ type: 'demucs_progress', progress, name: song.basename });
-    this.demucs.onProcessingComplete = async (song) => {
-      await saveSongData(song.basename);
+    this.demucs.onProcessingComplete = async (song) => {      
+      for (let callback of this.demucsCallbacks.filter(s => s.song.basename === song.basename)) {
+        await callback.callback(song);
+      }
+      this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
       broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
-      this.demucsCallbacks.filter(s => s.song.basename === song.basename).forEach(s => s.callback(song));
-      this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
     };
-    this.demucs.onProcessingError = (song, errorMessage) => {
-      broadcast({ type: 'demucs_error', message: errorMessage });
-      this.demucsCallbacks.filter(s => s.song.basename === song.basename).forEach(s => s.callback());
+    this.demucs.onProcessingError = async (song, errorMessage) => {
+      for (let callback of this.demucsCallbacks.filter(s => s.song.basename === song.basename)) {
+        await callback.callback();
+      }
       this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
+      broadcast({ type: 'demucs_error', message: errorMessage });
     };
 
     this.broadcast = broadcast;
@@ -74,16 +65,42 @@ export default class SongRequestHandler {
         const downloadedSong = await this.downloadSong(query);
   
         if (downloadedSong) {
-          const tags = await getSongTags(downloadedSong.path, true, Paths.DOWNLOADS_PATH);
+          const tags = await getSongTags(downloadedSong.path);
           if (tags.format?.duration > MAX_SONG_REQUEST_DURATION) {
             reject(new SongDownloadError('TOO_LONG'));
           }
 
-          if (request) updateSongRequestMetadata(request, downloadedSong);
-          this.processDownloadedSong(downloadedSong, (processedSong) => {
+          const songRequest = await db.insertInto('songRequests').values({
+            query,
+            priority: 0,
+            status: 'processing',
+            requester: request?.requesterName,
+            twitchRewardId: request?.rewardId,
+            twitchRedemptionId: request?.redemptionId,
+          }).returning('id as id').execute();
+          const download = await db.insertInto('downloads').values({
+            path: downloadedSong.path,
+            lyricsPath: downloadedSong.lyricsPath,
+            isVideo: Number(downloadedSong.isVideo),
+            songRequestId: songRequest[0].id,
+          }).returning('id as id').execute();
+
+          this.processDownloadedSong(downloadedSong, async (processedSong) => {
+            await db.updateTable('songRequests')
+              .set({ status: processedSong ? 'ready' : 'cancelled' })
+              .where('id', '=', songRequest[0].id);
             if (processedSong) {
+              await db.insertInto('songs').values({
+                artist: String(tags.common?.artist) || '',
+                title: String(tags.common?.title) || '',
+                album: String(tags.common?.album) || '',
+                track: Number(tags.common?.track.no),
+                duration: Number(tags.format!.duration),
+                stemsPath: processedSong.stemsPath,
+                downloadId: download[0].id,
+              }).execute();
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              this.broadcast({ type: 'song_request_added', name: downloadedSong.basename.replace(/\.$/, '') });
+              this.broadcast({ type: 'song_request_added', id: songRequest[0].id });
               resolve(processedSong);
             } else {
               reject();

@@ -207,7 +207,6 @@ export default class StreamerbotWebSocketClient {
       const song = await this.songRequestHandler.execute(userInput, {
         requesterName: fromUsername,
         rewardId, redemptionId,
-        time: new Date(),
       });
       hasSentMessage = true;
       await this.sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`);

@@ -22,7 +22,7 @@ type WebSocketServerMessage = {
   message: string,
 } | {
   type: 'song_request_added',
-  name: string,
+  id: number,
 } | {
   type: 'song_request',
   query: string,
@@ -86,6 +86,32 @@ type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;
 type WebSocketMessageHandler = (payload: WebSocketServerMessage | WebSocketPlayerMessage) => void;
 
 interface SongData {
+  id: number;
+  artist: string;
+  title: string;
+  album: string | null;
+  duration: number;
+  stemsPath: string;
+  downloadPath: string | null;
+  isVideo: number | null;
+  lyricsPath: string | null;
+  requester: string | null;
+  priority: number | null;
+  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | null;
+  songRequestId: number | null;
+}
+
+interface SongRequestData extends SongData {
+  downloadPath: string;
+  isVideo: number;
+  lyricsPath: string | null;
+  requester: string | null;
+  priority: number;
+  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
+  songRequestId: number;
+}
+
+interface LegacySongData {
   name: string; // for paths
   artist: string;
   title: string;
@@ -102,6 +128,9 @@ interface SongData {
 interface DownloadedSong {
   basename: string;
   path: string;
+
+  isVideo: boolean;
+  lyricsPath?: string;
 }
 
 interface ProcessedSong {
@@ -114,6 +143,4 @@ interface SongRequestSource {
   requesterName: string;
   rewardId?: string;
   redemptionId?: string;
-  time: Date;
 }
-type SongRequest = SongRequestSource & DownloadedSong;

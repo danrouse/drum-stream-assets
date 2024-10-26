@@ -3,14 +3,15 @@ import bodyParser from 'body-parser';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join } from 'path';
-import { readdirSync, existsSync, unlinkSync, readFileSync } from 'fs';
+import { readdirSync, existsSync, unlinkSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
-import * as Paths from './paths';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
-import { generateSongDataList } from './songList';
+import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
+import * as Paths from './paths';
+import { SongData, SongRequestData } from '../../shared/messages';
 
 process.on('unhandledRejection', (reason: any) => {
   console.error(reason?.message || reason);
@@ -56,11 +57,36 @@ app.get('/clean', async () => {
 });
 
 app.get('/songs', async (req, res) => {
-  if (!existsSync(Paths.SONG_LIST_PATH)) {
-    const data = await generateSongDataList();
-    return res.send(data);
-  }
-  return res.send(readFileSync(Paths.SONG_LIST_PATH));
+  const songs = await db.selectFrom('songs')
+    .leftJoin('downloads', 'downloads.id', 'downloadId')
+    .leftJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
+    .select([
+      'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
+      'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
+      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId'
+    ])
+    .execute() satisfies SongData[];
+  res.send(songs);
+});
+
+app.get('/requests', async (req, res) => {
+  const requests = await db.selectFrom('songs')
+    .innerJoin('downloads', 'downloads.id', 'downloadId')
+    .innerJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
+    .where('songRequests.status', '=', 'ready')
+    .select([
+      'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
+      'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
+      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId'
+    ])
+    .execute() satisfies SongRequestData[];
+  res.send(requests);
+});
+
+app.get('/seed', async (req, res) => {
+  await initializeDatabase();
+  await populateDatabaseFromJSON();
+  res.send('widePeepoHappy');
 });
 
 if (process.env.NODE_ENV === 'production') {
