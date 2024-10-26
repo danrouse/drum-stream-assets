@@ -1,8 +1,9 @@
 import { StreamerbotClient, StreamerbotEventPayload } from '@streamerbot/client';
 import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
-import formatTime from '../player/formatTime';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
+import { db } from './database';
+import { formatTime } from '../../shared/util';
 import { loadEmotes } from '../../shared/7tv';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
@@ -60,6 +61,7 @@ export default class StreamerbotWebSocketClient {
     });
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
+    this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
 
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
@@ -185,6 +187,27 @@ export default class StreamerbotWebSocketClient {
         mutuallyExclusiveGroup.forEach((otherRewardName) =>
           this.client.doAction(this.actions['Reward: Unpause'], { rewardId: REWARD_IDS[otherRewardName] }));
       }, REWARD_DURATIONS[rewardName])
+    }
+  }
+
+  private async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
+    if (payload.data.command === '!queue') {
+      const res = await db.selectFrom('songRequests')
+        .leftJoin('songs', 'songs.id', 'songRequests.songId')
+        .where('songRequests.status', '=', 'ready')
+        .select(({ fn }) => [
+          fn<number>('sum', ['songs.duration']).as('totalDuration'),
+          fn<number>('count', ['songRequests.id']).as('totalRequests')
+        ])
+        .execute();
+      const { totalRequests, totalDuration } = res[0];
+      if (totalRequests === 0) {
+        await this.sendTwitchMessage('The song request queue is currently empty!');
+      } else {
+        await this.sendTwitchMessage(`There ${totalRequests === 1 ? 'is' : 'are'} currently ${totalRequests} song${totalRequests === 1 ? '' : 's'} in the queue, lasting ${formatTime(totalDuration)}.`);
+      }
+    } else if (payload.data.command === '!when' || payload.data.command === '!whenami') {
+      const user = payload.data.user.display; // user.display vs user.name?
     }
   }
 
