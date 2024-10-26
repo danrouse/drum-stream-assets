@@ -25,7 +25,8 @@ interface SongRequestsTable {
   twitchRewardId: string | null;
   twitchRedemptionId: string | null;
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
-  priority: number;
+  priority: number; // To be used later for having "priority" requests, maybe
+  order: number;
   songId: number | null;
 }
 
@@ -93,10 +94,12 @@ export const db = new Kysely<Database>({
 });
 
 export async function initializeDatabase() {
+  await db.executeQuery(sql`PRAGMA foreign_keys = OFF;`.compile(db));
   await db.schema.dropTable('songTags').ifExists().execute();
   await db.schema.dropTable('songs').ifExists().execute();
   await db.schema.dropTable('downloads').ifExists().execute();
   await db.schema.dropTable('songRequests').ifExists().execute();
+  await db.executeQuery(sql`PRAGMA foreign_keys = ON;`.compile(db));
 
   await db.schema.createTable('songRequests')
     .ifNotExists()
@@ -108,6 +111,7 @@ export async function initializeDatabase() {
     .addColumn('twitchRedemptionId', 'varchar(255)')
     .addColumn('status', 'varchar(32)', (cb) => cb.notNull())
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('order', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
     .execute();
 
@@ -169,6 +173,7 @@ export async function populateDatabaseFromJSON() {
       requester: s.requesterName,
       status: 'fulfilled',
       priority: 0,
+      order: 0,
     })))
     .returning(['id as id', 'query as query'])
     .execute();
