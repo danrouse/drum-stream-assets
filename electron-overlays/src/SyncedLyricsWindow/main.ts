@@ -1,3 +1,5 @@
+import { SongData } from '../../../shared/messages';
+
 (async () => {
   if (location.hash !== '#SyncedLyricsWindow') return;
   // const { readFileSync } = await import('fs');
@@ -66,10 +68,10 @@
   requestAnimationFrame(handleFrame);
 
   window.ipcRenderer.send('initialize');
-  window.ipcRenderer.on('song_changed', (_, payload) => {
+  window.ipcRenderer.on('song_changed', (_, payload: { song: SongData, lyrics: LyricLine[] }) => {
     lyrics = payload.lyrics || [];
-    if (payload.videoPath) {
-      videoElem.src = payload.videoPath;
+    if (payload.song.isVideo) {
+      videoElem.src = payload.song.downloadPath!;
       hasVideo = true;
     } else {
       videoElem.src = '';

@@ -47,7 +47,7 @@ export default class LiveSplitWebSocketClient {
         this.ws.send('startorsplit');
         this.ws.send('pause');
       }
-      this.ws.send(`setcurrentsplitname ${message.title} (${message.artist})`);
+      this.ws.send(`setcurrentsplitname ${message.song.title} (${message.song.artist})`);
     } else if (message.type === 'song_played') {
       this.ws.send('resume');
     } else if (message.type === 'song_paused') {

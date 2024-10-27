@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync, existsSync, writeFileSync, readdirSync } from 'fs';
 import { execSync } from 'child_process';
+import { WebSocketPlayerMessage } from '../../shared/messages';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -88,26 +89,6 @@ function createDrumTriggersWindow() {
 
 let prevSongChangedPayload: any;
 
-function findLyrics(artist: string, title: string, duration: number) {
-  const lyricsPath = join(__dirname, '../../music-stem-server/server/downloads',
-    `${artist} - ${title}.lrc`);
-  if (existsSync(lyricsPath)) {
-    return parseLyrics(lyricsPath, duration);
-  }
-}
-
-function findVideo(artist: string, title: string) {
-  const possibleExtensions = ['mkv', 'mp4', 'ogg', 'webm', 'flv'];
-  for (let ext of possibleExtensions) {
-    const videoBaseName = `${artist} - ${title}.${ext}`;
-    const videoPath = join(__dirname, '../../music-stem-server/server/downloads', videoBaseName);
-    if (existsSync(videoPath)) {
-      // TODO: More reliable base URL?
-      return `http://127.0.0.1:3000/downloads/${videoBaseName}`;
-    }
-  }
-}
-
 function createWindows() {
   const windows = [
     createMIDINotesWindow(),
@@ -121,18 +102,22 @@ function createWindows() {
   const createWebSocket = () => {
     const ws = new WebSocket('http://127.0.0.1:3000');
     ws.on('message', (data) => {
-      const message = JSON.parse(data.toString());
+      const message = JSON.parse(data.toString()) as WebSocketPlayerMessage;
       if (!message) {
         console.error('Error parsing received WebSocket message:', data.toString());
         return;
       }
+      
+      let { type, ...payload } = message;
       if (message.type === 'song_changed') {
-        message.lyrics = findLyrics(message.artist, message.title, message.duration);
-        message.videoPath = findVideo(message.artist, message.title);
-        const { type: _, ...payload } = message;
+        payload = {
+          ...payload,
+          lyrics: message.song.lyricsPath ? parseLyrics(message.song.lyricsPath, message.song.duration) : null,
+        };
+        console.log('got SC payload', payload);
         prevSongChangedPayload = payload;
       }
-      const { type, ...payload } = message;
+      
       windows.forEach(win => win.webContents.send(type, payload));
     });
     ws.on('error', () => {});

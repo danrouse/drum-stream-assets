@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Howl, Howler } from 'howler';
+import { Howl } from 'howler';
 import MultiTrackAudioPlayerTrack from './MultiTrackAudioPlayerTrack';
 import { formatTime } from '../../../shared/util';
+import { SongData } from '../../../shared/messages';
 import './style.css';
+
+const SONG_STEMS = ['bass.mp3', 'drums.mp3', 'other.mp3', 'vocals.mp3'];
 
 interface MultiTrackAudioPlayerProps {
   autoplay?: boolean;
-  artist?: string;
-  title?: string;
-  tracks?: SongTrack[];
-  mutedTrackNames?: string[];
+  song?: SongData;
+  mutedTrackNames: Set<string>;
 
   isPlaying?: boolean;
   shuffle?: boolean;
@@ -22,8 +23,8 @@ interface MultiTrackAudioPlayerProps {
   onSongEnded: () => void;
   onSongSkipped: () => void;
   onSongProgress: (t: number) => void;
-  onSongLoaded: (artist: string, title: string, duration: number) => void;
-  onTrackMuteChanged: (mutedTracks: string[]) => void;
+  onSongLoaded: () => void;
+  onTrackMuteChanged: (mutedTracks: Set<string>) => void;
   onShuffleChanged: (isShuffleEnabled: boolean) => void;
   onAutoplayChanged: (isAutoplayEnabled: boolean) => void;
   onPlaybackRateChanged: (rate: number) => void;
@@ -31,7 +32,7 @@ interface MultiTrackAudioPlayerProps {
 }
 
 export default function MultiTrackAudioPlayer({
-  autoplay, artist, title, tracks, mutedTrackNames,
+  autoplay, song, mutedTrackNames,
   isPlaying, shuffle, playbackRate, volume,
   onSongPlayed,
   onSongPaused,
@@ -77,11 +78,13 @@ export default function MultiTrackAudioPlayer({
     sources.forEach(s => s.stop());
     onSongStopped();
   };
-  const handleTrackMuteChange = (changedTrack: SongTrack, muted: boolean) => {
-    if (!tracks) return;
-    const nextMutedTrackNames = tracks.filter((track) =>
-      changedTrack === track ? muted : mutedTrackNames?.includes(track.title)
-    ).map((track) => track.title);
+  const handleTrackMuteChange = (changedTrack: string, muted: boolean) => {
+    const nextMutedTrackNames = new Set(mutedTrackNames);
+    if (muted) {
+      nextMutedTrackNames.add(changedTrack);
+    } else {
+      nextMutedTrackNames.delete( changedTrack);
+    }
     onTrackMuteChanged(nextMutedTrackNames);
   };
 
@@ -90,7 +93,7 @@ export default function MultiTrackAudioPlayer({
   // When loading is complete, broadcast and autoplay if applicable
   useEffect(() => {
     if (isLoaded) {
-      onSongLoaded(artist!, title!, sources[0].duration());
+      onSongLoaded();
       if (autoplay) play();
     }
   }, [isLoaded]);
@@ -115,15 +118,15 @@ export default function MultiTrackAudioPlayer({
     setPosition(0);
     setDuration(0);
 
-    if (!tracks || !artist || !title) { return; }
+    if (!song) { return; }
 
     // track this separately from isLoaded for non-UI purposes,
     // since many onload handlers will get called simultaneously,
     // before react handles state updates!
     let isAllHowlsLoaded = false;
-    const newSources = tracks.map((track, i) => {
+    const newSources = SONG_STEMS.map((basename, i) => {
       const howl = new Howl({
-        src: track.src,
+        src: `${song.stemsPath}/${basename}`,
         preload: true,
         rate: playbackRate,
         volume: volume,
@@ -196,20 +199,20 @@ export default function MultiTrackAudioPlayer({
       clearInterval(broadcastInterval);
       newSources.forEach(howl => howl.unload());
     };
-  }, [JSON.stringify(tracks)]); // my god this is awful
+  }, [song]); // my god this is awful
   
   return (
     <div className="MultiTrackAudioPlayer">
       <div className="MultiTrackAudioPlayer__top">
         <div className="MultiTrackAudioPlayer__head">
           <div className="MultiTrackAudioPlayer__meta">
-            <p className="MultiTrackAudioPlayer__meta__artist">{artist}</p>
-            <p className="MultiTrackAudioPlayer__meta__title">{title}</p>
+            <p className="MultiTrackAudioPlayer__meta__artist">{song?.artist}</p>
+            <p className="MultiTrackAudioPlayer__meta__title">{song?.title}</p>
           </div>
           <div className="MultiTrackAudioPlayer__controls">
             <button
               className="MultiTrackAudioPlayer__playpause"
-              disabled={!isLoaded && Boolean(title)}
+              disabled={!isLoaded || !song}
               onClick={() => {
                 if (isPlaying) {
                   pause();
@@ -243,12 +246,12 @@ export default function MultiTrackAudioPlayer({
           </div>
         </div>
         <ul className="MultiTrackAudioPlayer__tracks">
-          {tracks?.map((track, i) => (
+          {SONG_STEMS.map((basename, i) => (
             <MultiTrackAudioPlayerTrack 
-              track={track}
+              name={basename.replace(/\.mp3$/, '')}
               source={sources[i]}
-              key={track.title}
-              muted={mutedTrackNames?.includes(track.title)}
+              key={basename}
+              muted={mutedTrackNames.has(basename.replace(/\.mp3$/, ''))}
               onMuteChange={handleTrackMuteChange}
             />
           ))}

@@ -67,10 +67,9 @@ if (location.hash === '#NowPlayingWindow') {
   
   window.ipcRenderer.send('initialize');
   window.ipcRenderer.on('song_changed', (_, payload) => {
-    artist = payload.artist;
-    title = payload.title;
-    
-    duration = payload.duration;
+    artist = payload.song.artist;
+    title = payload.song.title;
+    duration = payload.song.duration;
     currentTimestamp = 0;
     isPlaying = false;
     render();

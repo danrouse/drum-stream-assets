@@ -41,10 +41,7 @@ type WebSocketServerMessage = {
 
 type WebSocketPlayerMessage = {
   type: 'song_changed',
-  artist: string,
-  title: string,
-  duration: number,
-  album?: string | null,
+  song: SongData,
 } | {
   type: 'song_progress',
   timestamp: number,

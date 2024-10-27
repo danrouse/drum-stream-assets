@@ -12,8 +12,6 @@ const DEFAULT_PLAYLISTS: Playlist[] = [
   { title: SONG_REQUEST_PLAYLIST_NAME, songs: [] },
 ];
 
-const SONG_STEMS = ['bass.mp3', 'drums.mp3', 'other.mp3', 'vocals.mp3'];
-
 interface SavedState {
   isAutoplayEnabled: boolean;
   isShuffleEnabled: boolean;
@@ -58,7 +56,7 @@ export default function SongBrowserUI() {
   const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [songSearchQuery, setSongSearchQuery] = useState('');
-  const [mutedTrackNames, setMutedTrackNames] = useState<string[]>([]);
+  const [mutedTrackNames, setMutedTrackNames] = useState<Set<string>>(new Set());
   const [playbackRate, setPlaybackRate] = useState(1);
   const [volume, setVolume] = useState(1);
   const [playlists, setPlaylists] = useState<Playlist[]>(DEFAULT_PLAYLISTS);
@@ -70,7 +68,7 @@ export default function SongBrowserUI() {
   const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
   const [socket, setSocket] = useState<WebSocket>();
   // Previous state values for resetting from client remote control commands
-  const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<string[]>([]);
+  const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<Set<string>>(new Set());
   const [prevPlaybackRate, setPrevPlaybackRate] = useState(1);
 
   const filteredSongs = allSongs.filter(s => `${s.artist} ${s.title}`.match(new RegExp(songSearchQuery, 'i')));
@@ -113,9 +111,7 @@ export default function SongBrowserUI() {
 
   const nextSong = () => {
     // clear any "until next song" client remote control
-    if (prevMutedTrackNames.join('') !== mutedTrackNames.join('')) {
-      setMutedTrackNames(prevMutedTrackNames);
-    }
+    setMutedTrackNames(prevMutedTrackNames);
     if (prevPlaybackRate !== playbackRate) {
       setPlaybackRate(prevPlaybackRate);
     }
@@ -155,7 +151,9 @@ export default function SongBrowserUI() {
 
   const handleClientRemoteControl = (action: ChannelPointReward['name'], duration?: number, amount?: number) => {
     if (action === 'MuteCurrentSongDrums') {
-      setMutedTrackNames([...mutedTrackNames, 'drums']);
+      const nextMutedTrackNames = new Set(mutedTrackNames);
+      nextMutedTrackNames.add('drums');
+      setMutedTrackNames(nextMutedTrackNames);
     } else if (action === 'SpeedUpCurrentSong') {
       setPlaybackRate(r => r + amount!);
       clientRemoteControlResetTimers.push(
@@ -183,14 +181,14 @@ export default function SongBrowserUI() {
         setIsAutoplayEnabled(loadedState.isAutoplayEnabled);
         setIsShuffleEnabled(loadedState.isShuffleEnabled);
         setSongSearchQuery(loadedState.songSearchQuery);
-        setMutedTrackNames(loadedState.mutedTrackNames);
+        setMutedTrackNames(new Set(loadedState.mutedTrackNames));
         setPlaybackRate(loadedState.playbackRate);
         setVolume(loadedState.volume);
         setPlaylists(loadedState.playlists);
         setSelectedPlaylistIndex(loadedState.selectedPlaylistIndex);
         setIsInitialLoad(false);
 
-        setPrevMutedTrackNames(loadedState.mutedTrackNames);
+        setPrevMutedTrackNames(new Set(loadedState.mutedTrackNames));
         setPrevPlaybackRate(loadedState.playbackRate);
       });
     } else {
@@ -198,7 +196,7 @@ export default function SongBrowserUI() {
         isAutoplayEnabled,
         isShuffleEnabled,
         songSearchQuery,
-        mutedTrackNames,
+        mutedTrackNames: Array.from(mutedTrackNames),
         playbackRate,
         volume,
         playlists,
@@ -257,16 +255,11 @@ export default function SongBrowserUI() {
       <div className="top">
         {socket &&
           <MultiTrackAudioPlayer
-            artist={selectedSong?.artist}
-            title={selectedSong?.title}
-            tracks={selectedSong?.stemsPath ? SONG_STEMS.map(basename => ({
-              title: basename.replace(/\.mp3$/, ''),
-              src: `${selectedSong.stemsPath}/${basename}`
-            })) : undefined}
+            song={selectedSong}
             isPlaying={isPlaying}
 
-            onSongLoaded={(artist, title, duration) => {
-              broadcast({ type: 'song_changed', artist, title, duration, album: selectedSong?.album });
+            onSongLoaded={() => {
+              broadcast({ type: 'song_changed', song: selectedSong! });
               if (!isAutoplayEnabled) {
                 setIsPlaying(false);
               }

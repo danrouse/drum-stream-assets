@@ -79,8 +79,8 @@ app.get('/clean', async () => {
 const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
   ...song,
   stemsPath: `/stems/${song.stemsPath.replace(Paths.STEMS_PATH, '')}`,
-  downloadPath: song.downloadPath ? `/downloads/${song.downloadPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
-  lyricsPath: song.lyricsPath ? `/downloads/${song.lyricsPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
+  downloadPath: song.downloadPath ? `http://localhost:3000/downloads/${song.downloadPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
+  lyricsPath: song.lyricsPath, // ? `/downloads/${song.lyricsPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
 }));
 
 app.get('/songs', async (req, res) => {
