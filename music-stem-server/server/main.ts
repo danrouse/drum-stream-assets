@@ -42,7 +42,7 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
     console.info('Set song request', payload.id, 'fulfilled');
     // Update song request in the database
     await db.updateTable('songRequests')
-      .set({ status: 'fulfilled' })
+      .set({ status: 'fulfilled', fulfilledAt: new Date().toUTCString() })
       .where('id', '=', payload.id)
       .execute();
     // Update song request redemption on Twitch

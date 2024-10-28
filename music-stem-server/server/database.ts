@@ -28,6 +28,7 @@ interface SongRequestsTable {
   priority: number; // To be used later for having "priority" requests, maybe
   order: number;
   songId: number | null;
+  fulfilledAt?: ColumnType<Date, string, string>;
 }
 
 interface DownloadsTable {
@@ -105,6 +106,7 @@ export async function initializeDatabase() {
     .ifNotExists()
     .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
     .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
+    .addColumn('fulfilledAt', 'timestamp')
     .addColumn('query', 'varchar(255)', (cb) => cb.notNull())
     .addColumn('requester', 'varchar(255)')
     .addColumn('twitchRewardId', 'varchar(255)')
