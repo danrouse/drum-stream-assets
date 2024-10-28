@@ -79,6 +79,9 @@ export type ChannelPointReward = {
 } | {
   name: 'ChangeDrumKit',
   duration: number,
+} | {
+  name: 'NoShenanigans',
+  duration: number,
 };
 
 type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;

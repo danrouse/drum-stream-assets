@@ -150,7 +150,14 @@ export default function SongBrowserUI() {
   };
 
   const handleClientRemoteControl = (action: ChannelPointReward['name'], duration?: number, amount?: number) => {
-    if (action === 'MuteCurrentSongDrums') {
+    if (action === 'NoShenanigans') {
+      while (clientRemoteControlResetTimers.length > 0) {
+        clearTimeout(clientRemoteControlResetTimers[0]);
+        clientRemoteControlResetTimers.shift();
+      }
+      setPlaybackRate(1);
+      setMutedTrackNames(new Set());
+    } else if (action === 'MuteCurrentSongDrums') {
       const nextMutedTrackNames = new Set(mutedTrackNames);
       nextMutedTrackNames.add('drums');
       setMutedTrackNames(nextMutedTrackNames);

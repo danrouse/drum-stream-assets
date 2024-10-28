@@ -55,6 +55,10 @@ if (location.hash === '#DrumTriggersWindow') {
         delete drumReplacementSounds.Tom3;
         delete drumReplacementSounds.Tom4;
       }, payload.duration);
+    } else if (action === 'NoShenanigans') {
+      for (let key in drumReplacementSounds) {
+        delete drumReplacementSounds[key];
+      }
     }
   });
   window.ipcRenderer.on('midi_note_on', (_, payload) =>

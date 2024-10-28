@@ -19,6 +19,7 @@ const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
   OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
   ChangeDrumKit: '6e366bb7-508d-4419-89a4-32fdcf952419',
+  NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68',
 };
 
 const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -27,6 +28,7 @@ const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
   SpeedUpCurrentSong: 120000,
   OopsAllFarts: 30000,
   ChangeDrumKit: 60000,
+  NoShenanigans: 180000,
 };
 
 const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -36,6 +38,12 @@ const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
 
 const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
   ['OopsAllFarts', 'ChangeDrumKit'],
+];
+
+const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
+  'MuteCurrentSongDrums',
+  'SlowDownCurrentSong', 'SpeedUpCurrentSong',
+  'OopsAllFarts', 'ChangeDrumKit',
 ];
 
 export default class StreamerbotWebSocketClient {
@@ -129,6 +137,17 @@ export default class StreamerbotWebSocketClient {
     return this.client.doAction(this.actions['Reward: Update Redemption'], { rewardId, redemptionId, action });
   }
 
+  private async pauseTwitchRedemption(rewardName: ChannelPointReward["name"], duration: number) {
+    await this.client.doAction(
+      this.actions['Reward: Pause'],
+      { rewardId: REWARD_IDS[rewardName] }
+    );
+    setTimeout(() => this.client.doAction(
+      this.actions['Reward: Unpause'],
+      { rewardId: REWARD_IDS[rewardName] }
+    ), REWARD_DURATIONS[rewardName]);
+  }
+
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
     if (payload.data.reward.id === REWARD_IDS.SongRequest) {
       try {
@@ -154,7 +173,12 @@ export default class StreamerbotWebSocketClient {
       .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
     console.log('Redeem', rewardName);
 
-    if (rewardName === 'OopsAllFarts') {
+    if (rewardName === 'NoShenanigans') {
+      this.midiController.resetKit();
+      for (let otherRewardName of DISABLEABLE_REWARDS) {
+        await this.pauseTwitchRedemption(otherRewardName, REWARD_DURATIONS[rewardName]!);
+      }
+    } else if (rewardName === 'OopsAllFarts') {
       this.midiController.muteToms();
       setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
     } else if (rewardName === 'ChangeDrumKit') {
@@ -180,13 +204,10 @@ export default class StreamerbotWebSocketClient {
     // For mutually-exclusive rewards, pause everything in the category
     // until this redemption expires
     const mutuallyExclusiveGroup = MUTUALLY_EXCLUSIVE_REWARD_GROUPS.find(rewardNames => rewardNames.includes(rewardName));
-    if (mutuallyExclusiveGroup) {
-      mutuallyExclusiveGroup.forEach((otherRewardName) =>
-        this.client.doAction(this.actions['Reward: Pause'], { rewardId: REWARD_IDS[otherRewardName] }));
-      setTimeout(() => {
-        mutuallyExclusiveGroup.forEach((otherRewardName) =>
-          this.client.doAction(this.actions['Reward: Unpause'], { rewardId: REWARD_IDS[otherRewardName] }));
-      }, REWARD_DURATIONS[rewardName])
+    if (mutuallyExclusiveGroup && REWARD_DURATIONS[rewardName]) {
+      for (let otherRewardName of mutuallyExclusiveGroup) {
+        await this.pauseTwitchRedemption(otherRewardName, REWARD_DURATIONS[rewardName]);
+      }
     }
   }
 
