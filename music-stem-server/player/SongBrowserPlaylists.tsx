@@ -95,6 +95,7 @@ export default function SongBrowserPlaylists({
           <SongList
             songs={playlists[selectedPlaylistIndex].songs}
             selectedSong={selectedSong}
+            showTimeAgo={isRequestsPlaylistSelected}
             renderActions={(song, index) => (
               <>
                 <button onClick={() => {

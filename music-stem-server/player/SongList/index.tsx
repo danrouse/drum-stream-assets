@@ -6,10 +6,17 @@ import './style.css';
 interface SongListProps {
   songs: SongData[];
   selectedSong?: SongData;
+  showTimeAgo?: boolean;
   renderActions: (song: SongData, index: number) => ReactNode;
 }
 
-export default function SongList({ songs, selectedSong, renderActions }: SongListProps) {
+const intl = new Intl.RelativeTimeFormat('en');
+const getTimeDiff = (ts: Date) => {
+  const sec = new Date().getTime() - new Date(ts).getTime();
+  return intl.format(Math.round(-1 * sec / 1000 / 60), 'minutes');
+};
+
+export default function SongList({ songs, selectedSong, showTimeAgo, renderActions }: SongListProps) {
   return (
     <div className="SongList">
       <ul>
@@ -22,6 +29,7 @@ export default function SongList({ songs, selectedSong, renderActions }: SongLis
             <div>
               <p className="album">{song.album}</p>
               {song.requester && <p className="requesterName">{song.requester}</p>}
+              {showTimeAgo && song.createdAt && <p>{getTimeDiff(song.createdAt)}</p>}
             </div>
             <div>
               <p className="duration">{formatTime(song.duration)}</p>
