@@ -28,7 +28,8 @@ interface SongRequestsTable {
   priority: number; // To be used later for having "priority" requests, maybe
   order: number;
   songId: number | null;
-  fulfilledAt?: ColumnType<Date, string, string>;
+  fulfilledAt: ColumnType<Date, string, string> | null;
+  isMeme: number;
 }
 
 interface DownloadsTable {
@@ -115,6 +116,7 @@ export async function initializeDatabase() {
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('order', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
+    .addColumn('isMeme', 'integer', (cb) => cb.notNull().defaultTo(false))
     .execute();
 
   await db.schema.createTable('downloads')
@@ -176,6 +178,7 @@ export async function populateDatabaseFromJSON() {
       status: 'fulfilled',
       priority: 0,
       order: 0,
+      isMeme: 0,
     })))
     .returning(['id as id', 'query as query'])
     .execute();

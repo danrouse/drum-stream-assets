@@ -13,7 +13,8 @@ interface SongBrowserPlaylistsProps {
   songSearchQuery: string;
   setSongSearchQuery: (query: string) => void;
   playlists: Playlist[];
-  setPlaylists: (playlists: Playlist[]) => void;
+  addToPlaylist: (playlist: Playlist, song: SongData) => void;
+  removeFromPlaylist: (playlist: Playlist, song: SongData) => void;
   selectedPlaylistIndex: number;
   setSelectedPlaylistIndex: (index: number) => void;
   
@@ -28,17 +29,14 @@ export default function SongBrowserPlaylists({
   isPlayingFromPlaylist, setIsPlayingFromPlaylist,
   selectedSong, setSelectedSong,
   songSearchQuery, setSongSearchQuery,
-  playlists, setPlaylists,
+  playlists, addToPlaylist, removeFromPlaylist,
   selectedPlaylistIndex, setSelectedPlaylistIndex,
 
   className,
   socket,
   onDownloadComplete,
 }: SongBrowserPlaylistsProps) {
-  const isRequestsPlaylistSelected = playlists[selectedPlaylistIndex].title === 'Requests';
-  const isDefaultPlaylistSelected =
-    playlists[selectedPlaylistIndex].title === 'Base Playlist' ||
-    isRequestsPlaylistSelected;
+  const isRequestsPlaylistSelected = ['Requests', 'Memes'].includes(playlists[selectedPlaylistIndex].title);
   return (
     <div className={`SongBrowserPlaylists ${className || ''}`}>
       <div className={isPlayingFromPlaylist ? '' : 'active'}>
@@ -52,22 +50,6 @@ export default function SongBrowserPlaylists({
         }
         <div className="playlist-top">
           <h2>Song Index</h2>
-          {!isRequestsPlaylistSelected &&
-            <>
-              <button onClick={() => setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-                ...playlists[selectedPlaylistIndex],
-                songs: [...playlists[selectedPlaylistIndex].songs, ...songs.slice()]
-              }))}>
-                <i className="fa-solid fa-plus" /> Queue All
-              </button>
-              <button onClick={() => setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-                ...playlists[selectedPlaylistIndex],
-                songs: [...playlists[selectedPlaylistIndex].songs, ...songs.slice().toSorted(() => Math.random() - 0.5)]
-              }))}>
-                <i className="fa-solid fa-shuffle" /> Queue All (Shuffled)
-              </button>
-            </>
-          }
         </div>
         <SongList
           songs={songs}
@@ -83,10 +65,7 @@ export default function SongBrowserPlaylists({
               {!isRequestsPlaylistSelected &&
                 <button onClick={() => {
                   if (!playlists[selectedPlaylistIndex].songs.includes(song)) {
-                    setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-                      ...playlists[selectedPlaylistIndex],
-                      songs: [...playlists[selectedPlaylistIndex].songs, song]
-                    }));
+                    addToPlaylist(playlists[selectedPlaylistIndex], song);
                   }
                 }}>
                   <i className="fa-solid fa-plus" /> Queue
@@ -112,33 +91,6 @@ export default function SongBrowserPlaylists({
                 </option>
               ))}
             </select>
-            <button
-              onClick={() =>
-                setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-                  ...playlists[selectedPlaylistIndex], songs: [] }))
-            }>
-              <i className="fa-solid fa-trash" /> Clear All
-            </button>
-            <button onClick={() => {
-              const playlistName = prompt('Playlist name') || 'New Playlist';
-              const newPlaylist =  { title: playlistName, songs: [] };
-              setPlaylists([...playlists, newPlaylist]);
-              setSelectedPlaylistIndex(playlists.length);
-            }}>
-              <i className="fa-solid fa-plus" /> New Playlist
-            </button>
-            {!isDefaultPlaylistSelected &&
-              <button onClick={() => {
-                if (isDefaultPlaylistSelected) {
-                  alert('Cannot delete the default playlists!');
-                } else if (confirm(`Are you sure you want to delete ${playlists[selectedPlaylistIndex].title}?`)) {
-                  setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1));
-                  setSelectedPlaylistIndex(0);
-                }
-              }}>
-                <i className="fa-solid fa-trash" /> Delete Playlist
-              </button>
-            }
           </div>
           <SongList
             songs={playlists[selectedPlaylistIndex].songs}
@@ -151,11 +103,9 @@ export default function SongBrowserPlaylists({
                 }}>
                   <i className="fa-solid fa-play" /> Select
                 </button>
-                <button onClick={() => {
-                  setPlaylists(playlists.toSpliced(selectedPlaylistIndex, 1, {
-                    ...playlists[selectedPlaylistIndex], songs: playlists[selectedPlaylistIndex].songs.toSpliced(index, 1)
-                  }));
-                }}>
+                <button onClick={() =>
+                  removeFromPlaylist(playlists[selectedPlaylistIndex], playlists[selectedPlaylistIndex].songs[index])
+                }>
                   <i className="fa-solid fa-trash" /> Remove
                 </button>
               </>

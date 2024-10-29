@@ -14,6 +14,7 @@ interface IdMap { [name: string]: string }
 
 const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   SongRequest: '089b77c3-bf0d-41e4-9063-c239bcb6477b',
+  SongRequestMeme: 'cf20c890-1365-45f9-85e7-04e084c73798',
   MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
   SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
@@ -149,13 +150,17 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
-    if (payload.data.reward.id === REWARD_IDS.SongRequest) {
+    if (
+      payload.data.reward.id === REWARD_IDS.SongRequest ||
+      payload.data.reward.id === REWARD_IDS.SongRequestMeme
+    ) {
       try {
         await this.handleSongRequest(
           payload.data.user_input,
           payload.data.user_name,
           payload.data.reward.id,
-          payload.data.id
+          payload.data.id,
+          payload.data.reward.id === REWARD_IDS.SongRequestMeme
         );
       } catch (e) {
         console.info('Song reward redemption failed with error', (e as any)?.type);
@@ -216,6 +221,7 @@ export default class StreamerbotWebSocketClient {
       const res = await db.selectFrom('songRequests')
         .leftJoin('songs', 'songs.id', 'songRequests.songId')
         .where('songRequests.status', '=', 'ready')
+        .where('songRequests.isMeme', '=', 0)
         .select(({ fn }) => [
           fn<number>('sum', ['songs.duration']).as('totalDuration'),
           fn<number>('count', ['songRequests.id']).as('totalRequests')
@@ -237,6 +243,7 @@ export default class StreamerbotWebSocketClient {
     fromUsername: string,
     rewardId?: string,
     redemptionId?: string,
+    isMeme?: boolean,
   ) {
     // Only send a heartbeat message if we didn't process it super quickly
     let hasSentMessage = false;
@@ -251,6 +258,7 @@ export default class StreamerbotWebSocketClient {
       const song = await this.songRequestHandler.execute(userInput, {
         requesterName: fromUsername,
         rewardId, redemptionId,
+        isMeme,
       });
       hasSentMessage = true;
       await this.sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`);

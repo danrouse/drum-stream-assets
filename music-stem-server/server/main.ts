@@ -38,11 +38,12 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
     } catch (e) {
       webSocketCoordinatorServer.broadcast({ type: 'download_error', query: payload.query });
     }
-  } else if (payload.type === 'song_request_completed') {
-    console.info('Set song request', payload.id, 'fulfilled');
+  } else if (payload.type === 'song_request_completed' || payload.type === 'song_request_removed') {
+    const nextStatus = payload.type === 'song_request_completed' ? 'fulfilled' : 'cancelled';
+    console.info('Set song request', payload.id, nextStatus);
     // Update song request in the database
     await db.updateTable('songRequests')
-      .set({ status: 'fulfilled', fulfilledAt: new Date().toUTCString() })
+      .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
       .where('id', '=', payload.id)
       .execute();
     // Update song request redemption on Twitch
@@ -51,7 +52,8 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
       .where('id', '=', payload.id)
       .execute();
     if (twitchIds[0].twitchRewardId && twitchIds[0].twitchRedemptionId) {
-      await streamerbotWebSocketClient.updateTwitchRedemption(twitchIds[0].twitchRewardId, twitchIds[0].twitchRedemptionId, 'fulfill');
+      const nextTwitchStatus = payload.type === 'song_request_completed' ? 'fulfill' : 'cancel';
+      await streamerbotWebSocketClient.updateTwitchRedemption(twitchIds[0].twitchRewardId, twitchIds[0].twitchRedemptionId, nextTwitchStatus);
     }
     // Notify client to reload song request list
     webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
@@ -104,7 +106,7 @@ app.get('/requests', async (req, res) => {
     .select([
       'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
       'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt'
+      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.isMeme'
     ])
     .orderBy(['songRequests.order asc', 'songRequests.id asc'])
     .execute() satisfies SongRequestData[];

@@ -58,10 +58,15 @@ type WebSocketPlayerMessage = {
 } | {
   type: 'song_request_completed',
   id: number,
+} | {
+  type: 'song_request_removed',
+  id: number,
 };
 
 export type ChannelPointReward = {
   name: 'SongRequest',
+} | {
+  name: 'SongRequestMeme',
 } | {
   name: 'MuteCurrentSongDrums',
   duration: number,
@@ -113,6 +118,7 @@ interface SongRequestData extends SongData {
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   songRequestId: number;
   createdAt: Date;
+  isMeme: number;
 }
 
 interface LegacySongData {
@@ -147,4 +153,5 @@ interface SongRequestSource {
   requesterName: string;
   rewardId?: string;
   redemptionId?: string;
+  isMeme?: boolean;
 }

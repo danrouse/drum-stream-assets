@@ -78,6 +78,7 @@ export default class SongRequestHandler {
             requester: request?.requesterName,
             twitchRewardId: request?.rewardId,
             twitchRedemptionId: request?.redemptionId,
+            isMeme: request?.isMeme || false,
           }).returning('id as id').execute();
           const download = await db.insertInto('downloads').values({
             path: downloadedSong.path,
