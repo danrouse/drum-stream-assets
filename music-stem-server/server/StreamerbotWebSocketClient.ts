@@ -55,6 +55,7 @@ export default class StreamerbotWebSocketClient {
   private actions: IdMap = {};
   private twitchMessageIdsByUser: IdMap = {};
   private emotes: IdMap = {};
+  private twitchUnpauseTimers: NodeJS.Timeout[] = [];
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
@@ -143,10 +144,12 @@ export default class StreamerbotWebSocketClient {
       this.actions['Reward: Pause'],
       { rewardId: REWARD_IDS[rewardName] }
     );
-    setTimeout(() => this.client.doAction(
-      this.actions['Reward: Unpause'],
-      { rewardId: REWARD_IDS[rewardName] }
-    ), REWARD_DURATIONS[rewardName]);
+    this.twitchUnpauseTimers.push(
+      setTimeout(() => this.client.doAction(
+        this.actions['Reward: Unpause'],
+        { rewardId: REWARD_IDS[rewardName] }
+      ), REWARD_DURATIONS[rewardName])
+    );
   }
 
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
@@ -180,9 +183,14 @@ export default class StreamerbotWebSocketClient {
 
     if (rewardName === 'NoShenanigans') {
       this.midiController.resetKit();
+      for (let i in this.twitchUnpauseTimers) {
+        clearTimeout(this.twitchUnpauseTimers[i]);
+        delete this.twitchUnpauseTimers[i];
+      }
       for (let otherRewardName of DISABLEABLE_REWARDS) {
         await this.pauseTwitchRedemption(otherRewardName, REWARD_DURATIONS[rewardName]!);
       }
+      await this.pauseTwitchRedemption(rewardName, REWARD_DURATIONS[rewardName]!);
     } else if (rewardName === 'OopsAllFarts') {
       this.midiController.muteToms();
       setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
