@@ -114,7 +114,6 @@ function createWindows() {
           ...payload,
           lyrics: message.song.lyricsPath ? parseLyrics(message.song.lyricsPath, message.song.duration) : null,
         };
-        console.log('got SC payload', payload);
         prevSongChangedPayload = payload;
       }
       
