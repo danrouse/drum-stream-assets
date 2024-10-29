@@ -80,8 +80,8 @@ app.get('/clean', async () => {
 // probably temporary, until this data is stored In The Cloud
 const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
   ...song,
-  stemsPath: `/stems/${song.stemsPath.replace(Paths.STEMS_PATH, '')}`,
-  downloadPath: song.downloadPath ? `http://localhost:3000/downloads/${song.downloadPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
+  stemsPath: `/stems/${encodeURIComponent(song.stemsPath.replace(Paths.STEMS_PATH, ''))}`,
+  downloadPath: song.downloadPath ? `http://localhost:3000/downloads/${encodeURIComponent(song.downloadPath.replace(Paths.DOWNLOADS_PATH, ''))}` : undefined,
   lyricsPath: song.lyricsPath, // ? `/downloads/${song.lyricsPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
 }));
 
