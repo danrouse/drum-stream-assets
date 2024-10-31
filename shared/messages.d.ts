@@ -94,7 +94,7 @@ type WebSocketMessageHandler = (payload: WebSocketServerMessage | WebSocketPlaye
 
 interface SongData {
   id: number;
-  createdAt: Date | null;
+  createdAt: string | null;
   artist: string;
   title: string;
   album: string | null;
