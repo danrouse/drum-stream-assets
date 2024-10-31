@@ -28,7 +28,7 @@ if (location.hash === '#DrumTriggersWindow') {
     const pool = howlPools[audioPath];
     const howl = pool.howls[pool.index];
     howl.seek(0);
-    howl.volume(volume);
+    howl.volume(volume * 0.8);
     howl.play();
 
     pool.index += 1;
