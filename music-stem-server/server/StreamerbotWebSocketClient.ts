@@ -259,8 +259,11 @@ export default class StreamerbotWebSocketClient {
       if (!hasSentMessage) await this.sendTwitchMessage(`Working on it, ${fromUsername}!`);
     }, 1000);
 
-    // Strip accidental inclusions on the original message
-    const userInput = originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
+    // If message has a URL, use only the URL
+    const url = originalMessage.match(/https?:\/\/\S+/)?.[0];
+
+    // Strip accidental inclusions on the original message if using that
+    const userInput = url || originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
 
     try {
       const song = await this.songRequestHandler.execute(userInput, {
