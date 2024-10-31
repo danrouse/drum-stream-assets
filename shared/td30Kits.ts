@@ -91,7 +91,8 @@ const sanitizeKitName = (name: string) => name
 const sanitizedKitNames = kitNames.map(n => sanitizeKitName(n));
 
 export function getKitDefinition(name: string | number): [number, string] | undefined {
-  if (typeof name === 'number') {
+  if (typeof name === 'number' || !Number.isNaN(Number(name))) {
+    name = Number(name);
     if (name < 1 || name > kitNames.length) return;
     return [name, kitNames[name - 1]];
   }
