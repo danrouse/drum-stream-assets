@@ -11,9 +11,12 @@ interface SongListProps {
 }
 
 const intl = new Intl.RelativeTimeFormat('en');
-const getTimeDiff = (ts: Date) => {
-  const sec = new Date().getTime() - new Date(ts).getTime();
-  return intl.format(Math.round(-1 * sec / 1000 / 60), 'minutes');
+const getTimeDiff = (ts: string) => {
+  const sec = (new Date().getTime() - new Date(ts + 'Z')) / 1000;
+  if (sec > 60 * 60) {
+    return intl.format(Math.round(-1 * sec / (60 * 60)), 'hours');
+  }
+  return intl.format(Math.round(-1 * sec / 60), 'minutes');
 };
 
 export default function SongList({ songs, selectedSong, showTimeAgo, renderActions }: SongListProps) {
