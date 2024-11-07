@@ -56,6 +56,7 @@ export default class StreamerbotWebSocketClient {
   private twitchMessageIdsByUser: IdMap = {};
   private emotes: IdMap = {};
   private twitchUnpauseTimers: NodeJS.Timeout[] = [];
+  private kitResetTimers: NodeJS.Timeout[] = [];
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
@@ -192,8 +193,12 @@ export default class StreamerbotWebSocketClient {
       }
       await this.pauseTwitchRedemption(rewardName, REWARD_DURATIONS[rewardName]!);
     } else if (rewardName === 'OopsAllFarts') {
-      this.midiController.muteToms();
-      setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
+      this.midiController.muteToms(this.kitResetTimers.length === 0);
+      for (let i in this.kitResetTimers) {
+        clearTimeout(this.kitResetTimers[i]);
+        delete this.kitResetTimers[i];
+      }
+      this.kitResetTimers.push(setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]));
     } else if (rewardName === 'ChangeDrumKit') {
       const kit = getKitDefinition(payload.data.user_input);
       if (!kit) {
@@ -201,9 +206,13 @@ export default class StreamerbotWebSocketClient {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
         return;
       }
-      this.midiController.changeKit(kit[0]);
+      this.midiController.changeKit(kit[0], this.kitResetTimers.length === 0);
+      for (let i in this.kitResetTimers) {
+        clearTimeout(this.kitResetTimers[i]);
+        delete this.kitResetTimers[i];
+      }
       await this.sendTwitchMessage(`Drum kit has been changed to ${kit[1]} for two minutes!`);
-      setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]);
+      this.kitResetTimers.push(setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]));
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI

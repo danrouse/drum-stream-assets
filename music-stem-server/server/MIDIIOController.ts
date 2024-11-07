@@ -6,12 +6,12 @@ export default class MIDIIOController {
   private output?: midi.Output;
   private broadcast: WebSocketBroadcaster;
 
-  public selectedKitNumber = 0;
-  public previousKitNumber = 0;
-
-  // private static KIT_ID_DEFAULT = 47;
+  private static KIT_NUMBER_DEFAULT = 47;
   private static KIT_NUMBER_NO_TOMS = 90;
   private static KIT_NUMBER_NO_CYMBALS = 91;
+
+  public selectedKitNumber = MIDIIOController.KIT_NUMBER_DEFAULT;
+  public previousKitNumber = MIDIIOController.KIT_NUMBER_DEFAULT;
 
   private static MIDI_CHANNEL_DRUM_KIT_CONTROL = 0x9; // Ch. 10 (Ch 1 is 0x0)
 
@@ -78,13 +78,15 @@ export default class MIDIIOController {
     this.output?.sendMessage([0x92, note, velocity]);
   }
 
-  changeKit(kitNumber: number) {
+  changeKit(kitNumber: number, changeResetKit: boolean = true) {
     this.output?.sendMessage([
       MIDIIOController.MIDI_PROGRAM_SELECT + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL,
       kitNumber - 1,
       0
     ]);
-    this.previousKitNumber = this.selectedKitNumber;
+    if (changeResetKit) {
+      this.previousKitNumber = this.selectedKitNumber;
+    }
     this.selectedKitNumber = kitNumber;
   }
 
@@ -97,15 +99,15 @@ export default class MIDIIOController {
   }
 
   resetKit() {
-    this.changeKit(this.previousKitNumber);
+    this.changeKit(this.previousKitNumber, false);
   }
 
-  muteToms() {
-    this.changeKit(MIDIIOController.KIT_NUMBER_NO_TOMS);
+  muteToms(changeResetKit: boolean = true) {
+    this.changeKit(MIDIIOController.KIT_NUMBER_NO_TOMS, changeResetKit);
   }
 
-  muteCymbals() {
-    this.changeKit(MIDIIOController.KIT_NUMBER_NO_CYMBALS);
+  muteCymbals(changeResetKit: boolean = true) {
+    this.changeKit(MIDIIOController.KIT_NUMBER_NO_CYMBALS, changeResetKit);
   }
 
   handleMessage = (dt: number, message: MidiMessage) => {
