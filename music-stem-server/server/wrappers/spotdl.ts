@@ -149,7 +149,8 @@ export default async function spotdl(query: string, outputPath: string): Promise
             const song = JSON.parse(t);
             execSync(`syrics "${song[0].url}"`);
             unlinkSync(TMP_OUTPUT_FILENAME);
-            resolveTo.lyricsPath = resolveTo.path.substring(0, resolveTo.path.lastIndexOf('.')) + '.lrc';
+            const lyricsPath = resolveTo.path.substring(0, resolveTo.path.lastIndexOf('.')) + '.lrc';
+            if (existsSync(lyricsPath)) resolveTo.lyricsPath = lyricsPath;
           } catch (e) {
             // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
             // COPIUM

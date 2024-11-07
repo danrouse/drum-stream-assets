@@ -141,6 +141,7 @@ const parseLRCTimeToFloat = (lrcTime: string) => {
 };
 
 const parseLyrics = (lyricsPath: string, mediaDuration: number = 0) => {
+  if (!existsSync(lyricsPath)) return null;
   const rawLyrics = readFileSync(lyricsPath).toString('utf8').split('\n');
   const lyrics: LyricLine[] = [
     // pad start with an empty line before the first real line happens
