@@ -290,6 +290,7 @@ export default class StreamerbotWebSocketClient {
         if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
         if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
         if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
+        if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
       }
       hasSentMessage = true;
       await this.sendTwitchMessage(`@${fromUsername} ${message}`);

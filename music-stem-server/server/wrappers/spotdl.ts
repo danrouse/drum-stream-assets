@@ -8,7 +8,7 @@ import { DownloadedSong } from '../../../shared/messages';
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 export const MAX_SONG_REQUEST_DURATION = 600;
 
-export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS' | 'TOO_LONG';
+export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS' | 'TOO_LONG' | 'AGE_RESTRICTED';
 export class SongDownloadError extends Error {
   type: SongDownloadErrorType;
   constructor(type: SongDownloadErrorType = 'DOWNLOAD_FAILED') {
@@ -41,6 +41,8 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
         reject(new SongDownloadError('VIDEO_UNAVAILABLE'));
       } else if (msg.toString().match(/\[youtube:tab\] YouTube said: The playlist does not exist/)) {
         reject(new SongDownloadError('VIDEO_UNAVAILABLE'));
+      } else if (msg.toString().match('Sign in to confirm your age')) {
+        reject(new SongDownloadError('AGE_RESTRICTED'));
       } else {
         console.warn('yt-dlp.exe stderr:', msg.toString());
       }
