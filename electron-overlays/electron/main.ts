@@ -169,6 +169,8 @@ const parseLyrics = (lyricsPath: string, mediaDuration: number = 0) => {
 
 ipcMain.on('initialize', (event) => prevSongChangedPayload && event.reply('song_changed', prevSongChangedPayload));
 ipcMain.on('error', (event) => console.error(event));
+process.on('uncaughtException', (err) => console.error(err));
+process.on('unhandledRejection', (reason, promise) => console.error(reason, promise));
 
 app.on('window-all-closed', () => app.quit());
 app.on('activate', () => BrowserWindow.getAllWindows().length || createWindows());
