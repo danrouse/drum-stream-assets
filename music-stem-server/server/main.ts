@@ -46,15 +46,6 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
       .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
       .where('id', '=', payload.id)
       .execute();
-    // Update song request redemption on Twitch
-    const twitchIds = await db.selectFrom('songRequests')
-      .select(['twitchRewardId', 'twitchRedemptionId'])
-      .where('id', '=', payload.id)
-      .execute();
-    if (twitchIds[0].twitchRewardId && twitchIds[0].twitchRedemptionId) {
-      const nextTwitchStatus = payload.type === 'song_request_completed' ? 'fulfill' : 'cancel';
-      await streamerbotWebSocketClient.updateTwitchRedemption(twitchIds[0].twitchRewardId, twitchIds[0].twitchRedemptionId, nextTwitchStatus);
-    }
     // Notify client to reload song request list
     webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
   }
