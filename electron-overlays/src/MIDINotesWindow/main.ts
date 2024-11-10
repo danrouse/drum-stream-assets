@@ -19,7 +19,7 @@ if (location.hash === '#MIDINotesWindow') {
   const emotes = await loadEmotes();
   const emoteURLs = Object.values(emotes);
   const EMOTE_RANDOM_SWAP_TIME = 5000;
-  const EMOTE_USER_DURATION = 15000;
+  const EMOTE_USER_DURATION = 30000;
   let selectedEmoteURL = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
   let hasUserEmote = false;
   let userEmoteResetTimer: NodeJS.Timeout | undefined;

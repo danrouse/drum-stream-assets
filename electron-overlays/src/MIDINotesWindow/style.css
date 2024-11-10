@@ -107,7 +107,7 @@
 }
 
 .note.animated {
-  animation: noteFade 1 ease-out 700ms forwards;
+  animation: noteFade 1 ease-out 1000ms forwards;
 }
 .note-kick {
 

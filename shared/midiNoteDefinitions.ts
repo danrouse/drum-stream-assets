@@ -22,7 +22,7 @@ export const midiNoteDefinitions: MIDINoteDefinition[] = [
   { name: 'HiHat', keys: [26, 46, 44], color: 'rgb(206 179 57)', z: 8 },
   { name: 'Crash1', keys: [49], color: 'rgb(248 16 138)', z: 9 },
   { name: 'Crash2', keys: [52, 57], color: 'rgb(209 102 255)', z: 1 },
-  { name: 'Ride', keys: [29, 30], color: 'orangered', z: 1 },
+  { name: 'Ride', keys: [29, 30], color: 'orangered', z: 5 },
   { name: 'Ride2', keys: [51, 53], color: 'brown', z: 6 },
   { name: 'Splash', keys: [27, 28], color: '#aaa', z: 5 },
   { name: 'Kick', keys: [36], color: '#444', z: 2 },
