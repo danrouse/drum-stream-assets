@@ -235,9 +235,26 @@ export default class StreamerbotWebSocketClient {
       if (totalRequests === 0) {
         await this.sendTwitchMessage('The song request queue is currently empty!');
       } else {
-        await this.sendTwitchMessage(`There ${totalRequests === 1 ? 'is' : 'are'} currently ${totalRequests} song${totalRequests === 1 ? '' : 's'} in the queue, lasting ${formatTime(totalDuration)}.`);
+        await this.sendTwitchMessage(
+          `There ${totalRequests === 1 ? 'is' : 'are'} currently ${totalRequests} song${totalRequests === 1 ? '' : 's'} `,
+          `in the queue, lasting ${formatTime(totalDuration)}.`
+        );
       }
     } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
+      const songRequest = await this.songRequestHandler.getNextSongRequestByRequester(userName);
+      if (!songRequest) {
+        await this.sendTwitchMessage(`@${userName} You don't have any songs in the request queue!`);
+      } else {
+        const remaining = await this.songRequestHandler.getTimeUntilSongRequest(songRequest.id);
+        if (remaining.numSongRequests === 1) {
+          await this.sendTwitchMessage(`@${userName} Your song (${songRequest.artist} - ${songRequest.title}) is up next!`);
+        } else {
+          await this.sendTwitchMessage(
+            `@${userName} Your next song (${songRequest.artist} - ${songRequest.title}) is in position ` +
+            `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
+          );
+        }
+      }
     } else if (['!remove', '!wrongsong'].includes(payload.data.command)) {
       // Find a valid song request to cancel
       const res = await db.selectFrom('songRequests')

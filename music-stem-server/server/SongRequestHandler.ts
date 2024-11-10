@@ -62,7 +62,8 @@ export default class SongRequestHandler {
   public async getNextSongRequestByRequester(requester: string) {
     const res = await db.selectFrom('songRequests')
       .innerJoin('songs', 'songs.id', 'songRequests.songId')
-      .selectAll()
+      .selectAll('songRequests')
+      .select(['songs.title', 'songs.artist'])
       .where('songRequests.status', '=', 'ready')
       .where('songRequests.requester', '=', requester)
       .limit(1)
