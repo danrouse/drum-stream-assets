@@ -8,7 +8,7 @@ import { loadEmotes } from '../../shared/7tv';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 
-// const MINIMUM_SONG_REQUEST_QUERY_LENGTH = 5;
+const MAX_CONCURRENT_SONG_REQUESTS_PER_USER = 2;
 
 interface IdMap { [name: string]: string }
 
@@ -36,7 +36,6 @@ const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
 };
 
 const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
-  ['OopsAllFarts', 'ChangeDrumKit'],
 ];
 
 const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
@@ -245,6 +244,20 @@ export default class StreamerbotWebSocketClient {
     originalMessage: string,
     fromUsername: string,
   ) {
+    // Check if user already has the maximum ongoing song requests before processing
+    const existingRequests = await db.selectFrom('songRequests')
+      .select(db.fn.countAll().as('count'))
+      .where('requester', '=', fromUsername)
+      .where('status', '=', 'ready')
+      .execute();
+    if (Number(existingRequests[0].count) >= MAX_CONCURRENT_SONG_REQUESTS_PER_USER) {
+      await this.sendTwitchMessage(
+        `@${fromUsername} You have the maximum number of ongoing song requests (${MAX_CONCURRENT_SONG_REQUESTS_PER_USER}), ` +
+        `please wait until one of your songs plays before requesting another!`
+      );
+      return;
+    }
+    
     // Only send a heartbeat message if we didn't process it super quickly
     let hasSentMessage = false;
     setTimeout(async () => {

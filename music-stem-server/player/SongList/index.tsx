@@ -24,7 +24,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, renderActio
     <div className="SongList">
       <ul>
         {songs.map((song, index) => (
-          <li key={song.id} className={selectedSong === song ? 'selected' : ''}>
+          <li key={index} className={selectedSong === song ? 'selected' : ''}>
             <div>
               <p className="title">{song.title}</p>
               <p className="artist">{song.artist}</p>
