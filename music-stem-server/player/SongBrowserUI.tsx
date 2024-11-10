@@ -7,11 +7,9 @@ import { ChannelPointReward, SongData, SongRequestData, WebSocketPlayerMessage, 
 
 // localStorage persistence of user state
 const SONG_REQUEST_PLAYLIST_NAME = 'Requests';
-const MEME_SONG_REQUEST_PLAYLIST_NAME = 'Memes';
 const DEFAULT_PLAYLISTS: Playlist[] = [
   { title: 'Base Playlist', songs: [] },
   { title: SONG_REQUEST_PLAYLIST_NAME, songs: [] },
-  { title: MEME_SONG_REQUEST_PLAYLIST_NAME, songs: [] },
 ];
 
 interface SavedState {
@@ -89,15 +87,9 @@ export default function SongBrowserUI() {
   const fetchNewRequestData = () => fetch('/requests')
     .then(res => res.json())
     .then((songs: SongRequestData[]) => {
-      const [requests, memes] = songs.reduce(([r, m], song) => {
-        (song.isMeme ? m : r).push(song);
-        return [r, m];
-      }, [[], []] as SongRequestData[][]);
-      setPlaylists(playlists.map(playlist => {
+      setPlaylists(nextPlaylists => nextPlaylists.map(playlist => {
         if (playlist.title === SONG_REQUEST_PLAYLIST_NAME) {
-          return { title: playlist.title, songs: requests };
-        } else if (playlist.title === MEME_SONG_REQUEST_PLAYLIST_NAME) {
-          return { title: playlist.title, songs: memes };
+          return { title: playlist.title, songs };
         }
         return playlist;
       }));
@@ -219,9 +211,9 @@ export default function SongBrowserUI() {
         // don't load song requests from memory, those are server-authoritative
         setPlaylists(
           loadedState.playlists
-            .filter(p => ![SONG_REQUEST_PLAYLIST_NAME, MEME_SONG_REQUEST_PLAYLIST_NAME].includes(p.title))
+            .filter(p => p.title !== SONG_REQUEST_PLAYLIST_NAME)
             .concat(
-              playlists.filter(p => [SONG_REQUEST_PLAYLIST_NAME, MEME_SONG_REQUEST_PLAYLIST_NAME].includes(p.title))
+              playlists.filter(p => p.title === SONG_REQUEST_PLAYLIST_NAME)
             )
         );
         setSelectedPlaylistIndex(loadedState.selectedPlaylistIndex);

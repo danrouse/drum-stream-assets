@@ -13,8 +13,6 @@ import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 interface IdMap { [name: string]: string }
 
 const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
-  SongRequest: '089b77c3-bf0d-41e4-9063-c239bcb6477b',
-  SongRequestMeme: 'cf20c890-1365-45f9-85e7-04e084c73798',
   MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
   SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
@@ -153,26 +151,7 @@ export default class StreamerbotWebSocketClient {
     );
   }
 
-  private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
-    if (
-      payload.data.reward.id === REWARD_IDS.SongRequest ||
-      payload.data.reward.id === REWARD_IDS.SongRequestMeme
-    ) {
-      try {
-        await this.handleSongRequest(
-          payload.data.user_input,
-          payload.data.user_name,
-          payload.data.reward.id,
-          payload.data.id,
-          payload.data.reward.id === REWARD_IDS.SongRequestMeme
-        );
-      } catch (e) {
-        console.info('Song reward redemption failed with error', (e as any)?.type);
-        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-      }
-      return;
-    }
-    
+  private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
     if (!Object.values(REWARD_IDS).includes(payload.data.reward.id)) {
       // A reward was redeemed that is not defined here, nothing to do!
       return;
@@ -234,11 +213,19 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
-    if (payload.data.command === '!queue') {
+    const message = payload.data.message.trim();
+    const userName = payload.data.user.display; // user.display vs user.name?
+    // also available: bool user.subscribed, int user.role
+    if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
+      try {
+        await this.handleSongRequest(message, userName);
+      } catch (e) {
+        console.info('Song reward redemption failed with error', e);
+      }
+    } else if (['!queue'].includes(payload.data.command)) {
       const res = await db.selectFrom('songRequests')
         .leftJoin('songs', 'songs.id', 'songRequests.songId')
         .where('songRequests.status', '=', 'ready')
-        .where('songRequests.isMeme', '=', 0)
         .select(({ fn }) => [
           fn<number>('sum', ['songs.duration']).as('totalDuration'),
           fn<number>('count', ['songRequests.id']).as('totalRequests')
@@ -250,17 +237,13 @@ export default class StreamerbotWebSocketClient {
       } else {
         await this.sendTwitchMessage(`There ${totalRequests === 1 ? 'is' : 'are'} currently ${totalRequests} song${totalRequests === 1 ? '' : 's'} in the queue, lasting ${formatTime(totalDuration)}.`);
       }
-    } else if (payload.data.command === '!when' || payload.data.command === '!whenami') {
-      const user = payload.data.user.display; // user.display vs user.name?
+    } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
     }
   }
 
   private async handleSongRequest(
     originalMessage: string,
     fromUsername: string,
-    rewardId?: string,
-    redemptionId?: string,
-    isMeme?: boolean,
   ) {
     // Only send a heartbeat message if we didn't process it super quickly
     let hasSentMessage = false;
@@ -277,8 +260,6 @@ export default class StreamerbotWebSocketClient {
     try {
       const song = await this.songRequestHandler.execute(userInput, {
         requesterName: fromUsername,
-        rewardId, redemptionId,
-        isMeme,
       });
       hasSentMessage = true;
       await this.sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`);

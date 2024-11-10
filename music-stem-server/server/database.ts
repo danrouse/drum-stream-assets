@@ -14,7 +14,7 @@ import { readdirSync, readFileSync } from 'fs';
 import * as Paths from './paths';
 import { LegacySongData } from '../../shared/messages';
 
-type CreatedAtType = ColumnType<Date, string | undefined, never>;
+type CreatedAtType = ColumnType<string, string | undefined, never>;
 
 interface SongRequestsTable {
   id: Generated<number>;
@@ -28,8 +28,7 @@ interface SongRequestsTable {
   priority: number; // To be used later for having "priority" requests, maybe
   order: number;
   songId: number | null;
-  fulfilledAt: ColumnType<Date, string, string> | null;
-  isMeme: number;
+  fulfilledAt: ColumnType<string, string, string> | null;
 }
 
 interface DownloadsTable {
@@ -116,7 +115,6 @@ export async function initializeDatabase() {
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('order', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
-    .addColumn('isMeme', 'integer', (cb) => cb.notNull().defaultTo(false))
     .execute();
 
   await db.schema.createTable('downloads')
@@ -178,7 +176,6 @@ export async function populateDatabaseFromJSON() {
       status: 'fulfilled',
       priority: 0,
       order: 0,
-      isMeme: 0,
     })))
     .returning(['id as id', 'query as query'])
     .execute();
