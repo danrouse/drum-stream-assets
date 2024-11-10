@@ -50,8 +50,8 @@ export default class StreamerbotWebSocketClient {
   private actions: IdMap = {};
   private twitchMessageIdsByUser: IdMap = {};
   private emotes: IdMap = {};
-  private twitchUnpauseTimers: NodeJS.Timeout[] = [];
-  private kitResetTimers: NodeJS.Timeout[] = [];
+  private twitchUnpauseTimers: Set<NodeJS.Timeout> = new Set();
+  private kitResetTimer?: NodeJS.Timeout;
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
@@ -148,7 +148,7 @@ export default class StreamerbotWebSocketClient {
       this.actions['Reward: Pause'],
       { rewardId: REWARD_IDS[rewardName] }
     );
-    this.twitchUnpauseTimers.push(
+    this.twitchUnpauseTimers.add(
       setTimeout(() => this.client.doAction(
         this.actions['Reward: Unpause'],
         { rewardId: REWARD_IDS[rewardName] }
@@ -168,21 +168,24 @@ export default class StreamerbotWebSocketClient {
 
     if (rewardName === 'NoShenanigans') {
       this.midiController.resetKit();
-      for (let i in this.twitchUnpauseTimers) {
-        clearTimeout(this.twitchUnpauseTimers[i]);
-        delete this.twitchUnpauseTimers[i];
-      }
+      this.twitchUnpauseTimers.forEach(timer => {
+        clearTimeout(timer);
+        this.twitchUnpauseTimers.delete(timer);
+      });
       for (let otherRewardName of DISABLEABLE_REWARDS) {
         await this.pauseTwitchRedemption(otherRewardName, REWARD_DURATIONS[rewardName]!);
       }
       await this.pauseTwitchRedemption(rewardName, REWARD_DURATIONS[rewardName]!);
     } else if (rewardName === 'OopsAllFarts') {
-      this.midiController.muteToms(this.kitResetTimers.length === 0);
-      for (let i in this.kitResetTimers) {
-        clearTimeout(this.kitResetTimers[i]);
-        delete this.kitResetTimers[i];
+      this.midiController.muteToms(!this.kitResetTimer);
+      if (this.kitResetTimer) {
+        clearTimeout(this.kitResetTimer);
+        delete this.kitResetTimer;
       }
-      this.kitResetTimers.push(setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]));
+      this.kitResetTimer = setTimeout(() => {
+        this.midiController.resetKit();
+        delete this.kitResetTimer;
+      }, REWARD_DURATIONS[rewardName]);
     } else if (rewardName === 'ChangeDrumKit') {
       const kit = getKitDefinition(payload.data.user_input);
       if (!kit) {
@@ -190,13 +193,16 @@ export default class StreamerbotWebSocketClient {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
         return;
       }
-      this.midiController.changeKit(kit[0], this.kitResetTimers.length === 0);
-      for (let i in this.kitResetTimers) {
-        clearTimeout(this.kitResetTimers[i]);
-        delete this.kitResetTimers[i];
+      this.midiController.changeKit(kit[0], !this.kitResetTimer);
+      if (this.kitResetTimer) {
+        clearTimeout(this.kitResetTimer);
+        delete this.kitResetTimer;
       }
       await this.sendTwitchMessage(`Drum kit has been changed to ${kit[1]} for two minutes!`);
-      this.kitResetTimers.push(setTimeout(() => this.midiController.resetKit(), REWARD_DURATIONS[rewardName]));
+      this.kitResetTimer = setTimeout(() => {
+        this.midiController.resetKit();
+        delete this.kitResetTimer;
+      }, REWARD_DURATIONS[rewardName]);
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI
