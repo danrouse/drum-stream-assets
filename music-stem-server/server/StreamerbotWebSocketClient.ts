@@ -68,6 +68,9 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
+    setInterval(() => {
+      this.updateActiveViewers();
+    }, 10000);
 
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
@@ -129,6 +132,11 @@ export default class StreamerbotWebSocketClient {
       const emoteURL = emotes[Math.floor(Math.random() * emotes.length)];
       this.broadcast({ type: 'emote_used', emoteURL });
     }
+  }
+
+  private async updateActiveViewers() {
+    const res = await this.client.getActiveViewers();
+    this.broadcast({ type: 'viewers_update', viewers: res.viewers });
   }
 
   public updateTwitchRedemption(rewardId: string, redemptionId: string, action: 'cancel' | 'fulfill') {

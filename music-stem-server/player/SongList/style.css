@@ -56,3 +56,10 @@
 .SongList .buttons button {
   flex: 1;
 }
+
+.SongList .requesterName.online {
+  color: green;
+}
+.SongList .requesterName.offline {
+  color: red;
+}

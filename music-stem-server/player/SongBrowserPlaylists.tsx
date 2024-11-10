@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import Downloader from './Downloader';
 import SongList from './SongList';
-import { SongData } from '../../shared/messages';
+import { SongData, StreamerbotViewer } from '../../shared/messages';
 
 interface SongBrowserPlaylistsProps {
   songs: SongData[];
@@ -17,6 +16,7 @@ interface SongBrowserPlaylistsProps {
   removeFromPlaylist: (playlist: Playlist, song: SongData) => void;
   selectedPlaylistIndex: number;
   setSelectedPlaylistIndex: (index: number) => void;
+  activeViewers: StreamerbotViewer[];
   
   className?: string;
   socket?: WebSocket;
@@ -31,12 +31,13 @@ export default function SongBrowserPlaylists({
   songSearchQuery, setSongSearchQuery,
   playlists, addToPlaylist, removeFromPlaylist,
   selectedPlaylistIndex, setSelectedPlaylistIndex,
+  activeViewers,
 
   className,
   socket,
   onDownloadComplete,
 }: SongBrowserPlaylistsProps) {
-  const isRequestsPlaylistSelected = ['Requests', 'Memes'].includes(playlists[selectedPlaylistIndex].title);
+  const isRequestsPlaylistSelected = ['Requests'].includes(playlists[selectedPlaylistIndex].title);
   return (
     <div className={`SongBrowserPlaylists ${className || ''}`}>
       <div className={isPlayingFromPlaylist ? '' : 'active'}>
@@ -96,6 +97,7 @@ export default function SongBrowserPlaylists({
             songs={playlists[selectedPlaylistIndex].songs}
             selectedSong={selectedSong}
             showTimeAgo={isRequestsPlaylistSelected}
+            activeViewers={activeViewers}
             renderActions={(song, index) => (
               <>
                 <button onClick={() => {

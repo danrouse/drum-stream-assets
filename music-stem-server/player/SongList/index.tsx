@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { formatTime } from '../../../shared/util';
-import { SongData } from '../../../shared/messages';
+import { SongData, StreamerbotViewer } from '../../../shared/messages';
 import './style.css';
 
 interface SongListProps {
@@ -8,6 +8,7 @@ interface SongListProps {
   selectedSong?: SongData;
   showTimeAgo?: boolean;
   renderActions: (song: SongData, index: number) => ReactNode;
+  activeViewers?: StreamerbotViewer[];
 }
 
 const intl = new Intl.RelativeTimeFormat('en');
@@ -19,7 +20,7 @@ const getTimeDiff = (ts: string) => {
   return intl.format(Math.round(-1 * sec / 60), 'minutes');
 };
 
-export default function SongList({ songs, selectedSong, showTimeAgo, renderActions }: SongListProps) {
+export default function SongList({ songs, selectedSong, showTimeAgo, renderActions, activeViewers }: SongListProps) {
   return (
     <div className="SongList">
       <ul>
@@ -31,7 +32,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, renderActio
             </div>
             <div>
               <p className="album">{song.album}</p>
-              {song.requester && <p className="requesterName">{song.requester}</p>}
+              {song.requester && <p className={`requesterName ${activeViewers ? (activeViewers.find(viewer => viewer.login === song.requester) ? 'online' : 'offline') : ''}`}>{song.requester}</p>}
               {showTimeAgo && song.createdAt && <p>{getTimeDiff(song.createdAt)}</p>}
             </div>
             <div>

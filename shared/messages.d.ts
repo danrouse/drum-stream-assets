@@ -1,3 +1,12 @@
+// partial from Streamerbot, since these definitions are in a place without dependencies
+type StreamerbotViewer = {
+  login: string;
+  display: string;
+  previousActive: string;
+  role: string;
+  subscribed: boolean;
+};
+
 type WebSocketServerMessage = {
   type: 'download_start',
   query: string,
@@ -37,6 +46,9 @@ type WebSocketServerMessage = {
   type: 'midi_note_on',
   note: number,
   velocity: number,
+} | {
+  type: 'viewers_update',
+  viewers: StreamerbotViewer[],
 };
 
 type WebSocketPlayerMessage = {

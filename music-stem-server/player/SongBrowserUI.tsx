@@ -3,7 +3,7 @@ import { unstable_batchedUpdates } from 'react-dom';
 
 import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongBrowserPlaylists from './SongBrowserPlaylists';
-import { ChannelPointReward, SongData, SongRequestData, WebSocketPlayerMessage, WebSocketServerMessage } from '../../shared/messages';
+import { ChannelPointReward, SongData, SongRequestData, WebSocketPlayerMessage, WebSocketServerMessage, StreamerbotViewer } from '../../shared/messages';
 
 // localStorage persistence of user state
 const SONG_REQUEST_PLAYLIST_NAME = 'Requests';
@@ -67,6 +67,7 @@ export default function SongBrowserUI() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
   const [socket, setSocket] = useState<WebSocket>();
+  const [activeViewers, setActiveViewers] = useState<StreamerbotViewer[]>([]);
   // Previous state values for resetting from client remote control commands
   const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<Set<string>>(new Set());
   const [prevPlaybackRate, setPrevPlaybackRate] = useState(1);
@@ -163,6 +164,8 @@ export default function SongBrowserUI() {
       fetchNewRequestData();
     } else if (message?.type === 'client_remote_control') {
       handleClientRemoteControl(message.action, message.duration, message.amount);
+    } else if (message?.type === 'viewers_update') {
+      setActiveViewers(message.viewers);
     }
   };
 
@@ -350,6 +353,7 @@ export default function SongBrowserUI() {
         playlists={playlists}
         addToPlaylist={addToPlaylist}
         removeFromPlaylist={removeFromPlaylist}
+        activeViewers={activeViewers}
       />
     </div>
   );
