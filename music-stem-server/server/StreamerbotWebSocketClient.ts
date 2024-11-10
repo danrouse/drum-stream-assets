@@ -237,6 +237,26 @@ export default class StreamerbotWebSocketClient {
         await this.sendTwitchMessage(`There ${totalRequests === 1 ? 'is' : 'are'} currently ${totalRequests} song${totalRequests === 1 ? '' : 's'} in the queue, lasting ${formatTime(totalDuration)}.`);
       }
     } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
+    } else if (['!remove', '!wrongsong'].includes(payload.data.command)) {
+      // Find a valid song request to cancel
+      const res = await db.selectFrom('songRequests')
+        .innerJoin('songs', 'songs.id', 'songRequests.songId')
+        .select(['songRequests.id', 'songs.artist', 'songs.title'])
+        .where('status', 'in', ['processing', 'ready'])
+        .where('requester', '=', userName)
+        .orderBy('songRequests.id desc')
+        .limit(1)
+        .execute();
+      if (res[0]) {
+        await db.updateTable('songRequests')
+          .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
+          .where('id', '=', res[0].id)
+          .execute();
+        this.broadcast({ type: 'song_requests_updated' });
+        await this.sendTwitchMessage(`@${userName} ${res[0].artist} - ${res[0].title} has been removed from the queue.`);
+      } else {
+        await this.sendTwitchMessage(`@${userName} You don't have any queued songs to cancel!`);
+      }
     }
   }
 
