@@ -58,9 +58,35 @@ export default class SongRequestHandler {
     }
     return downloadedSong;
   }
+
+  public async getNextSongRequestByRequester(requester: string) {
+    const res = await db.selectFrom('songRequests')
+      .innerJoin('songs', 'songs.id', 'songRequests.songId')
+      .selectAll()
+      .where('songRequests.status', '=', 'ready')
+      .where('songRequests.requester', '=', requester)
+      .limit(1)
+      .orderBy('songRequests.id', 'asc')
+      .execute();
+    return res[0];
+  }
+
+  public async getTimeUntilSongRequest(songRequestId: number) {
+    const precedingRequests = await db.selectFrom('songRequests')
+      .innerJoin('songs', 'songs.id', 'songRequests.songId')
+      .select(db.fn.sum('duration').as('totalDuration'))
+      .select(db.fn.countAll().as('numSongRequests'))
+      .where('songRequests.status', '=', 'ready')
+      .where('songRequests.id', '<', songRequestId)
+      .execute();
+    return {
+      totalDuration: Number(precedingRequests[0].totalDuration),
+      numSongRequests: Number(precedingRequests[0].numSongRequests) + 1,
+    };
+  }
   
   public execute(query: string, request?: SongRequestSource) {
-    return new Promise<ProcessedSong>(async (resolve, reject) => {
+    return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {
       try {
         const downloadedSong = await this.downloadSong(query);
   
@@ -103,14 +129,13 @@ export default class SongRequestHandler {
                   downloadId: download[0].id,
                 }).returning('id as id').execute();
               }
-              // TODO: calculate ordering here and update in this request
               await db.updateTable('songRequests')
                 .set({ status: 'ready', songId: song[0].id })
                 .where('id', '=', songRequest[0].id)
                 .execute();
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
               this.broadcast({ type: 'song_requests_updated' });
-              resolve(processedSong);
+              resolve([processedSong, songRequest[0].id]);
             } else {
               await db.updateTable('songRequests')
                 .set({ status: 'cancelled' })

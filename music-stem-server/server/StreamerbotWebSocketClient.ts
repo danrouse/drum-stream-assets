@@ -8,8 +8,6 @@ import { loadEmotes } from '../../shared/7tv';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 
-const MAX_CONCURRENT_SONG_REQUESTS_PER_USER = 2;
-
 interface IdMap { [name: string]: string }
 
 const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
@@ -217,7 +215,10 @@ export default class StreamerbotWebSocketClient {
     // also available: bool user.subscribed, int user.role
     if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
       try {
-        await this.handleSongRequest(message, userName);
+        // moderator/admin no limit, subs 3, normies 2
+        const limit = payload.data.user.role >= 3 ? 0 :
+          payload.data.user.subscribed ? 3 : 2;
+        await this.handleSongRequest(message, userName, limit);
       } catch (e) {
         console.info('Song reward redemption failed with error', e);
       }
@@ -263,6 +264,7 @@ export default class StreamerbotWebSocketClient {
   private async handleSongRequest(
     originalMessage: string,
     fromUsername: string,
+    perUserLimit?: number
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequests = await db.selectFrom('songRequests')
@@ -270,9 +272,9 @@ export default class StreamerbotWebSocketClient {
       .where('requester', '=', fromUsername)
       .where('status', '=', 'ready')
       .execute();
-    if (Number(existingRequests[0].count) >= MAX_CONCURRENT_SONG_REQUESTS_PER_USER) {
+    if (perUserLimit && Number(existingRequests[0].count) >= perUserLimit) {
       await this.sendTwitchMessage(
-        `@${fromUsername} You have the maximum number of ongoing song requests (${MAX_CONCURRENT_SONG_REQUESTS_PER_USER}), ` +
+        `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
         `please wait until one of your songs plays before requesting another!`
       );
       return;
@@ -291,11 +293,13 @@ export default class StreamerbotWebSocketClient {
     const userInput = url || originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
 
     try {
-      const song = await this.songRequestHandler.execute(userInput, {
+      const [song, songRequestId] = await this.songRequestHandler.execute(userInput, {
         requesterName: fromUsername,
       });
+      const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
+      const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
       hasSentMessage = true;
-      await this.sendTwitchMessage(`${song.basename} was added, ${fromUsername}!`);
+      await this.sendTwitchMessage(`@${fromUsername} ${song.basename} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
     } catch (e: any) {
       let message = 'There was an error adding your song request!';
       if (e instanceof SongDownloadError) {
