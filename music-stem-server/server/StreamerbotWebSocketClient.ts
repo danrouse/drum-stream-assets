@@ -289,6 +289,25 @@ export default class StreamerbotWebSocketClient {
       } else {
         await this.sendTwitchMessage(`@${userName} You don't have any queued songs to cancel!`);
       }
+    } else if (['!sl', '!songlist', '!list'].includes(payload.data.command)) {
+      const MAX_RESPONSE_SONGS = 5;
+      const res = await db.selectFrom('songRequests')
+        .innerJoin('songs', 'songs.id', 'songRequests.songId')
+        .where('songRequests.status', '=', 'ready')
+        .select(['songs.title', 'songs.artist', 'songRequests.id'])
+        .orderBy('songRequests.id asc')
+        .execute();
+      if (res.length === 0) {
+        await this.sendTwitchMessage(`@${userName} The song request queue is empty.`);
+      } else {
+        await this.sendTwitchMessage(
+          `@${userName} There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
+          res.slice(0, MAX_RESPONSE_SONGS).map(s =>
+            `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '')
+          ).join(', ') +
+          (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
+        );
+      }
     }
   }
 
