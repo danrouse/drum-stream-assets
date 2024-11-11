@@ -321,7 +321,11 @@ export default class StreamerbotWebSocketClient {
     const url = originalMessage.match(/https?:\/\/\S+/)?.[0];
 
     // Strip accidental inclusions on the original message if using that
-    const userInput = url || originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
+    let userInput = url || originalMessage.trim().replace(/^\!(sr|ssr|request)\s+/i, '');
+    if (!url && !userInput.includes('-')) {
+      // strip "song by artist" to "song artist" to not confuse spotify search
+      userInput = userInput.replace(/ by /i, ' ');
+    }
 
     try {
       const [song, songRequestId] = await this.songRequestHandler.execute(userInput, {
