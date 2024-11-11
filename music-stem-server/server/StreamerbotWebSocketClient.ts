@@ -50,8 +50,9 @@ export default class StreamerbotWebSocketClient {
   private actions: IdMap = {};
   private twitchMessageIdsByUser: IdMap = {};
   private emotes: IdMap = {};
-  private twitchUnpauseTimers: Set<NodeJS.Timeout> = new Set();
+  private twitchUnpauseTimers: { [rewardName in ChannelPointReward["name"]]?: NodeJS.Timeout } = {};
   private kitResetTimer?: NodeJS.Timeout;
+  private isShenanigansEnabled = true;
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
@@ -68,6 +69,7 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
+    this.client.on('General.Custom', this.handleCustom.bind(this));
     setInterval(() => {
       this.updateActiveViewers();
     }, 10000);
@@ -148,12 +150,43 @@ export default class StreamerbotWebSocketClient {
       this.actions['Reward: Pause'],
       { rewardId: REWARD_IDS[rewardName] }
     );
-    this.twitchUnpauseTimers.add(
-      setTimeout(() => this.client.doAction(
+    if (this.twitchUnpauseTimers[rewardName]) {
+      clearTimeout(this.twitchUnpauseTimers[rewardName]);
+    }
+    this.twitchUnpauseTimers[rewardName] = setTimeout(
+      () => this.client.doAction(
         this.actions['Reward: Unpause'],
         { rewardId: REWARD_IDS[rewardName] }
-      ), REWARD_DURATIONS[rewardName])
+      ),
+      duration
     );
+  }
+
+  private async enableShenanigans() {
+    this.isShenanigansEnabled = true;
+    Object.keys(this.twitchUnpauseTimers).forEach((key) => {
+      const rewardName = key as ChannelPointReward["name"];
+      this.client.doAction(
+        this.actions['Reward: Unpause'],
+        { rewardId: REWARD_IDS[rewardName] }
+      )
+      clearTimeout(this.twitchUnpauseTimers[rewardName]);
+    });
+    await this.client.doAction(this.actions['Toggle OBS graphic'], {
+      sourceName: 'No shenanigans'
+    });
+  }
+
+  private async disableShenanigans(duration?: number) {
+    this.isShenanigansEnabled = false;
+    this.midiController.resetKit();
+    Object.values(this.twitchUnpauseTimers).forEach(timer => clearTimeout(timer));
+    for (let otherRewardName of DISABLEABLE_REWARDS) {
+      await this.pauseTwitchRedemption(otherRewardName, duration || (1000 * 60 * 60 * 24));
+    }
+    await this.client.doAction(this.actions['Toggle OBS graphic'], {
+      sourceName: 'No shenanigans'
+    });
   }
 
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
@@ -167,15 +200,7 @@ export default class StreamerbotWebSocketClient {
     console.log('Redeem', rewardName);
 
     if (rewardName === 'NoShenanigans') {
-      this.midiController.resetKit();
-      this.twitchUnpauseTimers.forEach(timer => {
-        clearTimeout(timer);
-        this.twitchUnpauseTimers.delete(timer);
-      });
-      for (let otherRewardName of DISABLEABLE_REWARDS) {
-        await this.pauseTwitchRedemption(otherRewardName, REWARD_DURATIONS[rewardName]!);
-      }
-      await this.pauseTwitchRedemption(rewardName, REWARD_DURATIONS[rewardName]!);
+      this.disableShenanigans(REWARD_DURATIONS[rewardName]!);
     } else if (rewardName === 'OopsAllFarts') {
       this.midiController.muteToms(!this.kitResetTimer);
       if (this.kitResetTimer) {
@@ -290,6 +315,16 @@ export default class StreamerbotWebSocketClient {
           ).join(', ') +
           (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
         );
+      }
+    }
+  }
+
+  private handleCustom(payload: StreamerbotEventPayload<"General.Custom">) {
+    if (payload.data.data === 'NoShenanigans') {
+      if (this.isShenanigansEnabled) {
+        this.disableShenanigans();
+      } else {
+        this.enableShenanigans();
       }
     }
   }
