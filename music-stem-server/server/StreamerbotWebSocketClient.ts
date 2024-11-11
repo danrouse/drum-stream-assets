@@ -316,7 +316,7 @@ export default class StreamerbotWebSocketClient {
     // Only send a heartbeat message if we didn't process it super quickly
     let hasSentMessage = false;
     setTimeout(async () => {
-      if (!hasSentMessage) await this.sendTwitchMessage(`Working on it, ${fromUsername}!`);
+      if (!hasSentMessage) await this.sendTwitchMessage(`Working on it, @${fromUsername}!`);
     }, 1000);
 
     // If message has a URL, use only the URL
