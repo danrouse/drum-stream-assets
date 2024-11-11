@@ -42,7 +42,7 @@ if (location.hash === '#MIDINotesWindow') {
   globalContainerElem.appendChild(notesContainerElem);
 
   // LOAD/SAVE CONFIG
-  const LOCAL_STORAGE_KEY = 'noteconfig2';
+  const LOCAL_STORAGE_KEY = 'noteconfig3';
   function saveConfig(config: MIDINoteDisplayDefinition[]) {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
   }
