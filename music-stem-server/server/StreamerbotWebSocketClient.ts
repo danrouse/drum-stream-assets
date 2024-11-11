@@ -236,24 +236,6 @@ export default class StreamerbotWebSocketClient {
       } catch (e) {
         console.info('Song reward redemption failed with error', e);
       }
-    } else if (['!queue'].includes(payload.data.command)) {
-      const res = await db.selectFrom('songRequests')
-        .leftJoin('songs', 'songs.id', 'songRequests.songId')
-        .where('songRequests.status', '=', 'ready')
-        .select(({ fn }) => [
-          fn<number>('sum', ['songs.duration']).as('totalDuration'),
-          fn<number>('count', ['songRequests.id']).as('totalRequests')
-        ])
-        .execute();
-      const { totalRequests, totalDuration } = res[0];
-      if (totalRequests === 0) {
-        await this.sendTwitchMessage('The song request queue is currently empty!');
-      } else {
-        await this.sendTwitchMessage(
-          `There ${totalRequests === 1 ? 'is' : 'are'} currently ${totalRequests} song${totalRequests === 1 ? '' : 's'} `,
-          `in the queue, lasting ${formatTime(totalDuration)}.`
-        );
-      }
     } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
       const songRequest = await this.songRequestHandler.getNextSongRequestByRequester(userName);
       if (!songRequest) {
@@ -289,12 +271,12 @@ export default class StreamerbotWebSocketClient {
       } else {
         await this.sendTwitchMessage(`@${userName} You don't have any queued songs to cancel!`);
       }
-    } else if (['!sl', '!songlist', '!list'].includes(payload.data.command)) {
+    } else if (['!sl', '!songlist', '!list', '!queue'].includes(payload.data.command)) {
       const MAX_RESPONSE_SONGS = 5;
       const res = await db.selectFrom('songRequests')
         .innerJoin('songs', 'songs.id', 'songRequests.songId')
         .where('songRequests.status', '=', 'ready')
-        .select(['songs.title', 'songs.artist', 'songRequests.id'])
+        .select(['songs.title', 'songs.artist', 'songs.duration', 'songRequests.id'])
         .orderBy('songRequests.id asc')
         .execute();
       if (res.length === 0) {
@@ -303,7 +285,8 @@ export default class StreamerbotWebSocketClient {
         await this.sendTwitchMessage(
           `@${userName} There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
           res.slice(0, MAX_RESPONSE_SONGS).map(s =>
-            `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '')
+            `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
+            ` [${formatTime(s.duration)}]`
           ).join(', ') +
           (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
         );
