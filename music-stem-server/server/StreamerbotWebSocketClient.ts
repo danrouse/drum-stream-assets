@@ -267,7 +267,7 @@ export default class StreamerbotWebSocketClient {
         let limit = 2;
         if (payload.data.user.subscribed) limit = 3;
         if (payload.data.user.role >= StreamerbotUserRole.VIP) limit = 3;
-        if (payload.data.user.role === StreamerbotUserRole.Broadcaster) limit = 0;
+        if (payload.data.user.role >= StreamerbotUserRole.Moderator) limit = 0;
         
         await this.handleSongRequest(message, userName, maxDuration, limit);
       } catch (e) {
