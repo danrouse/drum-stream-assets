@@ -264,8 +264,8 @@ export default class StreamerbotWebSocketClient {
         let maxDuration = 600;
         if (payload.data.user.role === StreamerbotUserRole.Broadcaster) maxDuration = 12000;
 
-        let limit = 1;
-        if (payload.data.user.subscribed) limit = 2;
+        let limit = 2;
+        if (payload.data.user.subscribed) limit = 3;
         if (payload.data.user.role >= StreamerbotUserRole.VIP) limit = 3;
         if (payload.data.user.role === StreamerbotUserRole.Broadcaster) limit = 0;
         
