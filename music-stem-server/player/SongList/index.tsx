@@ -13,7 +13,7 @@ interface SongListProps {
 
 const intl = new Intl.RelativeTimeFormat('en');
 const getTimeDiff = (ts: string) => {
-  const sec = (new Date().getTime() - new Date(ts + 'Z')) / 1000;
+  const sec = (new Date().getTime() - new Date(ts + 'Z').getTime()) / 1000;
   if (sec > 60 * 60) {
     return intl.format(Math.round(-1 * sec / (60 * 60)), 'hours');
   }
@@ -32,7 +32,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, renderActio
             </div>
             <div>
               <p className="album">{song.album}</p>
-              {song.requester && <p className={`requesterName ${activeViewers ? (activeViewers.find(viewer => viewer.login === song.requester) ? 'online' : 'offline') : ''}`}>{song.requester}</p>}
+              {song.requester && <p className={`requesterName ${activeViewers ? (activeViewers.find(viewer => viewer.display.toLowerCase() === song.requester?.toLowerCase()) ? 'online' : 'offline') : ''}`}>{song.requester}</p>}
               {showTimeAgo && song.createdAt && <p>{getTimeDiff(song.createdAt)}</p>}
             </div>
             <div>
