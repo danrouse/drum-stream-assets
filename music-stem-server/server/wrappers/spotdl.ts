@@ -6,7 +6,6 @@ import { isURL, sleep } from '../../../shared/util';
 import { DownloadedSong } from '../../../shared/messages';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
-export const MAX_SONG_REQUEST_DURATION = 600;
 
 export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS' | 'TOO_LONG' | 'AGE_RESTRICTED';
 export class SongDownloadError extends Error {
@@ -17,13 +16,13 @@ export class SongDownloadError extends Error {
   }
 }
 
-function handleYouTubeDownload(url: URL, outputPath: string) {
+function handleYouTubeDownload(url: URL, outputPath: string, maxDuration: number) {
   return new Promise<DownloadedSong>((resolve, reject) => {
     const cmd = spawn(Paths.YT_DLP_PATH,
       [
         '--no-playlist',
         '--no-overwrites',
-        '--match-filter', `"duration<${MAX_SONG_REQUEST_DURATION}"`,
+        '--match-filter', `"duration<${maxDuration}"`,
         // '--max-downloads', '1',
         '--cookies', `"${join(Paths.__dirname, '..', 'www.youtube.com_cookies.txt')}"`,
         '-f', '"bv[height<=?720]+ba"',
@@ -48,7 +47,7 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
       }
     });
     cmd.stdout.on('data', msg => {
-      if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration/)) {
+      if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration\)/)) {
         return reject(new SongDownloadError('TOO_LONG'));
       }
       const downloadMatch = msg.toString().match(/^\[download\] Destination: (.+)/);
@@ -73,7 +72,7 @@ function handleYouTubeDownload(url: URL, outputPath: string) {
     });
   });
 }
-export default async function spotdl(query: string, outputPath: string): Promise<DownloadedSong> {
+export default async function spotdl(query: string, outputPath: string, maxDuration: number): Promise<DownloadedSong> {
   try {
     if (isURL(query)) {
       const url = new URL(query);
@@ -84,7 +83,7 @@ export default async function spotdl(query: string, outputPath: string): Promise
         if (url.pathname.startsWith('/channel/') || url.pathname.startsWith('/playlist')) {
           throw new SongDownloadError('NO_PLAYLISTS');
         }
-        return await handleYouTubeDownload(url, outputPath);
+        return await handleYouTubeDownload(url, outputPath, maxDuration);
       } else if (spotifyMatch) {
         if (!url.pathname.startsWith('/track/')) {
           throw new SongDownloadError('NO_PLAYLISTS');

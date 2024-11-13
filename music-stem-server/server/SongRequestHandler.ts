@@ -1,5 +1,5 @@
 import Demucs from './wrappers/demucs';
-import spotdl, { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
+import spotdl, { SongDownloadError } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
 import { db, Song } from './database';
@@ -44,10 +44,10 @@ export default class SongRequestHandler {
     }
   }
 
-  private async downloadSong(query: string) {
+  private async downloadSong(query: string, maxDuration: number) {
     console.info('Attempting to download:', query);
     this.broadcast({ type: 'download_start', query });
-    const downloadedSong = await spotdl(query, Paths.DOWNLOADS_PATH);
+    const downloadedSong = await spotdl(query, Paths.DOWNLOADS_PATH, maxDuration);
   
     if (downloadedSong) {
       this.broadcast({ type: 'download_complete', name: downloadedSong.basename });
@@ -86,14 +86,14 @@ export default class SongRequestHandler {
     };
   }
   
-  public execute(query: string, request?: SongRequestSource) {
+  public execute(query: string, maxDuration: number, request?: SongRequestSource) {
     return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {
       try {
-        const downloadedSong = await this.downloadSong(query);
+        const downloadedSong = await this.downloadSong(query, maxDuration);
   
         if (downloadedSong) {
           const tags = await getSongTags(downloadedSong.path);
-          if (tags.format?.duration > MAX_SONG_REQUEST_DURATION) {
+          if (tags.format?.duration > maxDuration) {
             reject(new SongDownloadError('TOO_LONG'));
           }
 

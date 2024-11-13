@@ -1,5 +1,5 @@
 import { StreamerbotClient, StreamerbotEventPayload } from '@streamerbot/client';
-import { SongDownloadError, MAX_SONG_REQUEST_DURATION } from './wrappers/spotdl';
+import { SongDownloadError } from './wrappers/spotdl';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
@@ -41,6 +41,13 @@ const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
   'SlowDownCurrentSong', 'SpeedUpCurrentSong',
   'OopsAllFarts', 'ChangeDrumKit',
 ];
+
+enum StreamerbotUserRole {
+  Viewer = 1,
+  VIP = 2,
+  Moderator = 3,
+  Broadcaster = 4,
+}
 
 export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
@@ -254,10 +261,15 @@ export default class StreamerbotWebSocketClient {
     // also available: bool user.subscribed, int user.role
     if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
       try {
-        // moderator/admin no limit, subs 3, normies 2
-        const limit = payload.data.user.role >= 3 ? 0 :
-          payload.data.user.subscribed ? 3 : 2;
-        await this.handleSongRequest(message, userName, limit);
+        let maxDuration = 600;
+        if (payload.data.user.role === StreamerbotUserRole.Broadcaster) maxDuration = 12000;
+
+        let limit = 1;
+        if (payload.data.user.subscribed) limit = 2;
+        if (payload.data.user.role >= StreamerbotUserRole.VIP) limit = 3;
+        if (payload.data.user.role === StreamerbotUserRole.Broadcaster) limit = 0;
+        
+        await this.handleSongRequest(message, userName, maxDuration, limit);
       } catch (e) {
         console.info('Song reward redemption failed with error', e);
       }
@@ -332,7 +344,8 @@ export default class StreamerbotWebSocketClient {
   private async handleSongRequest(
     originalMessage: string,
     fromUsername: string,
-    perUserLimit?: number
+    maxDuration: number,
+    perUserLimit?: number,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequests = await db.selectFrom('songRequests')
@@ -365,7 +378,7 @@ export default class StreamerbotWebSocketClient {
     }
 
     try {
-      const [song, songRequestId] = await this.songRequestHandler.execute(userInput, {
+      const [song, songRequestId] = await this.songRequestHandler.execute(userInput, maxDuration, {
         requesterName: fromUsername,
       });
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
@@ -379,7 +392,7 @@ export default class StreamerbotWebSocketClient {
         if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
         if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
         if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-        if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(MAX_SONG_REQUEST_DURATION)}.`;
+        if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)}.`;
         if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
       }
       hasSentMessage = true;

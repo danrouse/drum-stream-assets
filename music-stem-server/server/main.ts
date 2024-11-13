@@ -34,7 +34,7 @@ const songRequestHandler = new SongRequestHandler(webSocketCoordinatorServer.bro
 webSocketCoordinatorServer.handlers.push(async (payload) => {
   if (payload.type === 'song_request') {
     try {
-      await songRequestHandler.execute(payload.query);
+      await songRequestHandler.execute(payload.query, 12000);
     } catch (e) {
       webSocketCoordinatorServer.broadcast({ type: 'download_error', query: payload.query });
     }
