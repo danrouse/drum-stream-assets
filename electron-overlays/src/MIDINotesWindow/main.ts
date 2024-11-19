@@ -1,6 +1,6 @@
 
 import initializeMIDIInput from './midi';
-import { MIDINoteDisplayDefinition, midiNoteDefinitions, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
+import { MIDINoteDisplayDefinition, midiNoteDefinitions, midiRimNotes, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
 import { loadEmotes } from '../../../shared/7tv';
 
@@ -96,8 +96,12 @@ if (location.hash === '#MIDINotesWindow') {
       noteElem.style.backgroundColor = noteConfig.color;
       noteElem.style.backgroundImage = `url(${selectedEmoteURL})`;
       noteElem.style.transform = `rotate(${noteConfig.r}deg)`;
+      noteElem.style.color = noteConfig.color;
       noteElem.style.zIndex = `${noteConfig.z}`;
       noteElem.innerText = noteConfig.name;
+      if (midiRimNotes.includes(note)) {
+        noteElem.classList.add('rim');
+      }
       
       const maskContainer = document.createElement('div');
       maskContainer.classList.add('note-container');

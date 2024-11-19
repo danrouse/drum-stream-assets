@@ -94,13 +94,17 @@
   box-sizing: border-box;
   /* background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.2), rgb(0, 0, 0, 0.5)); */
   /* background-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.5) 20%, rgb(255, 255, 255, 0.5)); */
-  border: 4px solid rgba(255, 255, 255, 0.4);
-  box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.7);
+  /* border: 4px solid rgba(255, 255, 255, 0.4); */
+  /* box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.7); */
 
   background-image: url(./sloth-zoom.png);
   background-size: cover;
   background-position: center;
   background-blend-mode: overlay;
+
+  box-shadow:
+    currentColor 0 0 100px,
+    rgba(255, 255, 255, 0.5) inset 0 0 20px;
 
   opacity: 1;
   transform-origin: center center;
@@ -108,6 +112,17 @@
 
 .note.animated {
   animation: noteFade 1 ease-out 1000ms forwards;
+}
+.note.rim {
+  /* animation: none; */
+  animation-duration: 2000ms;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow:
+    currentColor inset 0 0 40px,
+    white inset 0 0 50px,
+    currentColor 0 0 40px,
+    white 0 0 50px;
 }
 .note-kick {
 

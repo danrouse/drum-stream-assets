@@ -29,6 +29,10 @@ export const midiNoteDefinitions: MIDINoteDefinition[] = [
   { name: 'Kick Secondary', keys: [36], color: '#444', z: 2 },
 ];
 
+export const midiRimNotes: number[] = [
+  40, 50, 47, 58, 39
+];
+
 export const midiNoteKeysByName = midiNoteDefinitions.reduce((acc, def) => {
   acc[def.name] = def.keys;
   return acc;
