@@ -4,7 +4,7 @@ import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
 import { formatTime } from '../../shared/util';
-import { loadEmotes } from '../../shared/7tv';
+import { load7tvEmotes } from '../../shared/7tv';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 
@@ -119,7 +119,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async loadEmotes() {
-    this.emotes = await loadEmotes();
+    this.emotes = await load7tvEmotes();
   }
 
   public sendTwitchMessage(message: string, replyTo?: string) {
@@ -138,8 +138,7 @@ export default class StreamerbotWebSocketClient {
       ...words.filter(word => this.emotes.hasOwnProperty(word)).map(emote => this.emotes[emote])
     ];
     if (emotes.length) {
-      const emoteURL = emotes[Math.floor(Math.random() * emotes.length)];
-      this.broadcast({ type: 'emote_used', emoteURL });
+      this.broadcast({ type: 'emote_used', emoteURLs: emotes });
     }
   }
 

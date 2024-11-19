@@ -41,6 +41,9 @@ type WebSocketServerMessage = {
   amount?: number,
 } | {
   type: 'emote_used',
+  emoteURLs: string[],
+} | {
+  type: 'emote_default_set',
   emoteURL: string,
 } | {
   type: 'midi_note_on',

@@ -15,7 +15,7 @@ interface EmoteData {
     }
   }
 }
-export async function loadEmotes(): Promise<{ [name: string]: string }> {
+export async function load7tvEmotes(): Promise<{ [name: string]: string }> {
   const blob = await fetch('https://7tv.io/v3/emote-sets/66f71cffc0ebe48adb092733');
   const res = await blob.json();
   const emotes = res.emotes.map((emoteData: EmoteData) => [

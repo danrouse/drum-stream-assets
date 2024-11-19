@@ -2,7 +2,7 @@
 import initializeMIDIInput from './midi';
 import { MIDINoteDisplayDefinition, midiNoteDefinitions, midiRimNotes, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
-import { loadEmotes } from '../../../shared/7tv';
+import { load7tvEmotes } from '../../../shared/7tv';
 
 // STUPID UTIL CRAP
 const pascalCaseToKebabCase = (s: string) => s.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
@@ -16,23 +16,37 @@ if (location.hash === '#MIDINotesWindow') {
   import('./style.css');
 
   // EMOTE STUFF
-  const emotes = await loadEmotes();
-  const emoteURLs = Object.values(emotes);
-  const EMOTE_RANDOM_SWAP_TIME = 5000;
+  const emotes7tv = await load7tvEmotes();
+  const emoteURLs7tv = Object.values(emotes7tv);
+  const EMOTE_RANDOM_SWAP_TIME = 1000;
   const EMOTE_USER_DURATION = 30000;
-  let selectedEmoteURL = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
-  let hasUserEmote = false;
-  let userEmoteResetTimer: NodeJS.Timeout | undefined;
+  let usedEmotes: string[][] = [];
+  let selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
+  let defaultEmoteURL: string | undefined;
   setInterval(() => {
-    if (!hasUserEmote) {
-      selectedEmoteURL = emoteURLs[Math.floor(Math.random() * emoteURLs.length)];
+    if (!defaultEmoteURL) {
+      if (!usedEmotes.length) {
+        selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
+      } else {
+        const emotePool = Array.from(new Set(usedEmotes.flat()));
+        let i: number;
+        do {
+          i = Math.floor(Math.random() * emotePool.length);
+        } while (emotePool.length != 1 && selectedEmoteURL === emotePool[i]);
+        selectedEmoteURL = emotePool[i];
+      }
+    } else {
+      selectedEmoteURL = defaultEmoteURL;
     }
   }, EMOTE_RANDOM_SWAP_TIME);
   window.ipcRenderer.on('emote_used', (_, payload) => {
-    selectedEmoteURL = payload.emoteURL;
-    hasUserEmote = true;
-    if (userEmoteResetTimer) clearTimeout(userEmoteResetTimer);
-    userEmoteResetTimer = setTimeout(() => hasUserEmote = false, EMOTE_USER_DURATION);
+    usedEmotes.push(payload.emoteURLs);
+    setTimeout(() => {
+      usedEmotes = usedEmotes.filter(emotes => emotes !== payload.emoteURLs);
+    }, EMOTE_USER_DURATION);
+  });
+  window.ipcRenderer.on('emote_default_set', (_, payload) => {
+    defaultEmoteURL = payload.emoteURL;
   });
 
   // ELEMENT INIT
