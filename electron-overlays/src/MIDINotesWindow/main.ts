@@ -2,7 +2,7 @@
 import initializeMIDIInput from './midi';
 import { MIDINoteDisplayDefinition, midiNoteDefinitions, midiRimNotes, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
-import { load7tvEmotes } from '../../../shared/7tv';
+import { load7tvEmotes } from '../../../shared/twitchEmotes';
 
 // STUPID UTIL CRAP
 const pascalCaseToKebabCase = (s: string) => s.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
@@ -18,25 +18,25 @@ if (location.hash === '#MIDINotesWindow') {
   // EMOTE STUFF
   const emotes7tv = await load7tvEmotes();
   const emoteURLs7tv = Object.values(emotes7tv);
-  const EMOTE_RANDOM_SWAP_TIME = 1000;
-  const EMOTE_USER_DURATION = 30000;
+  const EMOTE_RANDOM_SWAP_TIME = 5000;
+  const EMOTE_USER_DURATION = 60000;
   let usedEmotes: string[][] = [];
   let selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
   let defaultEmoteURL: string | undefined;
   setInterval(() => {
-    if (!defaultEmoteURL) {
-      if (!usedEmotes.length) {
-        selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
-      } else {
-        const emotePool = Array.from(new Set(usedEmotes.flat()));
-        let i: number;
-        do {
-          i = Math.floor(Math.random() * emotePool.length);
-        } while (emotePool.length != 1 && selectedEmoteURL === emotePool[i]);
-        selectedEmoteURL = emotePool[i];
-      }
-    } else {
+    if (usedEmotes.length) {
+      // if there are any emotes used by users, use a random one
+      // and ensure it is not the same as the previous (if applicable)
+      const emotePool = Array.from(new Set(usedEmotes.flat()));
+      let i: number;
+      do {
+        i = Math.floor(Math.random() * emotePool.length);
+      } while (emotePool.length != 1 && selectedEmoteURL === emotePool[i]);
+      selectedEmoteURL = emotePool[i];
+    } else if (defaultEmoteURL) {
       selectedEmoteURL = defaultEmoteURL;
+    } else {
+      selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
     }
   }, EMOTE_RANDOM_SWAP_TIME);
   window.ipcRenderer.on('emote_used', (_, payload) => {

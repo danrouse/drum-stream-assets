@@ -4,7 +4,7 @@ import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
 import { formatTime } from '../../shared/util';
-import { load7tvEmotes } from '../../shared/7tv';
+import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 
@@ -41,6 +41,8 @@ const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
   'SlowDownCurrentSong', 'SpeedUpCurrentSong',
   'OopsAllFarts', 'ChangeDrumKit',
 ];
+
+const BOT_USER_ID = '1148563762';
 
 enum StreamerbotUserRole {
   Viewer = 1,
@@ -127,15 +129,16 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
+    if (payload.data.message.userId === BOT_USER_ID) return;
+
     // Streamerbot Command.Triggered events which were triggered by Twitch messages
     // don't include the messageId which triggered them, but the Twitch.ChatMessage
     // event gets triggered first, so store a mapping of userIds to messageIds for replies
     this.twitchMessageIdsByUser[payload.data.message.userId] = payload.data.message.msgId;
-    
-    const words = payload.data.message.message.split(' ');
+
     const emotes = [
       ...payload.data.message.emotes.map(e => e.imageUrl),
-      ...words.filter(word => this.emotes.hasOwnProperty(word)).map(emote => this.emotes[emote])
+      ...(await get7tvEmotes(payload.data.message.message.split(' '))),
     ];
     if (emotes.length) {
       this.broadcast({ type: 'emote_used', emoteURLs: emotes });
