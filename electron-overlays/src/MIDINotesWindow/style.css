@@ -144,4 +144,5 @@
 .mask .note {
   background-image: none !important;
   background-color: white !important;
+  box-shadow: none !important;
 }
