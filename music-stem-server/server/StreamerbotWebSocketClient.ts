@@ -7,6 +7,15 @@ import { formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
+import StreamerbotActions from '../../streamer.bot/data/actions.json';
+
+type StreamerbotActionName =
+  'Reward: Change Price' |
+  'Reward: Pause' |
+  'Reward: Unpause' |
+  'Reward: Update Redemption' |
+  'Twitch chat message' |
+  'Toggle OBS graphic';
 
 interface IdMap { [name: string]: string }
 
@@ -56,25 +65,17 @@ export default class StreamerbotWebSocketClient {
   private midiController: MIDIIOController;
   private broadcast: WebSocketBroadcaster;
   private songRequestHandler: SongRequestHandler;
-  private actions: IdMap = {};
   private twitchMessageIdsByUser: IdMap = {};
-  private emotes: IdMap = {};
   private twitchUnpauseTimers: { [rewardName in ChannelPointReward["name"]]?: NodeJS.Timeout } = {};
   private kitResetTimer?: NodeJS.Timeout;
   private isShenanigansEnabled = true;
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
-      onConnect: () => {
-        this.loadActions();
-        this.loadEmotes();
-      },
+      onConnect: () => {},
       retries: 0,
     });
-    this.client.on('Application.*', async () => {
-      await this.loadActions();
-      await this.loadEmotes();
-    });
+    this.client.on('Application.*', async () => {});
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
@@ -97,35 +98,29 @@ export default class StreamerbotWebSocketClient {
       const nextSpeedUpPrice = Math.round(!isFaster ? 100 - (speedDiffSteps * 25) : 100 + (speedDiffSteps * 50));
       const MIN_PLAYBACK_SPEED = 0.25; // TODO: Share this somehow, should be 0.1 + reward_amount
 
-      await this.client.doAction(this.actions['Reward: Change Price'], {
+      await this.doAction('Reward: Change Price', {
         rewardId: REWARD_IDS.SlowDownCurrentSong,
         price: nextSlowDownPrice,
       });
-      await this.client.doAction(this.actions['Reward: Change Price'], {
+      await this.doAction('Reward: Change Price', {
         rewardId: REWARD_IDS.SpeedUpCurrentSong,
         price: nextSpeedUpPrice,
       });
 
       const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
-      await this.client.doAction(this.actions[slowDownRewardAction], { rewardId: REWARD_IDS.SlowDownCurrentSong });
+      await this.doAction(slowDownRewardAction, { rewardId: REWARD_IDS.SlowDownCurrentSong });
     }
-  };
-
-  private async loadActions() {
-    const mapping: IdMap = {};
-    const res = await this.client.getActions();
-    res.actions.forEach((action) => {
-      mapping[action.name] = action.id;
-    });
-    this.actions = mapping;
   }
 
-  private async loadEmotes() {
-    this.emotes = await load7tvEmotes();
+  public doAction(actionName: StreamerbotActionName, args?: any) {
+    const actionId = StreamerbotActions.actions.find(action =>
+      actionName.toLowerCase() === action.name.toLowerCase()
+    )!.id;
+    return this.client.doAction(actionId, args);
   }
 
   public sendTwitchMessage(message: string, replyTo?: string) {
-    return this.client.doAction(this.actions['Twitch chat message'], { message, replyTo });
+    return this.doAction('Twitch chat message', { message, replyTo });
   }
 
   private async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
@@ -151,12 +146,12 @@ export default class StreamerbotWebSocketClient {
   }
 
   public updateTwitchRedemption(rewardId: string, redemptionId: string, action: 'cancel' | 'fulfill') {
-    return this.client.doAction(this.actions['Reward: Update Redemption'], { rewardId, redemptionId, action });
+    return this.doAction('Reward: Update Redemption', { rewardId, redemptionId, action });
   }
 
   private async pauseTwitchRedemption(rewardName: ChannelPointReward["name"], duration: number) {
-    await this.client.doAction(
-      this.actions['Reward: Pause'],
+    await this.doAction(
+      'Reward: Pause',
       { rewardId: REWARD_IDS[rewardName] }
     );
     if (this.twitchUnpauseTimers[rewardName]) {
@@ -164,7 +159,7 @@ export default class StreamerbotWebSocketClient {
     }
     this.twitchUnpauseTimers[rewardName] = setTimeout(
       () => this.client.doAction(
-        this.actions['Reward: Unpause'],
+        'Reward: Unpause',
         { rewardId: REWARD_IDS[rewardName] }
       ),
       duration
@@ -175,13 +170,13 @@ export default class StreamerbotWebSocketClient {
     this.isShenanigansEnabled = true;
     Object.keys(this.twitchUnpauseTimers).forEach((key) => {
       const rewardName = key as ChannelPointReward["name"];
-      this.client.doAction(
-        this.actions['Reward: Unpause'],
+      this.doAction(
+        'Reward: Unpause',
         { rewardId: REWARD_IDS[rewardName] }
       )
       clearTimeout(this.twitchUnpauseTimers[rewardName]);
     });
-    await this.client.doAction(this.actions['Toggle OBS graphic'], {
+    await this.doAction('Toggle OBS graphic', {
       sourceName: 'No shenanigans'
     });
   }
@@ -193,7 +188,7 @@ export default class StreamerbotWebSocketClient {
     for (let otherRewardName of DISABLEABLE_REWARDS) {
       await this.pauseTwitchRedemption(otherRewardName, duration || (1000 * 60 * 60 * 24));
     }
-    await this.client.doAction(this.actions['Toggle OBS graphic'], {
+    await this.doAction('Toggle OBS graphic', {
       sourceName: 'No shenanigans'
     });
   }
