@@ -91,12 +91,12 @@ export default class StreamerbotWebSocketClient {
 
   public messageHandler = async (payload: WebSocketServerMessage | WebSocketPlayerMessage) => {
     if (payload.type === 'song_speed') {
+      // Scale the price of speed up/slow down song redemptions based on current speed
       const playbackRate = payload.speed;
       const speedDiffSteps = Math.abs(1 - playbackRate) / REWARD_AMOUNTS.SpeedUpCurrentSong!;
       const isFaster = playbackRate > 1;
       const nextSlowDownPrice = Math.round(isFaster ? 100 - (speedDiffSteps * 50) : 100 + (speedDiffSteps * 100));
       const nextSpeedUpPrice = Math.round(!isFaster ? 100 - (speedDiffSteps * 50) : 100 + (speedDiffSteps * 100));
-      const MIN_PLAYBACK_SPEED = 0.4; // TODO: Share this somehow, should be 0.1 + reward_amount
 
       await this.doAction('Reward: Change Price', {
         rewardId: REWARD_IDS.SlowDownCurrentSong,
@@ -107,10 +107,15 @@ export default class StreamerbotWebSocketClient {
         price: nextSpeedUpPrice,
       });
 
+      // Limit min/max speed within the realm of reason
+      const MIN_PLAYBACK_SPEED = 0.4;
+      const MAX_PLAYBACK_SPEED = 1.9;
       const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
       await this.doAction(slowDownRewardAction, { rewardId: REWARD_IDS.SlowDownCurrentSong });
+      const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
+      await this.doAction(speedUpRewardAction, { rewardId: REWARD_IDS.SpeedUpCurrentSong });
     }
-  }
+  };
 
   public doAction(actionName: StreamerbotActionName, args?: any) {
     const actionId = StreamerbotActions.actions.find(action =>
