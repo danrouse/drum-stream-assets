@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
@@ -38,6 +39,12 @@ export default class SongRequestHandler {
   }
 
   private processDownloadedSong(song: DownloadedSong, callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void) {
+    console.log(`Running ffmpeg-normalize on ${song.basename}`);
+    try {
+      execSync(`ffmpeg-normalize "${song.path}" -o "${song.path}" -c:a aac -nt rms -t -16 -f`);
+    } catch (e) {
+      // Let any errors pass, no big deal
+    }
     this.demucs.queue(song);
     if (callback) {
       this.demucsCallbacks.push({ song, callback });
