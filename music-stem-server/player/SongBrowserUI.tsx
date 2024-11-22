@@ -72,7 +72,11 @@ export default function SongBrowserUI() {
   const [prevMutedTrackNames, setPrevMutedTrackNames] = useState<Set<string>>(new Set());
   const [prevPlaybackRate, setPrevPlaybackRate] = useState(1);
 
-  const filteredSongs = allSongs.filter(s => `${s.artist} ${s.title}`.match(new RegExp(songSearchQuery, 'i')));
+  // For song filtering, check word by word (order doesn't matter)
+  const songSearchRegexps = songSearchQuery.split(' ').map(word => new RegExp(word, 'i'));
+  const filteredSongs = allSongs.filter(s => songSearchRegexps.every(wordRegexp => 
+    s.title.match(wordRegexp) || s.artist.match(wordRegexp) || s.album?.match(wordRegexp) || s.requester?.match(wordRegexp)
+  ));
 
   const fetchNewSongListData = () => fetch('/songs')
     .then(res => res.json())
