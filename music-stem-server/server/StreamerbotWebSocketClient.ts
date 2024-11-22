@@ -15,7 +15,8 @@ type StreamerbotActionName =
   'Reward: Unpause' |
   'Reward: Update Redemption' |
   'Twitch chat message' |
-  'Toggle OBS graphic';
+  'Toggle OBS graphic' |
+  '!how';
 
 interface IdMap { [name: string]: string }
 
@@ -263,7 +264,9 @@ export default class StreamerbotWebSocketClient {
     // also available: bool user.subscribed, int user.role
     if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
       try {
-        let maxDuration = 600;
+        let maxDuration = 60 * 7; // 7 mins default max
+        if (payload.data.user.role >= StreamerbotUserRole.VIP) maxDuration = 60 * 10; // 10 mins for VIP
+        if (payload.data.user.role >= StreamerbotUserRole.Moderator) maxDuration = 60 * 20; // 20 mins for mod
         if (payload.data.user.role === StreamerbotUserRole.Broadcaster) maxDuration = 12000;
 
         let limit = 2;
@@ -362,12 +365,6 @@ export default class StreamerbotWebSocketClient {
       );
       return;
     }
-    
-    // Only send a heartbeat message if we didn't process it super quickly
-    let hasSentMessage = false;
-    setTimeout(async () => {
-      if (!hasSentMessage) await this.sendTwitchMessage(`Working on it, @${fromUsername}!`);
-    }, 1000);
 
     // If message has a URL, use only the URL
     const url = originalMessage.match(/https?:\/\/\S+/)?.[0];
@@ -379,13 +376,20 @@ export default class StreamerbotWebSocketClient {
       userInput = userInput.replace(/ by /i, ' ');
     }
 
+    const MINIMUM_REQUEST_LENGTH = 4;
+    if (userInput.length <= MINIMUM_REQUEST_LENGTH) {
+      await this.doAction('!how');
+      return;
+    }
+
+    await this.sendTwitchMessage(`Working on it, @${fromUsername}!`);
+
     try {
       const [song, songRequestId] = await this.songRequestHandler.execute(userInput, maxDuration, {
         requesterName: fromUsername,
       });
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
       const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
-      hasSentMessage = true;
       await this.sendTwitchMessage(`@${fromUsername} ${song.basename} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
     } catch (e: any) {
       let message = 'There was an error adding your song request!';
@@ -397,7 +401,6 @@ export default class StreamerbotWebSocketClient {
         if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)}.`;
         if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
       }
-      hasSentMessage = true;
       await this.sendTwitchMessage(`@${fromUsername} ${message}`);
       // rethrow to allow to catch for refund
       throw e;
