@@ -115,6 +115,11 @@ export default class StreamerbotWebSocketClient {
       await this.doAction(slowDownRewardAction, { rewardId: REWARD_IDS.SlowDownCurrentSong });
       const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
       await this.doAction(speedUpRewardAction, { rewardId: REWARD_IDS.SpeedUpCurrentSong });
+    } else if (payload.type === 'song_changed') {
+      // Notify user when their song request is starting
+      if (payload.song.requester && payload.song.status === 'ready') {
+        await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
+      }
     }
   };
 
