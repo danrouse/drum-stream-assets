@@ -21,6 +21,9 @@
         background-color: #aaa;
       }
       .SongList li.selected {
+        border: 4px solid black;
+      }
+      .SongList li.priority {
         background-color: var(--blue-transparent);
       }
 

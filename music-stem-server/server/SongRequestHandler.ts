@@ -74,18 +74,23 @@ export default class SongRequestHandler {
       .where('songRequests.status', '=', 'ready')
       .where('songRequests.requester', '=', requester)
       .limit(1)
-      .orderBy('songRequests.id', 'asc')
+      .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
       .execute();
     return res[0];
   }
 
   public async getTimeUntilSongRequest(songRequestId: number) {
+    const priority = await db.selectFrom('songRequests').select('priority').where('id', '=', songRequestId).execute();
     const precedingRequests = await db.selectFrom('songRequests')
       .innerJoin('songs', 'songs.id', 'songRequests.songId')
       .select(db.fn.sum('duration').as('totalDuration'))
       .select(db.fn.countAll().as('numSongRequests'))
       .where('songRequests.status', '=', 'ready')
-      .where('songRequests.id', '<', songRequestId)
+      .where(q => q.and([
+        q('songRequests.id', '<', songRequestId),
+        q('songRequests.priority', '>=', priority[0].priority)
+      ]))
+      .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
       .execute();
     return {
       totalDuration: Number(precedingRequests[0].totalDuration),
@@ -93,7 +98,7 @@ export default class SongRequestHandler {
     };
   }
   
-  public execute(query: string, maxDuration: number, request?: SongRequestSource) {
+  public execute(query: string, maxDuration: number, request?: SongRequestSource, priority: boolean = false) {
     return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {
       try {
         const downloadedSong = await this.downloadSong(query, maxDuration);
@@ -102,11 +107,13 @@ export default class SongRequestHandler {
           const tags = await getSongTags(downloadedSong.path);
           if (tags.format?.duration > maxDuration) {
             reject(new SongDownloadError('TOO_LONG'));
+            this.broadcast({ type: 'download_error', query });
+            return;
           }
 
           const songRequest = await db.insertInto('songRequests').values({
             query,
-            priority: 0,
+            priority: Number(priority),
             order: 0,
             status: 'processing',
             requester: request?.requesterName,
@@ -154,9 +161,11 @@ export default class SongRequestHandler {
           });
         } else {
           reject();
+          this.broadcast({ type: 'download_error', query });
         }
       } catch (e) {
         reject(e);
+        this.broadcast({ type: 'download_error', query });
       }
     });
   }

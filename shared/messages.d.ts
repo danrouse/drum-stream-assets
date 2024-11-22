@@ -98,6 +98,10 @@ export type ChannelPointReward = {
 } | {
   name: 'NoShenanigans',
   duration: number,
+} | {
+  name: 'LongSong',
+} | {
+  name: 'PrioritySong',
 };
 
 type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;

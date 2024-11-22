@@ -1,4 +1,4 @@
-import { StreamerbotClient, StreamerbotEventPayload } from '@streamerbot/client';
+import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer } from '@streamerbot/client';
 import { SongDownloadError } from './wrappers/spotdl';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
@@ -27,6 +27,8 @@ const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
   ChangeDrumKit: '6e366bb7-508d-4419-89a4-32fdcf952419',
   NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68',
+  LongSong: '3db680fc-9fea-42c2-aed5-1e1b447b4842',
+  PrioritySong: 'a8691f10-c763-45f3-8c77-945037bd4978',
 };
 
 const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -70,10 +72,13 @@ export default class StreamerbotWebSocketClient {
   private twitchUnpauseTimers: { [rewardName in ChannelPointReward["name"]]?: NodeJS.Timeout } = {};
   private kitResetTimer?: NodeJS.Timeout;
   private isShenanigansEnabled = true;
+  private viewers: StreamerbotViewer[] = [];
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
-      onConnect: () => {},
+      onConnect: () => {
+        this.updateActiveViewers();
+      },
       retries: 0,
     });
     this.client.on('Application.*', async () => {});
@@ -153,6 +158,7 @@ export default class StreamerbotWebSocketClient {
 
   private async updateActiveViewers() {
     const res = await this.client.getActiveViewers();
+    this.viewers = res.viewers;
     this.broadcast({ type: 'viewers_update', viewers: res.viewers });
   }
 
@@ -204,6 +210,25 @@ export default class StreamerbotWebSocketClient {
     });
   }
 
+  private getMaxDurationForUser(userName: string) {
+    const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
+    let maxDuration = 60 * 7; // 7 mins default max
+    if (viewer?.role === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
+    if (viewer?.role === 'Moderator') maxDuration = 60 * 20; // 20 mins for mod
+    if (viewer?.role === 'Broadcaster') maxDuration = 12000;
+    return maxDuration;
+  }
+
+  private getSongRequestLimitForUser(userName: string) {
+    const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
+    let limit = 2;
+    if (viewer?.subscribed) limit = 3;
+    if (viewer?.role === 'VIP') limit = 3;
+    if (viewer?.role === 'Moderator') limit = 0;
+    if (viewer?.role === 'Broadcaster') limit = 0;
+    return limit;
+  }
+
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
     if (!Object.values(REWARD_IDS).includes(payload.data.reward.id)) {
       // A reward was redeemed that is not defined here, nothing to do!
@@ -243,6 +268,32 @@ export default class StreamerbotWebSocketClient {
         this.midiController.resetKit();
         delete this.kitResetTimer;
       }, REWARD_DURATIONS[rewardName]);
+    } else if (rewardName === 'LongSong') {
+      const LONG_SONG_MAX_DURATION = 15 * 60;
+      try {
+        await this.handleSongRequest(
+          payload.data.user_input,
+          payload.data.user_name,
+          LONG_SONG_MAX_DURATION,
+          this.getSongRequestLimitForUser(payload.data.user_name)
+        );
+      } catch (err) {
+        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+      }
+      return;
+    } else if (rewardName === 'PrioritySong') {
+      try {
+        await this.handleSongRequest(
+          payload.data.user_input,
+          payload.data.user_name,
+          this.getMaxDurationForUser(payload.data.user_name),
+          0,
+          true
+        );
+      } catch (err) {
+        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+      }
+      return;
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI
@@ -269,17 +320,7 @@ export default class StreamerbotWebSocketClient {
     // also available: bool user.subscribed, int user.role
     if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
       try {
-        let maxDuration = 60 * 7; // 7 mins default max
-        if (payload.data.user.role >= StreamerbotUserRole.VIP) maxDuration = 60 * 10; // 10 mins for VIP
-        if (payload.data.user.role >= StreamerbotUserRole.Moderator) maxDuration = 60 * 20; // 20 mins for mod
-        if (payload.data.user.role === StreamerbotUserRole.Broadcaster) maxDuration = 12000;
-
-        let limit = 2;
-        if (payload.data.user.subscribed) limit = 3;
-        if (payload.data.user.role >= StreamerbotUserRole.VIP) limit = 3;
-        if (payload.data.user.role >= StreamerbotUserRole.Moderator) limit = 0;
-        
-        await this.handleSongRequest(message, userName, maxDuration, limit);
+        await this.handleSongRequest(message, userName, this.getMaxDurationForUser(userName), this.getSongRequestLimitForUser(userName));
       } catch (e) {
         console.info('Song reward redemption failed with error', e);
       }
@@ -298,7 +339,7 @@ export default class StreamerbotWebSocketClient {
           );
         }
       }
-    } else if (['!remove', '!wrongsong'].includes(payload.data.command)) {
+    } else if (['!remove', '!wrongsong', '!delete'].includes(payload.data.command)) {
       // Find a valid song request to cancel
       const res = await db.selectFrom('songRequests')
         .innerJoin('songs', 'songs.id', 'songRequests.songId')
@@ -356,6 +397,7 @@ export default class StreamerbotWebSocketClient {
     fromUsername: string,
     maxDuration: number,
     perUserLimit?: number,
+    priority: boolean = false,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequests = await db.selectFrom('songRequests')
@@ -390,9 +432,12 @@ export default class StreamerbotWebSocketClient {
     await this.sendTwitchMessage(`Working on it, @${fromUsername}!`);
 
     try {
-      const [song, songRequestId] = await this.songRequestHandler.execute(userInput, maxDuration, {
-        requesterName: fromUsername,
-      });
+      const [song, songRequestId] = await this.songRequestHandler.execute(
+        userInput,
+        maxDuration,
+        { requesterName: fromUsername },
+        priority
+      );
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
       const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
       await this.sendTwitchMessage(`@${fromUsername} ${song.basename} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);

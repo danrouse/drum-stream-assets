@@ -99,7 +99,7 @@ app.get('/requests', async (req, res) => {
       'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
       'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
     ])
-    .orderBy(['songRequests.order asc', 'songRequests.id asc'])
+    .orderBy(['songRequests.priority desc', 'songRequests.order asc', 'songRequests.id asc'])
     .execute() satisfies SongRequestData[];
   res.send(convertLocalPathsToURLs(songs));
 });
