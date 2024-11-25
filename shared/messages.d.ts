@@ -57,6 +57,8 @@ type WebSocketServerMessage = {
 type WebSocketPlayerMessage = {
   type: 'song_changed',
   song: SongData,
+  previousSongs?: SongData[],
+  nextSongs?: SongData[],
 } | {
   type: 'song_progress',
   timestamp: number,

@@ -297,7 +297,15 @@ export default function SongBrowserUI() {
             isPlaying={isPlaying}
 
             onSongLoaded={() => {
-              broadcast({ type: 'song_changed', song: selectedSong! });
+              let previousSongs: SongData[] = [];
+              let nextSongs: SongData[] = [];
+              if (isPlayingFromPlaylist) {
+                const songList = playlists[selectedPlaylistIndex].songs;
+                const currentSelectedSongIndex = songList.indexOf(selectedSong!);
+                previousSongs = songList.slice(0, currentSelectedSongIndex);
+                nextSongs = songList.slice(currentSelectedSongIndex + 1);
+              }
+              broadcast({ type: 'song_changed', song: selectedSong!, previousSongs, nextSongs });
               if (!isAutoplayEnabled) {
                 setIsPlaying(false);
               }

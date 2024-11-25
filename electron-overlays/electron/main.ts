@@ -87,6 +87,20 @@ function createDrumTriggersWindow() {
   return win;
 }
 
+
+function createSongHistoryWindow() {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'Song History',
+    width: 400,
+    height: 270,
+  });
+  win.setIgnoreMouseEvents(true);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#SongHistoryWindow');
+
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 function createWindows() {
@@ -95,6 +109,7 @@ function createWindows() {
     createNowPlayingWindow(),
     createSyncedLyricsWindow(),
     createDrumTriggersWindow(),
+    createSongHistoryWindow(),
   ];
   
   // Connect to server WS to receive rebroadcast messages from remote client
