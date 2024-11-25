@@ -110,6 +110,16 @@ app.get('/seed', async (req, res) => {
   res.send('widePeepoHappy');
 });
 
+app.get('/reprocess', async (req, res) => {
+  if (!req.query.id) {
+    return res.status(400).send('need id query param');
+  }
+  console.info(`Reprocessing song with ID ${req.query.id}`);
+  await songRequestHandler.reprocessSong(Number(req.query.id));
+  console.info(`Done reprocessing song with ID ${req.query.id}`);
+  res.status(200).send('OK');
+});
+
 if (process.env.NODE_ENV === 'production') {
   app.use('/', express.static(Paths.PLAYER_DIST));
 } else {

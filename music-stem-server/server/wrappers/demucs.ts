@@ -18,7 +18,7 @@ export default class Demucs {
   onProcessingComplete?: (song: ProcessedSong, isDuplicate?: boolean) => void;
   
   private child?: ChildProcessWithoutNullStreams = undefined;
-  private _queue: DownloadedSong[] = [];
+  private _queue: [DownloadedSong, boolean][] = [];
   private interval: NodeJS.Timeout;
 
   static POLL_INTERVAL = 500;
@@ -32,25 +32,25 @@ export default class Demucs {
   handleTimer() {
     if (!this.child && this._queue.length > 0) {
       const request = this._queue.shift();
-      this.execute(request!);
+      this.execute(...request!);
     }
   }
 
-  queue(song: DownloadedSong) {
-    this._queue.push(song);
+  queue(song: DownloadedSong, ignoreDuplicates: boolean = true) {
+    this._queue.push([song, ignoreDuplicates]);
   }
 
   cancel() {
     this.child?.kill();
   }
 
-  execute(song: DownloadedSong) {
+  execute(song: DownloadedSong, ignoreDuplicates: boolean = true) {
     if (this.child) {
       throw new Error('already have a spawned process');
     }
     // check to see if it's not already been processed first
     const dstPath = join(this.outputPath, this.model || DEFAULT_DEMUCS_MODEL, song.basename.replace(/\.$/, ''));
-    if (existsSync(dstPath)) {
+    if (existsSync(dstPath) && ignoreDuplicates) {
       if (this.onProcessingComplete) {
         this.onProcessingComplete({
           basename: song.basename,

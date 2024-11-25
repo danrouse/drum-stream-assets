@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import { basename } from 'path';
 import Demucs from './wrappers/demucs';
 import spotdl, { SongDownloadError } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
@@ -38,17 +39,38 @@ export default class SongRequestHandler {
     this.broadcast = broadcast;
   }
 
-  private processDownloadedSong(song: DownloadedSong, callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void) {
+  private processDownloadedSong(
+    song: DownloadedSong,
+    callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void,
+    ignoreDuplicates: boolean = true
+  ) {
     console.log(`Running ffmpeg-normalize on ${song.basename}`);
     try {
       execSync(`ffmpeg-normalize "${song.path}" -o "${song.path}" -c:a aac -nt rms -t -16 -f`);
     } catch (e) {
       // Let any errors pass, no big deal
     }
-    this.demucs.queue(song);
+    this.demucs.queue(song, ignoreDuplicates);
     if (callback) {
       this.demucsCallbacks.push({ song, callback });
     }
+  }
+
+  public async reprocessSong(songId: number) {
+    const song = await db.selectFrom('songs')
+      .innerJoin('downloads', 'songs.downloadId', 'downloads.id')
+      .select(['downloads.path', 'downloads.isVideo', 'songs.stemsPath'])
+      .where('songs.id', '=', songId)
+      .execute();
+    return new Promise<ProcessedSong | undefined>((resolve) => {
+      this.processDownloadedSong({
+        basename: basename(song[0].path).substring(0, basename(song[0].path).lastIndexOf('.')),
+        isVideo: Boolean(song[0].isVideo),
+        path: song[0].path,
+      }, (processedSong, isDuplicate) => {
+        resolve(processedSong);
+      }, false);
+    });
   }
 
   private async downloadSong(query: string, maxDuration: number) {
