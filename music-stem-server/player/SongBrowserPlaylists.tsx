@@ -97,6 +97,7 @@ export default function SongBrowserPlaylists({
             songs={playlists[selectedPlaylistIndex].songs}
             selectedSong={selectedSong}
             showTimeAgo={isRequestsPlaylistSelected}
+            showRuntime={true}
             activeViewers={activeViewers}
             renderActions={(song, index) => (
               <>

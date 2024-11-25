@@ -7,6 +7,7 @@ interface SongListProps {
   songs: SongData[];
   selectedSong?: SongData;
   showTimeAgo?: boolean;
+  showRuntime?: boolean;
   renderActions: (song: SongData, index: number) => ReactNode;
   activeViewers?: StreamerbotViewer[];
 }
@@ -20,9 +21,12 @@ const getTimeDiff = (ts: string) => {
   return intl.format(Math.round(-1 * sec / 60), 'minutes');
 };
 
-export default function SongList({ songs, selectedSong, showTimeAgo, renderActions, activeViewers }: SongListProps) {
+export default function SongList({ songs, selectedSong, showTimeAgo, showRuntime, renderActions, activeViewers }: SongListProps) {
+  const totalRuntime = formatTime(songs.reduce((acc, song) => acc + song.duration, 0), true);
+  const remainingRuntime = formatTime(songs.slice(selectedSong ? songs.indexOf(selectedSong) : 0).reduce((acc, song) => acc + song.duration, 0), true);
   return (
     <div className="SongList">
+      {showRuntime && <p className="runtime">Runtime: {selectedSong ? `${remainingRuntime} / ${totalRuntime}` : totalRuntime}</p>}
       <ul>
         {songs.map((song, index) => (
           <li key={index} className={[
