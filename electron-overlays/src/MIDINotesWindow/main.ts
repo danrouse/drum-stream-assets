@@ -24,22 +24,25 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
   let usedEmotes: string[][] = [];
   let selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
   let defaultEmoteURL: string | undefined;
-  setInterval(() => {
+  const getEmote = (lastEmoteURL: string) => {
     if (usedEmotes.length) {
       // if there are any emotes used by users, use a random one
       // and ensure it is not the same as the previous (if applicable)
       const emotePool = Array.from(new Set(usedEmotes.flat()));
       let i: number;
-      do {
+      // do {
         i = Math.floor(Math.random() * emotePool.length);
-      } while (emotePool.length != 1 && selectedEmoteURL === emotePool[i]);
-      selectedEmoteURL = emotePool[i];
+      // } while (emotePool.length != 1 && lastEmoteURL === emotePool[i]);
+      return emotePool[i];
     } else if (defaultEmoteURL) {
-      selectedEmoteURL = defaultEmoteURL;
+      return defaultEmoteURL;
     } else {
-      selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
+      return emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
     }
-  }, EMOTE_RANDOM_SWAP_TIME);
+  };
+  // setInterval(() => {
+
+  // }, EMOTE_RANDOM_SWAP_TIME);
   window.ipcRenderer.on('emote_used', (_, payload) => {
     usedEmotes.push(payload.emoteURLs);
     setTimeout(() => {
@@ -85,11 +88,14 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
   const existingNoteByType: { [key: number]: HTMLElement } = {};
 
   const NOTE_ANIMATION_DURATION_MS = 2000;
+  const LAST_EMOTE_URLS: { [key: string]: [string, number] } = {};
   function triggerNote(note: number, velocity: number, animated: boolean = true, noteConfigs = config) {
     const selectedNoteConfigs = noteConfigs.filter(def => def.keys.includes(note));
     if (!selectedNoteConfigs.length) {
       console.warn('Unconfigured MIDI note', note);
       return;
+    } else {
+      console.log(selectedNoteConfigs[0].name);
     }
 
     if (existingNoteByType[note]) {
@@ -109,7 +115,11 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
       noteElem.style.marginLeft = `-${noteConfig.w / 2}px`;
       noteElem.style.marginTop = `-${noteConfig.h / 2}px`;
       noteElem.style.backgroundColor = noteConfig.color;
-      noteElem.style.backgroundImage = `url(${selectedEmoteURL})`;
+      // noteElem.style.backgroundImage = `url(${selectedEmoteURL})`;
+      if (!LAST_EMOTE_URLS[noteConfig.name] || LAST_EMOTE_URLS[noteConfig.name][1] < Date.now() - (EMOTE_RANDOM_SWAP_TIME * Math.random() * 4)) {
+        LAST_EMOTE_URLS[noteConfig.name] = [getEmote(LAST_EMOTE_URLS[noteConfig.name]?.[0]), Date.now()];
+      }
+      noteElem.style.backgroundImage = `url(${LAST_EMOTE_URLS[noteConfig.name][0]})`;
       noteElem.style.transform = `rotate(${noteConfig.r}deg)`;
       noteElem.style.color = noteConfig.color;
       noteElem.style.zIndex = `${noteConfig.z}`;
@@ -138,6 +148,7 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
   function renderTestNotes(animated: boolean =  true, velocity: number = MIDI_TRIGGER_VELOCITY_MAX) {
     clearNotes();
     config.forEach(def => triggerNote(def.keys[0], velocity, animated));
+    // midiRimNotes.forEach(note => triggerNote(note, velocity, animated));
   }
 
   async function generateMask() {
