@@ -48,7 +48,7 @@ function createNowPlayingWindow() {
   const win = new BrowserWindow({
     ...defaultWindowConfig,
     title: 'Now Playing',
-    width: 1920,
+    width: 1640,
     height: 128,
   });
   win.setIgnoreMouseEvents(true);
