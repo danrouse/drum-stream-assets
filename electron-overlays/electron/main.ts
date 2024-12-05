@@ -19,26 +19,26 @@ const defaultWindowConfig: Partial<BrowserWindowConstructorOptions> = {
   },
 };
 
-function createMIDINotesWindow() {
+function createMIDINotesWindow(key: string) {
   const win = new BrowserWindow({
     ...defaultWindowConfig,
-    title: 'MIDI Notes',
+    title: ['MIDI Notes', key].join(' '),
     width: 1920,
     height: 1080,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#MIDINotesWindow');
+  win.loadURL(`${process.env.VITE_DEV_SERVER_URL!}#MIDINotesWindow,key=${key}`);
   ipcMain.on('enable_mouse', () => win.setIgnoreMouseEvents(false));
   ipcMain.on('disable_mouse', () => win.setIgnoreMouseEvents(true));
-  ipcMain.on('generate_mask', async (_, i) => {
+  ipcMain.on(`generate_mask_${key}`, async (_, i) => {
     if (i !== -1) {
       const image = await win.capturePage();
-      writeFileSync(join(OBS_OVERLAY_MASK_PATH, `mask-${i}.png`), image.toPNG());
+      writeFileSync(join(OBS_OVERLAY_MASK_PATH, `mask-${key}-${i}.png`), image.toPNG());
     }
-    win.webContents.send('generate_mask_complete', i);
+    win.webContents.send(`generate_mask_complete_${key}`, i);
   });
-  ipcMain.on('generate_mask_finalize', () => {
-    execSync('magick mogrify -transparent white mask-*.png');
+  ipcMain.on(`generate_mask_finalize_${key}`, () => {
+    execSync(`magick mogrify -transparent white mask-${key}-*.png`);
   });
 
   return win;

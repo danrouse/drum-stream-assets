@@ -64,10 +64,11 @@ export async function beginCalibration(
   renderNote: (key: number, velocity: number, animated: boolean, configs: MIDINoteDisplayDefinition[]) => void,
   clearNotes: () => void,
   onComplete: (config: MIDINoteDisplayDefinition[]) => void,
+  cameraId: string,
 ) {
   let video: HTMLVideoElement;
   try {
-    video = await initializeCamera(globalContainerElem);
+    video = await initializeCamera(globalContainerElem, cameraId);
   } catch (e) {
     alert('Failed to initialize camera for calibration!')
     return false;

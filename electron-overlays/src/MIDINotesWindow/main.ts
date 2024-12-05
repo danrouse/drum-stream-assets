@@ -2,6 +2,7 @@
 import initializeMIDIInput from './midi';
 import { MIDINoteDisplayDefinition, midiNoteDefinitions, midiRimNotes, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
+import { CAM_ID_OVERHEAD, CAM_ID_RIDE  } from './camera';
 import { load7tvEmotes } from '../../../shared/twitchEmotes';
 
 // STUPID UTIL CRAP
@@ -12,7 +13,7 @@ const sleep = (t: number) => new Promise<void>((resolve) => setTimeout(() => res
 
 const Z_INDEX_MAX = 10;
 
-if (location.hash === '#MIDINotesWindow') {
+if (location.hash.startsWith('#MIDINotesWindow')) {
   import('./style.css');
 
   // EMOTE STUFF
@@ -56,7 +57,7 @@ if (location.hash === '#MIDINotesWindow') {
   globalContainerElem.appendChild(notesContainerElem);
 
   // LOAD/SAVE CONFIG
-  const LOCAL_STORAGE_KEY = 'noteconfig3';
+  const LOCAL_STORAGE_KEY = location.hash.match(/,key=(.+)/)?.[1] || 'noteconfig3';
   function saveConfig(config: MIDINoteDisplayDefinition[]) {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
   }
@@ -119,7 +120,7 @@ if (location.hash === '#MIDINotesWindow') {
       
       const maskContainer = document.createElement('div');
       maskContainer.classList.add('note-container');
-      maskContainer.style.maskImage = `url('/mask-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
+      maskContainer.style.maskImage = `url('/mask-${LOCAL_STORAGE_KEY}-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
       maskContainer.appendChild(noteElem);
       notesContainerElem.appendChild(maskContainer);
 
@@ -141,18 +142,18 @@ if (location.hash === '#MIDINotesWindow') {
 
   async function generateMask() {
     globalContainerElem.classList.add('mask');
-    window.ipcRenderer.send('generate_mask', -1);
-    window.ipcRenderer.on('generate_mask_complete', async (_, i) => {
+    window.ipcRenderer.send(`generate_mask_${LOCAL_STORAGE_KEY}`, -1);
+    window.ipcRenderer.on(`generate_mask_complete_${LOCAL_STORAGE_KEY}`, async (_, i) => {
       clearNotes();
       if (i < Z_INDEX_MAX) {
         config
           .filter(def => def.z > i)
           .forEach(def => triggerNote(def.keys[0], MIDI_TRIGGER_VELOCITY_MAX, false));
         await sleep(500);
-        window.ipcRenderer.send('generate_mask', i + 1);
+        window.ipcRenderer.send(`generate_mask_${LOCAL_STORAGE_KEY}`, i + 1);
       } else {
         globalContainerElem.classList.remove('mask');
-        window.ipcRenderer.send('generate_mask_finalize');
+        window.ipcRenderer.send(`generate_mask_finalize_${LOCAL_STORAGE_KEY}`);
         clearNotes();
       }
     });
@@ -175,6 +176,7 @@ if (location.hash === '#MIDINotesWindow') {
           saveConfig(cfg);
           await generateMask();
         },
+        LOCAL_STORAGE_KEY === 'Ride' ? CAM_ID_RIDE : CAM_ID_OVERHEAD,
       );
     } else {
       console.info('Unhandled key press', event.key);
