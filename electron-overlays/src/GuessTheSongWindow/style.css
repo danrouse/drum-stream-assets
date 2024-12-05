@@ -1,0 +1,44 @@
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+}
+.GuessTheSong-songs {
+  font-size: 64px;
+  padding: 12px 64px 12px 90px;
+  margin: 0 600px 0 64px;
+  align-self: flex-start;
+
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 12px;
+}
+.GuessTheSong-songs.results .correct,
+.GuessTheSong-songs.results .correct::marker {
+  color: lightseagreen;
+}
+.GuessTheSong-songs li::marker {
+  font-weight: bold;
+  color: burlywood;
+}
+
+.GuessTheSong-timer {
+  /* position: absolute;
+  text-align: center;
+  top: 0;
+  left: 0;
+  width: 100%; */
+  font-size: 128px;
+  margin: 64px 0 0 0;
+}
+.GuessTheSong-description {
+  font-size: 48px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.GuessTheSong-description small {
+  opacity: 0.8;
+  font-size: 60%;
+}

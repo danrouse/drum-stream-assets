@@ -86,6 +86,7 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
     this.client.on('General.Custom', this.handleCustom.bind(this));
+    this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged.bind(this));
     setInterval(() => {
       this.updateActiveViewers();
     }, 10000);
@@ -125,6 +126,11 @@ export default class StreamerbotWebSocketClient {
       if (payload.song.requester && payload.song.status === 'ready') {
         await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
       }
+    } else if (payload.type === 'guess_the_song_round_complete') {
+      if (payload.winner && payload.time) {
+        const roundedTime = Math.round(payload.time * 10) / 10;
+        await this.sendTwitchMessage(`@${payload.winner} got the right answer in ${roundedTime} seconds!`);
+      }
     }
   };
 
@@ -154,6 +160,12 @@ export default class StreamerbotWebSocketClient {
     if (emotes.length) {
       this.broadcast({ type: 'emote_used', emoteURLs: emotes });
     }
+
+    this.broadcast({
+      type: 'chat_message',
+      user: payload.data.message.displayName,
+      message: payload.data.message.message,
+    });
   }
 
   private async updateActiveViewers() {
@@ -390,6 +402,14 @@ export default class StreamerbotWebSocketClient {
         this.enableShenanigans();
       }
     }
+  }
+
+  private handleOBSSceneChanged(payload: StreamerbotEventPayload<"Obs.SceneChanged">) {
+    this.broadcast({
+      type: 'obs_scene_changed',
+      oldScene: payload.data.oldScene.sceneName,
+      scene: payload.data.scene.sceneName,
+    });
   }
 
   private async handleSongRequest(

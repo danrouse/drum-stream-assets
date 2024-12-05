@@ -101,17 +101,25 @@ function createSongHistoryWindow() {
   return win;
 }
 
+function createGuessTheSongWindow(ws: WebSocket) {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'Guess The Song',
+    width: 1920,
+    height: 1080,
+  });
+  win.setIgnoreMouseEvents(true);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#GuessTheSongWindow');
+  ipcMain.on('guess_the_song_round_complete', (event, winner, time) => {
+    ws.send(JSON.stringify({ type: 'guess_the_song_round_complete', winner, time }));
+  });
+
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 function createWindows() {
-  const windows = [
-    createMIDINotesWindow(),
-    createNowPlayingWindow(),
-    createSyncedLyricsWindow(),
-    createDrumTriggersWindow(),
-    createSongHistoryWindow(),
-  ];
-  
   // Connect to server WS to receive rebroadcast messages from remote client
   // Send all messages via IPC to individual windows
   const createWebSocket = () => {
@@ -124,6 +132,9 @@ function createWindows() {
       }
       
       let { type, ...payload } = message;
+
+      // Load lyrics from filesystem and add to song_changed payloads
+      // (renderer processes cannot access filesystem like this)
       if (message.type === 'song_changed') {
         payload = {
           ...payload,
@@ -138,7 +149,7 @@ function createWindows() {
     return ws;
   };
   // Continuously check WS connection and attempt a reconnection if it is closed
-  let ws: WebSocket;
+  let ws: WebSocket = createWebSocket();
   setInterval(() => {
     if (!ws || (ws.readyState !== ws.CONNECTING && ws.readyState !== ws.OPEN)) {
       try {
@@ -146,6 +157,16 @@ function createWindows() {
       } catch (e) {}
     }
   }, 1000);
+
+  const windows = [
+    createMIDINotesWindow('noteconfig3'),
+    createMIDINotesWindow('Ride'),
+    createNowPlayingWindow(),
+    createSyncedLyricsWindow(),
+    createDrumTriggersWindow(),
+    createSongHistoryWindow(),
+    createGuessTheSongWindow(ws),
+  ];
 }
 
 const parseLRCTimeToFloat = (lrcTime: string) => {

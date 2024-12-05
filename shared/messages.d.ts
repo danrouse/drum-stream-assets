@@ -52,6 +52,14 @@ type WebSocketServerMessage = {
 } | {
   type: 'viewers_update',
   viewers: StreamerbotViewer[],
+} | {
+  type: 'obs_scene_changed',
+  scene: string,
+  oldScene: string,
+} | {
+  type: 'chat_message',
+  user: string,
+  message: string,
 };
 
 type WebSocketPlayerMessage = {
@@ -78,6 +86,10 @@ type WebSocketPlayerMessage = {
 } | {
   type: 'song_request_removed',
   id: number,
+} | {
+  type: 'guess_the_song_round_complete',
+  winner: string | undefined,
+  time: number | undefined,
 };
 
 export type ChannelPointReward = {
@@ -106,8 +118,9 @@ export type ChannelPointReward = {
   name: 'PrioritySong',
 };
 
+type WebSocketMessage = WebSocketServerMessage | WebSocketPlayerMessage;
 type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;
-type WebSocketMessageHandler = (payload: WebSocketServerMessage | WebSocketPlayerMessage) => void;
+type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
 
 interface SongData {
   id: number;

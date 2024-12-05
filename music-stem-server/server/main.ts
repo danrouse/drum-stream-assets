@@ -1,5 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
 import { join } from 'path';
@@ -22,8 +23,8 @@ const PORT = 3000;
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static(Paths.STATIC_ASSETS_PATH));
-app.use('/downloads', express.static(Paths.DOWNLOADS_PATH));
-app.use('/stems', express.static(Paths.STEMS_PATH));
+app.use('/downloads', cors(), express.static(Paths.DOWNLOADS_PATH));
+app.use('/stems', cors(), express.static(Paths.STEMS_PATH));
 
 const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
 const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
@@ -76,7 +77,7 @@ const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
   lyricsPath: song.lyricsPath, // ? `/downloads/${song.lyricsPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
 }));
 
-app.get('/songs', async (req, res) => {
+app.get('/songs', cors(), async (req, res) => {
   const songs = await db.selectFrom('songs')
     .leftJoin('downloads', 'downloads.id', 'downloadId')
     .leftJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
