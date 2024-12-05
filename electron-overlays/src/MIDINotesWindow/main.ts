@@ -73,10 +73,10 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
     const savedString = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (savedString) {
       const loadedDefs = JSON.parse(savedString) as MIDINoteDisplayDefinition[];
-      return loadedDefs.map(def => {
+      return loadedDefs.filter(n => n.name !== 'Kick Secondary').map(def => {
         const baseDef = midiNoteDefinitions.find(n => n.name === def.name);
         return {...def, ...baseDef};
-      });
+      }).concat(config.filter(def => !loadedDefs.find(n => n.name === def.name)));
     }
     return config;
   }
