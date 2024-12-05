@@ -79,7 +79,13 @@ export default class StreamerbotWebSocketClient {
       onConnect: () => {
         this.updateActiveViewers();
       },
-      retries: 0,
+      onDisconnect: () => {
+        console.warn('Disconnected from Streamer.bot!');
+      },
+      onError: (err) => {
+        console.warn('Streamer.bot error:', err);
+      },
+      retries: 3,
     });
     this.client.on('Application.*', async () => {});
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
