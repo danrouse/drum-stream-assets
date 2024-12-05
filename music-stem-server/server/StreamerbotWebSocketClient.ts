@@ -420,17 +420,38 @@ export default class StreamerbotWebSocketClient {
     priority: boolean = false,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
-    const existingRequests = await db.selectFrom('songRequests')
+    const existingRequestCount = await db.selectFrom('songRequests')
       .select(db.fn.countAll().as('count'))
       .where('requester', '=', fromUsername)
       .where('status', '=', 'ready')
       .execute();
-    if (perUserLimit && Number(existingRequests[0].count) >= perUserLimit) {
+    if (perUserLimit && Number(existingRequestCount[0].count) >= perUserLimit) {
       await this.sendTwitchMessage(
         `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
         `please wait until one of your songs plays before requesting another!`
       );
       return;
+    }
+
+    // Check if the user is on cooldown for their next song request
+    if (!priority) {
+      const lastRequestTime = await db.selectFrom('songRequests')
+        .innerJoin('songs', 'songs.id', 'songRequests.songId')
+        .select(['songRequests.createdAt', 'songs.duration'])
+        .where('requester', '=', fromUsername)
+        .where('status', '=', 'ready')
+        .orderBy('songRequests.id desc')
+        .execute();
+        console.log('lrt', lastRequestTime, fromUsername)
+      if (lastRequestTime[0]) {
+        const createdAt = new Date(lastRequestTime[0].createdAt + 'Z');
+        const availableAt = createdAt.getTime() + (lastRequestTime[0].duration * 1000);
+        const now = new Date().getTime();
+        if (availableAt > now) {
+          await this.sendTwitchMessage(`@${fromUsername} Your next song request will be available in ${formatTime((availableAt - now) / 1000)}! (wait at least the length of your last requested song for your next one)`);
+          return;
+        }
+      }
     }
 
     // If message has a URL, use only the URL
