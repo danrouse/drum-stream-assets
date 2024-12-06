@@ -22,7 +22,7 @@ import { formatTime } from '../../../shared/util';
 */
 const ACTIVE_SCENE_NAME = 'BRB';
 const NUM_SONG_OPTIONS = 4;
-const ROUND_LENGTH_MS = 15000;
+const ROUND_LENGTH_MS = 25000;
 const POST_ROUND_LENGTH_MS = 10000;
 const FADE_OUT_TIME_MS = 2000;
 
