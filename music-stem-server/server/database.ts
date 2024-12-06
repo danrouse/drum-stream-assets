@@ -163,7 +163,6 @@ export async function populateDatabaseFromJSON() {
         [`${s.name}.lrc`, `${s.name}..lrc`].includes(f));
       const matchingVideo = matchingMkv.length ? matchingMkv : matchingOtherVideo;
       if (matchingAudio.length + matchingVideo.length === 0) {
-        console.log('NO matches', s.name);
         return false;
       }
       return true;

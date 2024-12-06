@@ -255,7 +255,7 @@ export default class StreamerbotWebSocketClient {
 
     const rewardName = Object.entries(REWARD_IDS)
       .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
-    console.log('Redeem', rewardName);
+    console.info('Twitch Redemption:', rewardName);
 
     if (rewardName === 'NoShenanigans') {
       this.disableShenanigans(REWARD_DURATIONS[rewardName]!);
@@ -340,7 +340,7 @@ export default class StreamerbotWebSocketClient {
       try {
         await this.handleSongRequest(message, userName, this.getMaxDurationForUser(userName), this.getSongRequestLimitForUser(userName));
       } catch (e) {
-        console.info('Song reward redemption failed with error', e);
+        console.warn('Song reward redemption failed with error', e);
       }
     } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
       const songRequest = await this.songRequestHandler.getNextSongRequestByRequester(userName);
@@ -448,7 +448,6 @@ export default class StreamerbotWebSocketClient {
         .where('status', '=', 'ready')
         .orderBy('songRequests.id desc')
         .execute();
-        console.log('lrt', lastRequestTime, fromUsername)
       if (lastRequestTime[0]) {
         const createdAt = new Date(lastRequestTime[0].createdAt + 'Z');
         const availableAt = createdAt.getTime() + (lastRequestTime[0].duration * 1000);

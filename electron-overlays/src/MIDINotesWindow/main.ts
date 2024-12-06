@@ -94,8 +94,6 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
     if (!selectedNoteConfigs.length) {
       console.warn('Unconfigured MIDI note', note);
       return;
-    } else {
-      console.log(selectedNoteConfigs[0].name);
     }
 
     if (existingNoteByType[note]) {

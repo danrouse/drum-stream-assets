@@ -26,7 +26,7 @@ app.use(express.static(Paths.STATIC_ASSETS_PATH));
 app.use('/downloads', cors(), express.static(Paths.DOWNLOADS_PATH));
 app.use('/stems', cors(), express.static(Paths.STEMS_PATH));
 
-const httpServer = app.listen(PORT, () => console.log('HTTP server listening on port', PORT));
+const httpServer = app.listen(PORT, () => console.info('HTTP server listening on port', PORT));
 const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 
 const midiController = new MIDIIOController(webSocketCoordinatorServer.broadcast);

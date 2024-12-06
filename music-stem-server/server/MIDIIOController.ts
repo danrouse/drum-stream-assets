@@ -116,8 +116,6 @@ export default class MIDIIOController {
     } else if (message[0] === MIDIIOController.MIDI_PROGRAM_SELECT + MIDIIOController.MIDI_CHANNEL_DRUM_KIT_CONTROL) {
       this.previousKitNumber = this.selectedKitNumber;
       this.selectedKitNumber = message[1] + 1;
-    } else {
-      // console.log('MIDI Message', message);
     }
   };
 }

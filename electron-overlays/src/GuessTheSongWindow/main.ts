@@ -102,7 +102,6 @@ if (location.hash === '#GuessTheSongWindow') {
   });
 
   function startRound() {
-    console.log('startRound');
     if (!songsIndex.length) {
       console.warn('Songs index is empty when starting round!');
       return;
@@ -120,10 +119,8 @@ if (location.hash === '#GuessTheSongWindow') {
       } while (!nextSong || songPool.includes(nextSong));
       songPool.push(nextSong);
     }
-    console.log('pool', songPool)
 
     const correctResponse = Math.floor(Math.random() * NUM_SONG_OPTIONS) + 1;
-    console.log('correct response', correctResponse);
     renderGuessingView(songPool, songPool[correctResponse - 1]);
     nextSceneChange = setTimeout(() => endRound(correctResponse, songPool), ROUND_LENGTH_MS);
     timerDisplayValueMs = ROUND_LENGTH_MS;

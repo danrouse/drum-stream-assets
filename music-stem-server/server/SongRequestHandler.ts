@@ -44,7 +44,7 @@ export default class SongRequestHandler {
     callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void,
     ignoreDuplicates: boolean = true
   ) {
-    console.log(`Running ffmpeg-normalize on ${song.basename}`);
+    console.info(`Running ffmpeg-normalize on ${song.basename}`);
     try {
       execSync(`ffmpeg-normalize "${song.path}" -o "${song.path}" -c:a aac -nt rms -t -16 -f`);
     } catch (e) {

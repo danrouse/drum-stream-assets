@@ -158,7 +158,6 @@ export default function SongBrowserUI() {
   
   const broadcast = (payload: WebSocketPlayerMessage) => {
     if (!socket || socket.readyState !== socket.OPEN) return;
-    // console.log('broadcast', payload);
     socket.send(JSON.stringify(payload));
   };
 

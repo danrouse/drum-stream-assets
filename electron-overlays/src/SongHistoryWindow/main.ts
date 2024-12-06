@@ -35,7 +35,6 @@ if (location.hash === '#SongHistoryWindow') {
     const numNextSongs = payload.previousSongs?.length >= 3 ?
       Math.min(3, payload.nextSongs?.length || 0) :
       Math.min(payload.nextSongs?.length || 0, 6 - payload.previousSongs?.length);
-    console.log(numPrevSongs, numNextSongs)
     currentSongElem.classList[numPrevSongs === 0 ? 'add' : 'remove']('no-prev');
     currentSongElem.classList[numNextSongs === 0 ? 'add' : 'remove']('no-next');
 

@@ -11,7 +11,7 @@ export default async function initializeCamera(parentElem: HTMLElement, cameraId
   }
 
   const devices = await navigator.mediaDevices.enumerateDevices();
-  console.log('Video Devices', devices.filter(d => d.kind === 'videoinput').map(d => [d.label, d.deviceId]));
+  console.info('Video Devices', devices.filter(d => d.kind === 'videoinput').map(d => [d.label, d.deviceId]));
 
   const cameraStream = await navigator.mediaDevices.getUserMedia({
     video: {
