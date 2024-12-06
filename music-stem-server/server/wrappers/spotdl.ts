@@ -85,7 +85,7 @@ export default async function spotdl(query: string, outputPath: string, maxDurat
         }
         return await handleYouTubeDownload(url, outputPath, maxDuration);
       } else if (spotifyMatch) {
-        if (!url.pathname.startsWith('/track/')) {
+        if (!url.pathname.includes('/track/')) {
           throw new SongDownloadError('NO_PLAYLISTS');
         }
       } else {
