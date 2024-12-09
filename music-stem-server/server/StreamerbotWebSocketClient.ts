@@ -466,6 +466,8 @@ export default class StreamerbotWebSocketClient {
 
     // Strip accidental inclusions on the original message if using that
     let userInput = url || originalMessage.trim().replace(/^\!(sr|ssr|request|songrequest|rs)\s+/i, '');
+    // Remove brackets that users included (like !sr <foo bar> instead of !sr foo bar)
+    userInput = userInput.replace(/^</, '').replace(/>$/, '');
     if (!url && !userInput.includes('-')) {
       // strip "song by artist" to "song artist" to not confuse spotify search
       userInput = userInput.replace(/ by /i, ' ');
