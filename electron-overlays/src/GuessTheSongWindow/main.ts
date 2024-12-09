@@ -53,7 +53,8 @@ if (location.hash === '#GuessTheSongWindow') {
   descriptionElem.classList.add('GuessTheSong-description');
   globalContainerElem.appendChild(descriptionElem);
   descriptionElem.innerHTML = `
-    Try to guess the song using only the dRUM and bASS parts!<br />
+    Guess the song using only the drums and bass!<br />
+    Type the number of the song in chat<br />
     <small><em>These songs are all from past song requests. Some of them might be horrible!</em></small>
   `;
 
@@ -136,8 +137,9 @@ if (location.hash === '#GuessTheSongWindow') {
     const correctResponses = orderedResponses.filter(res => res.response === correctResponse);
     window.ipcRenderer.send(
       'guess_the_song_round_complete',
-      correctResponses?.[0]?.user,
-      (correctResponses?.[0]?.time.getTime() - roundStartTime.getTime()) / 1000
+      correctResponses[0]?.user,
+      (correctResponses[0]?.time.getTime() - roundStartTime.getTime()) / 1000,
+      correctResponses.slice(1).map(r => r.user),
     );
     renderResultsView(songPool, songPool[correctResponse - 1], correctResponses);
     setTimeout(() => {

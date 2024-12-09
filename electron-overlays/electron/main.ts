@@ -110,8 +110,8 @@ function createGuessTheSongWindow(ws: WebSocket) {
   });
   win.setIgnoreMouseEvents(true);
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#GuessTheSongWindow');
-  ipcMain.on('guess_the_song_round_complete', (event, winner, time) => {
-    ws.send(JSON.stringify({ type: 'guess_the_song_round_complete', winner, time }));
+  ipcMain.on('guess_the_song_round_complete', (event, winner, time, otherWinners) => {
+    ws.send(JSON.stringify({ type: 'guess_the_song_round_complete', winner, time, otherWinners }));
   });
 
   return win;
@@ -119,46 +119,47 @@ function createGuessTheSongWindow(ws: WebSocket) {
 
 let prevSongChangedPayload: any;
 
-function createWindows() {
-  // Connect to server WS to receive rebroadcast messages from remote client
-  // Send all messages via IPC to individual windows
-  const createWebSocket = () => {
-    const ws = new WebSocket('http://127.0.0.1:3000');
-    ws.on('message', (data) => {
-      const message = JSON.parse(data.toString()) as WebSocketPlayerMessage;
-      if (!message) {
-        console.error('Error parsing received WebSocket message:', data.toString());
-        return;
-      }
-      
-      let { type, ...payload } = message;
-
-      // Load lyrics from filesystem and add to song_changed payloads
-      // (renderer processes cannot access filesystem like this)
-      if (message.type === 'song_changed') {
-        payload = {
-          ...payload,
-          lyrics: message.song.lyricsPath ? parseLyrics(message.song.lyricsPath, message.song.duration) : null,
-        };
-        prevSongChangedPayload = payload;
-      }
-      
-      windows.forEach(win => win.webContents.send(type, payload));
-    });
-    ws.on('error', () => {});
-    return ws;
-  };
-  // Continuously check WS connection and attempt a reconnection if it is closed
-  let ws: WebSocket = createWebSocket();
-  setInterval(() => {
-    if (!ws || (ws.readyState !== ws.CONNECTING && ws.readyState !== ws.OPEN)) {
-      try {
-        ws = createWebSocket();
-      } catch (e) {}
+let windows: BrowserWindow[] = [];
+// Connect to server WS to receive rebroadcast messages from remote client
+// Send all messages via IPC to individual windows
+const createWebSocket = () => {
+  const ws = new WebSocket('http://127.0.0.1:3000');
+  ws.on('message', (data) => {
+    const message = JSON.parse(data.toString()) as WebSocketPlayerMessage;
+    if (!message) {
+      console.error('Error parsing received WebSocket message:', data.toString());
+      return;
     }
-  }, 1000);
+    
+    let { type, ...payload } = message;
 
-  const windows = [
+    // Load lyrics from filesystem and add to song_changed payloads
+    // (renderer processes cannot access filesystem like this)
+    if (message.type === 'song_changed') {
+      payload = {
+        ...payload,
+        lyrics: message.song.lyricsPath ? parseLyrics(message.song.lyricsPath, message.song.duration) : null,
+      };
+      prevSongChangedPayload = payload;
+    }
+    
+    windows.forEach(win => win.webContents.send(type, payload));
+  });
+  ws.on('error', () => {});
+  return ws;
+};
+let ws: WebSocket = createWebSocket();
+// Continuously check WS connection and attempt a reconnection if it is closed
+setInterval(() => {
+  if (!ws || (ws.readyState !== ws.CONNECTING && ws.readyState !== ws.OPEN)) {
+    try {
+      ws = createWebSocket();
+    } catch (e) {}
+  }
+}, 1000);
+
+function createWindows() {
+  windows = [
     createMIDINotesWindow('noteconfig3'),
     createMIDINotesWindow('Ride'),
     createNowPlayingWindow(),

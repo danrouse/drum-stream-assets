@@ -135,7 +135,9 @@ export default class StreamerbotWebSocketClient {
     } else if (payload.type === 'guess_the_song_round_complete') {
       if (payload.winner && payload.time) {
         const roundedTime = Math.round(payload.time * 10) / 10;
-        await this.sendTwitchMessage(`@${payload.winner} got the right answer in ${roundedTime} seconds!`);
+        let message = `@${payload.winner} got the right answer quickest in ${roundedTime} seconds!`;
+        if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
+        await this.sendTwitchMessage(message);
       }
     }
   };

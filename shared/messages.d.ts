@@ -90,6 +90,7 @@ type WebSocketPlayerMessage = {
   type: 'guess_the_song_round_complete',
   winner: string | undefined,
   time: number | undefined,
+  otherWinners: string[],
 };
 
 export type ChannelPointReward = {
