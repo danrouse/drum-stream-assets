@@ -101,7 +101,7 @@ function createSongHistoryWindow() {
   return win;
 }
 
-function createGuessTheSongWindow(ws: WebSocket) {
+function createGuessTheSongWindow() {
   const win = new BrowserWindow({
     ...defaultWindowConfig,
     title: 'Guess The Song',
@@ -166,7 +166,7 @@ function createWindows() {
     createSyncedLyricsWindow(),
     createDrumTriggersWindow(),
     createSongHistoryWindow(),
-    createGuessTheSongWindow(ws),
+    createGuessTheSongWindow(),
   ];
 }
 
