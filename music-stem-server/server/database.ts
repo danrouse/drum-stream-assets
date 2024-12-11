@@ -25,7 +25,8 @@ interface SongRequestsTable {
   twitchRewardId: string | null;
   twitchRedemptionId: string | null;
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
-  priority: number; // To be used later for having "priority" requests, maybe
+  priority: number;
+  noShenanigans: number | null;
   order: number;
   songId: number | null;
   fulfilledAt: ColumnType<string, string, string> | null;
@@ -113,6 +114,7 @@ export async function initializeDatabase() {
     .addColumn('twitchRedemptionId', 'varchar(255)')
     .addColumn('status', 'varchar(32)', (cb) => cb.notNull())
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('noShenanigans', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('order', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
     .execute();

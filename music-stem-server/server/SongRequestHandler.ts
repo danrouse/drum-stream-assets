@@ -12,6 +12,11 @@ interface DemucsCallback {
   callback: (song?: ProcessedSong, isDuplicate?: boolean) => void;
 }
 
+interface SongRequestOptions {
+  priority?: boolean,
+  noShenanigans?: boolean,
+}
+
 export default class SongRequestHandler {
   private demucs: Demucs;
   private demucsCallbacks: DemucsCallback[] = [];
@@ -120,7 +125,7 @@ export default class SongRequestHandler {
     };
   }
   
-  public execute(query: string, maxDuration: number, request?: SongRequestSource, priority: boolean = false) {
+  public execute(query: string, maxDuration: number, request?: SongRequestSource, options?: SongRequestOptions) {
     return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {
       try {
         const downloadedSong = await this.downloadSong(query, maxDuration);
@@ -135,7 +140,8 @@ export default class SongRequestHandler {
 
           const songRequest = await db.insertInto('songRequests').values({
             query,
-            priority: Number(priority),
+            priority: Number(options?.priority || 0),
+            noShenanigans: Number(options?.noShenanigans || 0),
             order: 0,
             status: 'processing',
             requester: request?.requesterName,

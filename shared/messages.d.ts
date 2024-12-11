@@ -117,6 +117,10 @@ export type ChannelPointReward = {
   name: 'LongSong',
 } | {
   name: 'PrioritySong',
+} | {
+  name: 'NoShenanigansSong',
+} | {
+  name: 'ResetShenanigans',
 };
 
 type WebSocketMessage = WebSocketServerMessage | WebSocketPlayerMessage;
@@ -136,6 +140,7 @@ interface SongData {
   lyricsPath: string | null;
   requester?: string | null;
   priority?: number | null;
+  noShenanigans?: number | null;
   status?: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | null;
   songRequestId?: number | null;
 }
@@ -146,6 +151,7 @@ interface SongRequestData extends SongData {
   lyricsPath: string | null;
   requester: string | null;
   priority: number;
+  noShenanigans?: number | null;
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   songRequestId: number;
   createdAt: string;

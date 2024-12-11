@@ -26,9 +26,12 @@ const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
   OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
   ChangeDrumKit: '6e366bb7-508d-4419-89a4-32fdcf952419',
-  NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68',
+  NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68', // Disabled
   LongSong: '3db680fc-9fea-42c2-aed5-1e1b447b4842',
   PrioritySong: 'a8691f10-c763-45f3-8c77-945037bd4978',
+  ResetShenanigans: 'ab136ab9-9775-4e3c-aeb9-a7408d5dbe71',
+  NoShenanigansSong: 'ceec33d2-040e-4b44-b68e-d6dd6a14a28b',
+  // TODO: LongNoShenanigansSong, PriorityNoShenanigansSong
 };
 
 const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -37,7 +40,8 @@ const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
   SpeedUpCurrentSong: 120000,
   OopsAllFarts: 60000,
   ChangeDrumKit: 120000,
-  NoShenanigans: 180000,
+  NoShenanigans: 180000, // Disabled
+  ResetShenanigans: 0,
 };
 
 const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
@@ -73,6 +77,8 @@ export default class StreamerbotWebSocketClient {
   private kitResetTimer?: NodeJS.Timeout;
   private isShenanigansEnabled = true;
   private viewers: StreamerbotViewer[] = [];
+
+  private lastSongWasNoShens = false;
 
   constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
     this.client = new StreamerbotClient({
@@ -127,10 +133,23 @@ export default class StreamerbotWebSocketClient {
       await this.doAction(slowDownRewardAction, { rewardId: REWARD_IDS.SlowDownCurrentSong });
       const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
       await this.doAction(speedUpRewardAction, { rewardId: REWARD_IDS.SpeedUpCurrentSong });
+
+      // Re-disable the rewards if shenanigans are off
+      if (!this.isShenanigansEnabled) {
+        await this.pauseTwitchRedemption('SlowDownCurrentSong', 1000 * 60 * 60 * 24);
+        await this.pauseTwitchRedemption('SpeedUpCurrentSong', 1000 * 60 * 60 * 24);
+      }
     } else if (payload.type === 'song_changed') {
       // Notify user when their song request is starting
       if (payload.song.requester && payload.song.status === 'ready') {
         await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
+      }
+      if (payload.song.noShenanigans) {
+        await this.disableShenanigans();
+        this.lastSongWasNoShens = true;
+      } else if (this.lastSongWasNoShens) {
+        await this.enableShenanigans();
+        this.lastSongWasNoShens = false;
       }
     } else if (payload.type === 'guess_the_song_round_complete') {
       if (payload.winner && payload.time) {
@@ -195,7 +214,7 @@ export default class StreamerbotWebSocketClient {
       clearTimeout(this.twitchUnpauseTimers[rewardName]);
     }
     this.twitchUnpauseTimers[rewardName] = setTimeout(
-      () => this.client.doAction(
+      () => this.doAction(
         'Reward: Unpause',
         { rewardId: REWARD_IDS[rewardName] }
       ),
@@ -219,15 +238,26 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async disableShenanigans(duration?: number) {
-    this.isShenanigansEnabled = false;
     this.midiController.resetKit();
     Object.values(this.twitchUnpauseTimers).forEach(timer => clearTimeout(timer));
-    for (let otherRewardName of DISABLEABLE_REWARDS) {
-      await this.pauseTwitchRedemption(otherRewardName, duration || (1000 * 60 * 60 * 24));
+    // an explicit duration of zero means just reset everything
+    if (duration !== 0) {
+      this.broadcast({
+        type: 'client_remote_control',
+        action: 'NoShenanigans',
+      });
+      const actualDuration = duration || (1000 * 60 * 60 * 24);
+      this.isShenanigansEnabled = false;
+      for (let otherRewardName of DISABLEABLE_REWARDS) {
+        await this.pauseTwitchRedemption(otherRewardName, actualDuration);
+      }
+      await this.doAction('Toggle OBS graphic', {
+        sourceName: 'No shenanigans'
+      });
+      setTimeout(() => this.doAction('Toggle OBS graphic', {
+        sourceName: 'No shenanigans'
+      }), actualDuration);
     }
-    await this.doAction('Toggle OBS graphic', {
-      sourceName: 'No shenanigans'
-    });
   }
 
   private getMaxDurationForUser(userName: string) {
@@ -259,7 +289,7 @@ export default class StreamerbotWebSocketClient {
       .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
     console.info('Twitch Redemption:', rewardName);
 
-    if (rewardName === 'NoShenanigans') {
+    if (rewardName === 'NoShenanigans' || rewardName === 'ResetShenanigans') {
       this.disableShenanigans(REWARD_DURATIONS[rewardName]!);
     } else if (rewardName === 'OopsAllFarts') {
       this.midiController.muteToms(!this.kitResetTimer);
@@ -308,6 +338,20 @@ export default class StreamerbotWebSocketClient {
           payload.data.user_name,
           this.getMaxDurationForUser(payload.data.user_name),
           0,
+          true
+        );
+      } catch (err) {
+        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+      }
+      return;
+    } else if (rewardName === 'NoShenanigansSong') {
+      try {
+        await this.handleSongRequest(
+          payload.data.user_input,
+          payload.data.user_name,
+          this.getMaxDurationForUser(payload.data.user_name),
+          this.getSongRequestLimitForUser(payload.data.user_name),
+          false,
           true
         );
       } catch (err) {
@@ -426,6 +470,7 @@ export default class StreamerbotWebSocketClient {
     maxDuration: number,
     perUserLimit?: number,
     priority: boolean = false,
+    noShenanigans: boolean = false,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequestCount = await db.selectFrom('songRequests')
@@ -486,7 +531,7 @@ export default class StreamerbotWebSocketClient {
         userInput,
         maxDuration,
         { requesterName: fromUsername },
-        priority
+        { priority, noShenanigans },
       );
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
       const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';

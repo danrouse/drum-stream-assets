@@ -26,6 +26,9 @@
       .SongList li.priority {
         background-color: var(--blue-transparent);
       }
+      .SongList li.no-shens {
+        color: purple;
+      }
 
 .SongList li > div {
   flex: 1;

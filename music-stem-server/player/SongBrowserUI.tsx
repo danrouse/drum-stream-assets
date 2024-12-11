@@ -176,7 +176,7 @@ export default function SongBrowserUI() {
   };
 
   const handleClientRemoteControl = (action: ChannelPointReward['name'], duration?: number, amount?: number) => {
-    if (action === 'NoShenanigans') {
+    if (action === 'NoShenanigans' || action === 'ResetShenanigans') {
       while (clientRemoteControlResetTimers.length > 0) {
         clearTimeout(clientRemoteControlResetTimers[0]);
         clientRemoteControlResetTimers.shift();

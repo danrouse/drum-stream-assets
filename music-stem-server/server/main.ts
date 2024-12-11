@@ -98,7 +98,7 @@ app.get('/requests', async (req, res) => {
     .select([
       'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
       'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-      'songRequests.requester', 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
+      'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
     ])
     .orderBy(['songRequests.priority desc', 'songRequests.order asc', 'songRequests.id asc'])
     .execute() satisfies SongRequestData[];

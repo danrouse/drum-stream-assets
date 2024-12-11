@@ -32,6 +32,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, showRuntime
           <li key={index} className={[
             selectedSong === song ? 'selected' : '',
             song.priority ? 'priority' : '',
+            song.noShenanigans ? 'no-shens' : '',
           ].join(' ')}>
             <div>
               <p className="title">{song.title}</p>
