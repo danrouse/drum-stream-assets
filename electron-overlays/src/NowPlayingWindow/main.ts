@@ -10,6 +10,7 @@ if (location.hash === '#NowPlayingWindow') {
           <p class="title" id="NowPlayingTitle"></p>
         </div>
         <div class="right">
+          <p class="speed" id="NowPlayingSpeed"></p>
           <p class="time" id="NowPlayingTime"></p>
         </div>
       </div>
@@ -21,6 +22,7 @@ if (location.hash === '#NowPlayingWindow') {
   const containerElem = document.getElementById('NowPlayingContainer')!;
   const artistElem = document.getElementById('NowPlayingArtist')!;
   const titleElem = document.getElementById('NowPlayingTitle')!;
+  const speedElem = document.getElementById('NowPlayingSpeed')!;
   const timeElem = document.getElementById('NowPlayingTime')!;
   const progressBarElem = document.getElementById('NowPlayingProgressBar')!;
 
@@ -29,6 +31,7 @@ if (location.hash === '#NowPlayingWindow') {
   let duration = 0;
   let isPlaying = false;
   let currentTimestamp = 0;
+  let playbackRate = 1;
 
   function render() {
     if (!duration) {
@@ -38,6 +41,7 @@ if (location.hash === '#NowPlayingWindow') {
     }
     artistElem.innerHTML = artist + '&nbsp;';
     titleElem.innerHTML = title + '&nbsp;';
+    speedElem.innerHTML = playbackRate === 1 ? '' : `${Math.round(playbackRate * 100)}%`;
     // timeElem.innerHTML = `-${formatTime(duration - currentTimestamp)}`;
     timeElem.innerHTML = formatTime(currentTimestamp);
     
@@ -90,6 +94,9 @@ if (location.hash === '#NowPlayingWindow') {
   });
   window.ipcRenderer.on('song_paused', () => {
     isPlaying = false;
+  });
+  window.ipcRenderer.on('song_speed', (_, payload) => {
+    playbackRate = payload.speed;
   });
   window.onerror = (error, url, line) => window.ipcRenderer.send('error', { error, url, line });
 }

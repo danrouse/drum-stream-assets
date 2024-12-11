@@ -1,3 +1,6 @@
+html {
+  overflow: hidden;
+}
 .NowPlaying {
   display: flex;
   flex-direction: column;
@@ -15,7 +18,8 @@
     .NowPlaying .top .left {
       flex: 1;
     }
-      .NowPlaying .artist {
+      .NowPlaying .artist,
+      .NowPlaying .speed {
         font-size: 32px;
         line-height: 14px;
       }
