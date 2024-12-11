@@ -21,7 +21,10 @@
       }
 
       .NowPlaying .title {
-
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-wrap: nowrap;
+        width: 100%;
       }
     .NowPlaying .top .right {
       text-align: right;
