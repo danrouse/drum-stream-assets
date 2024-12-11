@@ -75,7 +75,10 @@ export default function SongBrowserUI() {
   // For song filtering, check word by word (order doesn't matter)
   const songSearchRegexps = songSearchQuery.split(' ').map(word => new RegExp(word, 'i'));
   const filteredSongs = allSongs.filter(s => songSearchRegexps.every(wordRegexp => 
-    s.title.match(wordRegexp) || s.artist.match(wordRegexp) || s.album?.match(wordRegexp) || s.requester?.match(wordRegexp)
+    s.title.match(wordRegexp) ||
+    s.artist.match(wordRegexp) ||
+    (s.album?.match(wordRegexp) && !s.album?.startsWith('YouTube')) ||
+    s.requester?.match(wordRegexp)
   ));
 
   const fetchNewSongListData = () => fetch('/songs')
