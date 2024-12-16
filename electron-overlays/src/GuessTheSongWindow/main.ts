@@ -25,6 +25,7 @@ const NUM_SONG_OPTIONS = 4;
 const ROUND_LENGTH_MS = 25000;
 const POST_ROUND_LENGTH_MS = 10000;
 const FADE_OUT_TIME_MS = 2000;
+const LAG_COMPENSATION_DELAY_MS = 4000;
 
 interface UserChatResponse {
   user: string;
@@ -67,7 +68,7 @@ if (location.hash === '#GuessTheSongWindow') {
       // timerElem.innerText = formatTime(timerDisplayValueMs / 1000);
       timerElem.innerText = String(Math.ceil(timerDisplayValueMs / 1000));
       timerDisplayValueMs -= 100;
-    } else {
+    } else if (!isActive) {
       timerElem.innerText = '';
     }
   }, 100);
@@ -92,7 +93,7 @@ if (location.hash === '#GuessTheSongWindow') {
   window.ipcRenderer.on('chat_message', (_, payload) => {
     if (!isActive) return;
 
-    const response = Number(payload.message);
+    const response = Number(payload.message.trim().match(/^(\d+).*/)?.[1]);
     if (!Number.isNaN(response) && response > 0 && response <= NUM_SONG_OPTIONS) {
       responses.push({
         user: payload.user,
@@ -128,25 +129,30 @@ if (location.hash === '#GuessTheSongWindow') {
   }
 
   function endRound(correctResponse: number, songPool: SongData[]) {
-    // take only last response per user
-    const userResponses = responses.reduce((acc, cur) => {
-      acc[cur.user] = cur;
-      return acc;
-    }, {} as { [user: string]: UserChatResponse });
-    const orderedResponses = Object.values(userResponses).sort((a, b) => a.time.getTime() - b.time.getTime());
-    const correctResponses = orderedResponses.filter(res => res.response === correctResponse);
-    window.ipcRenderer.send(
-      'guess_the_song_round_complete',
-      correctResponses[0]?.user,
-      (correctResponses[0]?.time.getTime() - roundStartTime.getTime()) / 1000,
-      correctResponses.slice(1).map(r => r.user),
-    );
-    renderResultsView(songPool, songPool[correctResponse - 1], correctResponses);
+    // fade in the correct song immediately, but wait an extra period of time
+    // to compensate for stream lag
+    renderResultsView(songPool, songPool[correctResponse - 1]);
     setTimeout(() => {
       howls.forEach(h => h.fade(1, 0, FADE_OUT_TIME_MS));
-    }, POST_ROUND_LENGTH_MS - FADE_OUT_TIME_MS);
-    nextSceneChange = setTimeout(() => startRound(), POST_ROUND_LENGTH_MS);
-    timerDisplayValueMs = POST_ROUND_LENGTH_MS;
+    }, LAG_COMPENSATION_DELAY_MS + POST_ROUND_LENGTH_MS - FADE_OUT_TIME_MS);
+
+    setTimeout(() => {
+      // take only last response per user
+      const userResponses = responses.reduce((acc, cur) => {
+        acc[cur.user] = cur;
+        return acc;
+      }, {} as { [user: string]: UserChatResponse });
+      const orderedResponses = Object.values(userResponses).sort((a, b) => a.time.getTime() - b.time.getTime());
+      const correctResponses = orderedResponses.filter(res => res.response === correctResponse);
+      window.ipcRenderer.send(
+        'guess_the_song_round_complete',
+        correctResponses[0]?.user,
+        (correctResponses[0]?.time.getTime() - roundStartTime.getTime()) / 1000,
+        correctResponses.slice(1).map(r => r.user),
+      );
+      nextSceneChange = setTimeout(() => startRound(), POST_ROUND_LENGTH_MS);
+      timerDisplayValueMs = POST_ROUND_LENGTH_MS;
+    }, LAG_COMPENSATION_DELAY_MS);
   }
 
   function renderGuessingView(songPool: SongData[], correctSong: SongData) {
@@ -172,7 +178,8 @@ if (location.hash === '#GuessTheSongWindow') {
         onload: () => {
           if (howls.every(h => h.state() === 'loaded') && !isLoaded) {
             isLoaded = true;
-            const startPosition = Math.random() * (howls[0].duration() - ((ROUND_LENGTH_MS - POST_ROUND_LENGTH_MS) / 1000));
+            const minRequiredDuration = (ROUND_LENGTH_MS - POST_ROUND_LENGTH_MS - LAG_COMPENSATION_DELAY_MS) / 1000;
+            const startPosition = Math.random() * (howls[0].duration() - minRequiredDuration);
             howls.forEach(h => {
               h.seek(startPosition);
               h.play();
@@ -183,7 +190,7 @@ if (location.hash === '#GuessTheSongWindow') {
     });
   }
 
-  function renderResultsView(songPool: SongData[], song: SongData, correctResponses: UserChatResponse[]) {
+  function renderResultsView(songPool: SongData[], song: SongData) {
     songListElem.classList.add('results');
     
     // if no winner, say so
