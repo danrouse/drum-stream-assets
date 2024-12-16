@@ -55,7 +55,8 @@ const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
 const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
   'MuteCurrentSongDrums',
   'SlowDownCurrentSong', 'SpeedUpCurrentSong',
-  'OopsAllFarts', 'ChangeDrumKit',
+  'OopsAllFarts',
+  // 'ChangeDrumKit',
 ];
 
 const BOT_USER_ID = '1148563762';
