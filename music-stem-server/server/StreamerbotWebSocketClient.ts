@@ -85,6 +85,9 @@ export default class StreamerbotWebSocketClient {
     this.client = new StreamerbotClient({
       onConnect: () => {
         this.updateActiveViewers();
+        setInterval(() => {
+          this.updateActiveViewers();
+        }, 10000);
       },
       onDisconnect: () => {
         console.warn('Disconnected from Streamer.bot!');
@@ -100,9 +103,6 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
     this.client.on('General.Custom', this.handleCustom.bind(this));
     this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged.bind(this));
-    setInterval(() => {
-      this.updateActiveViewers();
-    }, 10000);
 
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
