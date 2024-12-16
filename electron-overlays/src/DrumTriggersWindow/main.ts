@@ -55,7 +55,7 @@ if (location.hash === '#DrumTriggersWindow') {
         delete drumReplacementSounds.Tom3;
         delete drumReplacementSounds.Tom4;
       }, payload.duration);
-    } else if (action === 'NoShenanigans') {
+    } else if (action === 'NoShenanigans' || action === 'ResetShenanigans') {
       for (let key in drumReplacementSounds) {
         delete drumReplacementSounds[key];
       }
