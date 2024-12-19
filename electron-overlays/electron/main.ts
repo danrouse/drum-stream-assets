@@ -173,8 +173,9 @@ setInterval(() => {
 
 function createWindows() {
   windows = [
-    createMIDINotesWindow('noteconfig3'),
-    createMIDINotesWindow('Ride'),
+    createMIDINotesWindow('283197bd4b6c6e3e8a801b83185954cb744df394d9ba307388f67277a54a68eb'), // Overhead
+    createMIDINotesWindow('abbd7e022d1282d5ba2103ff0e3526c1c9554b957e8513daeebe2fd5c35b83ef'), // Ride
+    createMIDINotesWindow('1f7e9b17281fd7404a8b556fbbed623a8f29a1ba5f26fc3d7b7536408841da93'), // Extra
     createNowPlayingWindow(),
     createSyncedLyricsWindow(),
     createDrumTriggersWindow(),

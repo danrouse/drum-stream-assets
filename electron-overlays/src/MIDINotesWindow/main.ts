@@ -60,7 +60,7 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
   globalContainerElem.appendChild(notesContainerElem);
 
   // LOAD/SAVE CONFIG
-  const LOCAL_STORAGE_KEY = location.hash.match(/,key=(.+)/)?.[1] || 'noteconfig3';
+  const LOCAL_STORAGE_KEY = location.hash.match(/,key=(.+)/)?.[1]!;
   function saveConfig(config: MIDINoteDisplayDefinition[]) {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
   }
@@ -185,7 +185,7 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
           saveConfig(cfg);
           await generateMask();
         },
-        LOCAL_STORAGE_KEY === 'Ride' ? CAM_ID_RIDE : CAM_ID_OVERHEAD,
+        LOCAL_STORAGE_KEY,
       );
     } else {
       console.info('Unhandled key press', event.key);
