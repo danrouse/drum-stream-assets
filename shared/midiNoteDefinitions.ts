@@ -20,9 +20,9 @@ export const midiNoteDefinitions: MIDINoteDefinition[] = [
   { name: 'Tom3', keys: [43, 58], color: 'rgb(77 218 134)', z: 3 },
   { name: 'Tom4', keys: [41, 39], color: 'rgb(60 145 40)', z: 2 },
   { name: 'HiHat', keys: [26, 46, 44], color: 'rgb(206 179 57)', z: 7 },
-  { name: 'Crash1', keys: [51, 53, 59], color: 'rgb(248 16 138)', z: 9 }, // plugged into ride
+  { name: 'Crash3', keys: [51, 53, 59], color: 'rgb(248 16 138)', z: 9 }, // plugged into ride
   { name: 'Crash2', keys: [52, 57], color: 'rgb(209 102 255)', z: 6 },
-  { name: 'Crash3', keys: [49], color: 'rgb(109 102 255)', z: 9 },
+  { name: 'Crash1', keys: [49], color: 'rgb(109 102 255)', z: 9 },
   { name: 'Ride', keys: [29, 30], color: 'orangered', z: 5 },
   { name: 'Ride2', keys: [31], color: 'brown', z: 7 },
   { name: 'Splash', keys: [27, 28], color: '#aaa', z: 8 },
