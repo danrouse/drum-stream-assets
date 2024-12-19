@@ -8,7 +8,7 @@ import { WebSocketPlayerMessage } from '../../shared/messages';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const OBS_OVERLAY_MASK_PATH = join(__dirname, '..');
+const OBS_OVERLAY_MASK_PATH = join(__dirname, '..', 'masks');
 
 const defaultWindowConfig: Partial<BrowserWindowConstructorOptions> = {
   transparent: true,
@@ -38,7 +38,7 @@ function createMIDINotesWindow(key: string) {
     win.webContents.send(`generate_mask_complete_${key}`, i);
   });
   ipcMain.on(`generate_mask_finalize_${key}`, () => {
-    execSync(`magick mogrify -transparent white mask-${key}-*.png`);
+    execSync(`magick mogrify -transparent white masks/mask-${key}-*.png`);
   });
 
   return win;

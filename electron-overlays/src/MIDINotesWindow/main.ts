@@ -128,7 +128,7 @@ if (location.hash.startsWith('#MIDINotesWindow')) {
       
       const maskContainer = document.createElement('div');
       maskContainer.classList.add('note-container');
-      maskContainer.style.maskImage = `url('/mask-${LOCAL_STORAGE_KEY}-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
+      maskContainer.style.maskImage = `url('/masks/mask-${LOCAL_STORAGE_KEY}-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
       maskContainer.appendChild(noteElem);
       notesContainerElem.appendChild(maskContainer);
 
