@@ -117,6 +117,19 @@ function createGuessTheSongWindow() {
   return win;
 }
 
+function createAudioDisplayWindow() {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'Audio Display',
+    width: 1920,
+    height: 100,
+  });
+  win.setIgnoreMouseEvents(true);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#AudioDisplayWindow');
+
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 let windows: BrowserWindow[] = [];
@@ -167,6 +180,7 @@ function createWindows() {
     createDrumTriggersWindow(),
     createSongHistoryWindow(),
     createGuessTheSongWindow(),
+    createAudioDisplayWindow(),
   ];
 }
 
