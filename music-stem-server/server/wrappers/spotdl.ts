@@ -110,7 +110,7 @@ export default async function spotdl(query: string, outputPath: string, maxDurat
           '--format', 'm4a',
           '--bitrate', 'disable',
           '--cookie-file', `"${Paths.YT_MUSIC_COOKIES}"`,
-          'download', `"${isURL(query) ? query : `'${query}'`}"`,
+          'download', `"${query}"`,
         ],
         { shell: true }
       );
@@ -122,7 +122,11 @@ export default async function spotdl(query: string, outputPath: string, maxDurat
         const alreadyExists = buf.match(/Skipping (.+) \(file already exists\)/i);
 
         if (wasDownloaded || alreadyExists) {
-          const basename = (wasDownloaded || alreadyExists)![1].replace(/:/g, '-').replace(/\?/g, '').replace(/"/g, "'");
+          const basename = (wasDownloaded || alreadyExists)![1]
+            .replace(/:/g, '-')
+            .replace(/\?/g, '')
+            .replace(/"/g, "'")
+            .replace(/\//g, '');
           const dstPath = join(outputPath, `${basename}.m4a`);
           // Double check that the expected path exists first!
           if (existsSync(dstPath)) {
