@@ -7,7 +7,15 @@ import { DownloadedSong } from '../../../shared/messages';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 
-export type SongDownloadErrorType = 'GENERIC' | 'UNSUPPORTED_DOMAIN' | 'DOWNLOAD_FAILED' | 'VIDEO_UNAVAILABLE' | 'NO_PLAYLISTS' | 'TOO_LONG' | 'AGE_RESTRICTED';
+export type SongDownloadErrorType =
+  'GENERIC' |
+  'UNSUPPORTED_DOMAIN' |
+  'DOWNLOAD_FAILED' |
+  'VIDEO_UNAVAILABLE' |
+  'NO_PLAYLISTS' |
+  'TOO_LONG' |
+  'AGE_RESTRICTED' |
+  'MINIMUM_VIEWS';
 export class SongDownloadError extends Error {
   type: SongDownloadErrorType;
   constructor(type: SongDownloadErrorType = 'DOWNLOAD_FAILED') {
@@ -23,6 +31,7 @@ function handleYouTubeDownload(url: URL, outputPath: string, maxDuration: number
         '--no-playlist',
         '--no-overwrites',
         '--match-filter', `"duration<${maxDuration}"`,
+        '--min-views', '1000',
         // '--max-downloads', '1',
         '--cookies', `"${join(Paths.__dirname, '..', 'www.youtube.com_cookies.txt')}"`,
         '-f', '"bv[height<=?720]+ba"',
@@ -49,6 +58,8 @@ function handleYouTubeDownload(url: URL, outputPath: string, maxDuration: number
     cmd.stdout.on('data', msg => {
       if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration\)/)) {
         return reject(new SongDownloadError('TOO_LONG'));
+      } else if (msg.toString().match('because it has not reached minimum view count')) {
+        return reject(new SongDownloadError('MINIMUM_VIEWS'));
       }
       const downloadMatch = msg.toString().match(/^\[download\] Destination: (.+)/);
       const dupeMatch = msg.toString().match(/^\[download\] (.+) has already been downloaded/);

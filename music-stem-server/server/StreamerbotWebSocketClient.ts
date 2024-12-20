@@ -546,6 +546,7 @@ export default class StreamerbotWebSocketClient {
         if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
         if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)}.`;
         if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
+        if (e.type === 'MINIMUM_VIEWS') message = 'Videos with under 1000 views are not allowed.'
       }
       await this.sendTwitchMessage(`@${fromUsername} ${message}`);
       // rethrow to allow to catch for refund
