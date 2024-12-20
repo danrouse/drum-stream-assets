@@ -1,6 +1,4 @@
 import WaveSurfer from 'wavesurfer.js';
-// import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.esm.js';
-
 if (location.hash === '#AudioDisplayWindow') {
   import('./style.css');
 
@@ -15,19 +13,11 @@ if (location.hash === '#AudioDisplayWindow') {
       hideScrollbar: true,
       minPxPerSec: 300,
       barHeight: 2.5,
-      cursorWidth: 0,
+      cursorWidth: 2,
       height: 'auto',
       url: `http://localhost:3000${payload.song.stemsPath}/drums.mp3`,
     });
     wavesurfer.setVolume(0);
-    // wavesurfer.registerPlugin(
-    //   Spectrogram.create({
-    //     labels: false,
-    //     height: 200,
-    //     splitChannels: false,
-    //   }),
-    // );
-    console.log('made ws', wavesurfer);
   });
   window.ipcRenderer.on('song_progress', (_, payload) => {
     wavesurfer?.setTime(payload.timestamp);
