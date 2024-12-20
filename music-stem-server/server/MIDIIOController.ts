@@ -6,7 +6,7 @@ export default class MIDIIOController {
   private output?: midi.Output;
   private broadcast: WebSocketBroadcaster;
 
-  private static KIT_NUMBER_DEFAULT = 47;
+  private static KIT_NUMBER_DEFAULT = 95;
   private static KIT_NUMBER_NO_TOMS = 90;
   private static KIT_NUMBER_NO_CYMBALS = 91;
 
