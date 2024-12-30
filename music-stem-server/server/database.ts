@@ -67,6 +67,14 @@ interface SongTagsTable {
   songId: number;
 }
 
+interface SongVotesTable {
+  id: Generated<number>;
+  createdAt: CreatedAtType;
+  value: number;
+  songId: number;
+  voterName: string;
+}
+
 export type SongRequest = Selectable<SongRequestsTable>;
 export type NewSongRequest = Insertable<SongRequestsTable>;
 export type SongRequestUpdate = Updateable<SongRequestsTable>;
@@ -79,12 +87,16 @@ export type SongUpdate = Updateable<SongsTable>;
 export type SongTag = Selectable<SongTagsTable>;
 export type NewSongTag = Insertable<SongTagsTable>;
 export type SongTagUpdate = Updateable<SongTagsTable>;
+export type SongVote = Selectable<SongVotesTable>;
+export type NewSongVote = Insertable<SongVotesTable>;
+export type SongVoteUpdate = Updateable<SongVotesTable>;
 
 interface Database {
   songRequests: SongRequestsTable;
   downloads: DownloadsTable;
   songs: SongsTable;
   songTags: SongTagsTable;
+  songVotes: SongVotesTable;
 }
 
 const dialect = new SqliteDialect({
@@ -98,6 +110,7 @@ export const db = new Kysely<Database>({
 export async function initializeDatabase() {
   await db.executeQuery(sql`PRAGMA foreign_keys = OFF;`.compile(db));
   await db.schema.dropTable('songTags').ifExists().execute();
+  await db.schema.dropTable('songVotes').ifExists().execute();
   await db.schema.dropTable('songs').ifExists().execute();
   await db.schema.dropTable('downloads').ifExists().execute();
   await db.schema.dropTable('songRequests').ifExists().execute();
@@ -148,6 +161,15 @@ export async function initializeDatabase() {
     .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
     .addColumn('tag', 'varchar(255)', (cb) => cb.notNull())
     .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
+    .execute();
+  
+  await db.schema.createTable('songVotes')
+    .ifNotExists()
+    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
+    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
+    .addColumn('value', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
+    .addColumn('voterName', 'varchar(255)', (cb) => cb.notNull())
     .execute();
 }
 

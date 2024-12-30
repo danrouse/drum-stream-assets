@@ -78,6 +78,7 @@ export default class StreamerbotWebSocketClient {
   private kitResetTimer?: NodeJS.Timeout;
   private isShenanigansEnabled = true;
   private viewers: StreamerbotViewer[] = [];
+  private currentSong?: SongData;
 
   private lastSongWasNoShens = false;
 
@@ -152,6 +153,7 @@ export default class StreamerbotWebSocketClient {
         await this.enableShenanigans();
         this.lastSongWasNoShens = false;
       }
+      this.currentSong = payload.song;
     } else if (payload.type === 'guess_the_song_round_complete') {
       if (payload.winner && payload.time) {
         const roundedTime = Math.round(payload.time * 10) / 10;
@@ -444,6 +446,28 @@ export default class StreamerbotWebSocketClient {
           (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
         );
       }
+    } else if (['++', '--'].includes(payload.data.command)) {
+      if (!this.currentSong) return;
+      let value = 1;
+      if (payload.data.command === '--') value = -1;
+      const existingVote = await db.selectFrom('songVotes').select(['id']).where('voterName', '=', userName).execute();
+      if (existingVote.length > 0) {
+        await db.updateTable('songVotes')
+          .set({ value })
+          .where('id', '=', existingVote[0].id)
+          .execute();
+      } else {
+        await db.insertInto('songVotes').values([{
+          songId: this.currentSong.id,
+          voterName: userName,
+          value,
+        }]).execute();
+      }
+      const newSongValue = await db.selectFrom('songVotes')
+        .select(db.fn.sum('value').as('value'))
+        .where('songId', '=', this.currentSong.id)
+        .execute();
+      await this.sendTwitchMessage(`@${userName} Current score for ${this.currentSong.artist} - ${this.currentSong.title}: ${newSongValue[0].value}`);
     }
   }
 
