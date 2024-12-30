@@ -1,11 +1,12 @@
 import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer } from '@streamerbot/client';
+import { sql } from 'kysely';
 import { SongDownloadError } from './wrappers/spotdl';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
 import { formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
-import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster } from '../../shared/messages';
+import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 import StreamerbotActions from '../../streamer.bot/data/actions.json';
 
@@ -450,10 +451,15 @@ export default class StreamerbotWebSocketClient {
       if (!this.currentSong) return;
       let value = 1;
       if (payload.data.command === '--') value = -1;
-      const existingVote = await db.selectFrom('songVotes').select(['id']).where('voterName', '=', userName).execute();
+      const existingVote = await db
+        .selectFrom('songVotes')
+        .select(['id'])
+        .where('voterName', '=', userName)
+        .where('songId', '=', this.currentSong.id)
+        .execute();
       if (existingVote.length > 0) {
         await db.updateTable('songVotes')
-          .set({ value })
+          .set({ value, createdAt: sql`current_timestamp` })
           .where('id', '=', existingVote[0].id)
           .execute();
       } else {

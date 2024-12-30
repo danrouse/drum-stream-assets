@@ -14,7 +14,7 @@ import { readdirSync, readFileSync } from 'fs';
 import * as Paths from './paths';
 import { LegacySongData } from '../../shared/messages';
 
-type CreatedAtType = ColumnType<string, string | undefined, never>;
+type CreatedAtType = ColumnType<string, string | undefined, string>;
 
 interface SongRequestsTable {
   id: Generated<number>;
