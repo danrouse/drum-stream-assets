@@ -151,7 +151,7 @@ export default function SongBrowserUI() {
 
   const removeFromPlaylist = (playlist: Playlist, song: SongData) => {
     if (song.songRequestId) {
-      broadcast({ type: 'song_request_removed', id: song.songRequestId });
+      broadcast({ type: 'song_request_removed', songRequestId: song.songRequestId });
     }
     setPlaylists(playlists.map(p => {
       if (p === playlist) return { ...p, songs: p.songs.filter(s => s !== song) };
@@ -317,23 +317,27 @@ export default function SongBrowserUI() {
               setIsPlaying(true);
             }}
             onSongPaused={() => {
-              broadcast({ type: 'song_paused' });
+              broadcast({ type: 'song_playpack_paused' });
               setIsPlaying(false);
             }}
             onSongStopped={stopPlayback}
             onSongEnded={() => {
-              broadcast({ type: 'song_paused' });
+              broadcast({ type: 'song_playpack_paused' });
+              if (selectedSong) {
+                broadcast({
+                  type: 'song_playback_completed',
+                  id: selectedSong?.id,
+                  songRequestId: selectedSong?.songRequestId,
+                });
+              }
               if (isAutoplayEnabled) {
                 nextSong();
               } else {
                 setIsPlaying(false);
               }
-              if (selectedSong?.songRequestId) {
-                broadcast({ type: 'song_request_completed', id: selectedSong?.songRequestId });
-              }
             }}
             onSongSkipped={() => {
-              broadcast({ type: 'song_paused' });
+              broadcast({ type: 'song_playpack_paused' });
               nextSong();
             }}
             onSongProgress={(timestamp) => broadcast({ type: 'song_progress', timestamp })}

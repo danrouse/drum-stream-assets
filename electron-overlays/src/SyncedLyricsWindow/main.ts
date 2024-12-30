@@ -99,7 +99,7 @@ import { SongData } from '../../../shared/messages';
     if (hasVideo) videoElem.play();
     isPlaying = true;
   });
-  window.ipcRenderer.on('song_paused', () => {
+  window.ipcRenderer.on('song_playpack_paused', () => {
     if (hasVideo) videoElem.pause();
     isPlaying = false;
   });

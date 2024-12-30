@@ -74,18 +74,19 @@ type WebSocketPlayerMessage = {
   type: 'song_played',
   timestamp: number,
 } | {
-  type: 'song_paused',
+  type: 'song_playpack_paused',
 } | {
   type: 'song_stopped',
 } | {
   type: 'song_speed',
   speed: number,
 } | {
-  type: 'song_request_completed',
+  type: 'song_playback_completed',
   id: number,
+  songRequestId?: number | null,
 } | {
   type: 'song_request_removed',
-  id: number,
+  songRequestId: number,
 } | {
   type: 'guess_the_song_round_complete',
   winner: string | undefined,

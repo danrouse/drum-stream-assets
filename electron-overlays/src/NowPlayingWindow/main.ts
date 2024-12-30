@@ -92,7 +92,7 @@ if (location.hash === '#NowPlayingWindow') {
     currentTimestamp = payload.timestamp;
     isPlaying = true;
   });
-  window.ipcRenderer.on('song_paused', () => {
+  window.ipcRenderer.on('song_playpack_paused', () => {
     isPlaying = false;
   });
   window.ipcRenderer.on('song_speed', (_, payload) => {

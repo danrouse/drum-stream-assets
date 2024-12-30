@@ -75,6 +75,14 @@ interface SongVotesTable {
   voterName: string;
 }
 
+interface SongHistoryTable {
+  id: Generated<number>;
+  startedAt: CreatedAtType;
+  endedAt: CreatedAtType;
+  songId: number;
+  songRequestId: number | null;
+}
+
 export type SongRequest = Selectable<SongRequestsTable>;
 export type NewSongRequest = Insertable<SongRequestsTable>;
 export type SongRequestUpdate = Updateable<SongRequestsTable>;
@@ -90,6 +98,9 @@ export type SongTagUpdate = Updateable<SongTagsTable>;
 export type SongVote = Selectable<SongVotesTable>;
 export type NewSongVote = Insertable<SongVotesTable>;
 export type SongVoteUpdate = Updateable<SongVotesTable>;
+export type SongHistory = Selectable<SongHistoryTable>;
+export type NewSongHistory = Insertable<SongHistoryTable>;
+export type SongHistoryUpdate = Updateable<SongHistoryTable>;
 
 interface Database {
   songRequests: SongRequestsTable;
@@ -97,6 +108,7 @@ interface Database {
   songs: SongsTable;
   songTags: SongTagsTable;
   songVotes: SongVotesTable;
+  songHistory: SongHistoryTable;
 }
 
 const dialect = new SqliteDialect({
@@ -170,6 +182,15 @@ export async function initializeDatabase() {
     .addColumn('value', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
     .addColumn('voterName', 'varchar(255)', (cb) => cb.notNull())
+    .execute();
+  
+  await db.schema.createTable('songHistory')
+    .ifNotExists()
+    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
+    .addColumn('startedAt', 'timestamp', (cb) => cb.notNull())
+    .addColumn('endedAt', 'timestamp')
+    .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
+    .addColumn('songRequestId', 'integer', (cb) => cb.references('songRequests.id'))
     .execute();
 }
 

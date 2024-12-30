@@ -30,7 +30,7 @@ if (location.hash === '#AudioDisplayWindow') {
     wavesurfer?.setTime(payload.timestamp);
     wavesurfer?.play();
   });
-  window.ipcRenderer.on('song_paused', () => {
+  window.ipcRenderer.on('song_playpack_paused', () => {
     wavesurfer?.pause();
   });
   window.ipcRenderer.on('song_speed', (_, payload) => {

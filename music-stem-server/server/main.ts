@@ -32,6 +32,7 @@ const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 const midiController = new MIDIIOController(webSocketCoordinatorServer.broadcast);
 
 const songRequestHandler = new SongRequestHandler(webSocketCoordinatorServer.broadcast);
+let currentSongSelectedAtTime: string;
 webSocketCoordinatorServer.handlers.push(async (payload) => {
   if (payload.type === 'song_request') {
     try {
@@ -39,16 +40,32 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
     } catch (e) {
       webSocketCoordinatorServer.broadcast({ type: 'download_error', query: payload.query });
     }
-  } else if (payload.type === 'song_request_completed' || payload.type === 'song_request_removed') {
-    const nextStatus = payload.type === 'song_request_completed' ? 'fulfilled' : 'cancelled';
-    console.info('Set song request', payload.id, nextStatus);
+  } else if (
+    (payload.type === 'song_playback_completed' || payload.type === 'song_request_removed') &&
+    payload.songRequestId
+  ) {
+    const nextStatus = payload.type === 'song_playback_completed' ? 'fulfilled' : 'cancelled';
+    console.info('Set song request', payload.songRequestId, nextStatus);
     // Update song request in the database
     await db.updateTable('songRequests')
       .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
-      .where('id', '=', payload.id)
+      .where('id', '=', payload.songRequestId)
       .execute();
     // Notify client to reload song request list
     webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
+  }
+  if (payload.type === 'song_changed') {
+    currentSongSelectedAtTime = new Date().toUTCString();
+  }
+  if (payload.type === 'song_playback_completed') {
+    await db.insertInto('songHistory')
+      .values([{
+        songId: payload.id,
+        songRequestId: payload.songRequestId,
+        startedAt: currentSongSelectedAtTime,
+        endedAt: new Date().toUTCString(),
+      }])
+      .execute();
   }
 });
 
