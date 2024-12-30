@@ -54,19 +54,6 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
     // Notify client to reload song request list
     webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
   }
-  if (payload.type === 'song_changed') {
-    currentSongSelectedAtTime = new Date().toUTCString();
-  }
-  if (payload.type === 'song_playback_completed') {
-    await db.insertInto('songHistory')
-      .values([{
-        songId: payload.id,
-        songRequestId: payload.songRequestId,
-        startedAt: currentSongSelectedAtTime,
-        endedAt: new Date().toUTCString(),
-      }])
-      .execute();
-  }
 });
 
 const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler, midiController);

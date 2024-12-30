@@ -80,6 +80,8 @@ export default class StreamerbotWebSocketClient {
   private isShenanigansEnabled = true;
   private viewers: StreamerbotViewer[] = [];
   private currentSong?: SongData;
+  private currentSongSelectedAtTime?: string;
+  private twitchDebounceQueue: { [key: string]: number } = {};
 
   private lastSongWasNoShens = false;
 
@@ -155,12 +157,31 @@ export default class StreamerbotWebSocketClient {
         this.lastSongWasNoShens = false;
       }
       this.currentSong = payload.song;
+      this.currentSongSelectedAtTime = new Date().toISOString();
     } else if (payload.type === 'guess_the_song_round_complete') {
       if (payload.winner && payload.time) {
         const roundedTime = Math.round(payload.time * 10) / 10;
         let message = `@${payload.winner} got the right answer quickest in ${roundedTime} seconds!`;
         if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
         await this.sendTwitchMessage(message);
+      }
+    } else if (payload.type === 'song_playback_completed') {
+      await db.insertInto('songHistory')
+        .values([{
+          songId: payload.id,
+          songRequestId: payload.songRequestId,
+          startedAt: this.currentSongSelectedAtTime,
+          endedAt: new Date().toISOString(),
+        }])
+        .execute();
+      const votes = await db.selectFrom('songVotes')
+        .select(db.fn.countAll().as('voteCount'))
+        .select(db.fn.sum('songVotes.value').as('value'))
+        .where('songId', '=', payload.id)
+        .where('createdAt', '>', sql`datetime(${this.currentSongSelectedAtTime!})`)
+        .execute();
+      if (Number(votes[0].voteCount) > 0) {
+        await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);
       }
     }
   };
@@ -172,7 +193,14 @@ export default class StreamerbotWebSocketClient {
     return this.client.doAction(actionId, args);
   }
 
-  public sendTwitchMessage(message: string, replyTo?: string) {
+  public sendTwitchMessage(message: string, replyTo?: string, debounceKey?: string, debounceTime?: number) {
+    if (debounceKey) {
+      const now = Date.now();
+      if (debounceTime && this.twitchDebounceQueue[debounceKey] < now + debounceTime) {
+        return;
+      }
+      this.twitchDebounceQueue[debounceKey] = now;
+    }
     return this.doAction('Twitch chat message', { message, replyTo });
   }
 
@@ -473,7 +501,12 @@ export default class StreamerbotWebSocketClient {
         .select(db.fn.sum('value').as('value'))
         .where('songId', '=', this.currentSong.id)
         .execute();
-      await this.sendTwitchMessage(`@${userName} Current score for ${this.currentSong.artist} - ${this.currentSong.title}: ${newSongValue[0].value}`);
+      await this.sendTwitchMessage(
+        `@${userName} Current score for ${this.currentSong.artist} - ${this.currentSong.title}: ${newSongValue[0].value}`,
+        undefined,
+        'songVoteResponse',
+        5000
+      );
     }
   }
 
