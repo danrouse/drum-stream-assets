@@ -7,7 +7,7 @@ import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
-import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
+// import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
@@ -32,7 +32,7 @@ const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 const midiController = new MIDIIOController(webSocketCoordinatorServer.broadcast);
 
 const songRequestHandler = new SongRequestHandler(webSocketCoordinatorServer.broadcast);
-let currentSongSelectedAtTime: string;
+
 webSocketCoordinatorServer.handlers.push(async (payload) => {
   if (payload.type === 'song_request') {
     try {
@@ -56,11 +56,16 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
   }
 });
 
-const streamerbotWebSocketClient = new StreamerbotWebSocketClient(webSocketCoordinatorServer.broadcast, songRequestHandler, midiController);
+const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
+  webSocketCoordinatorServer.broadcast,
+  songRequestHandler,
+  midiController,
+  Boolean(process.env.TEST_MODE)
+);
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
-const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
-webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
+// const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
+// webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
@@ -107,6 +112,57 @@ app.get('/requests', async (req, res) => {
     .orderBy(['songRequests.priority desc', 'songRequests.order asc', 'songRequests.id asc'])
     .execute() satisfies SongRequestData[];
   res.send(convertLocalPathsToURLs(songs));
+});
+
+app.get('/test-twitch-chat-message', async (req, res) => {
+  await streamerbotWebSocketClient.handleTwitchChatMessage({
+    event: { source: 'Twitch', type: 'ChatMessage', },
+    timeStamp: '000',
+    data: {
+      message: {
+        userId: 'test',
+        username: String(req.query.username) || 'test',
+        displayName: String(req.query.username) || 'test',
+        message: String(req.query.message) || 'test',
+        internal: true,
+        isTest: true,
+        msgId: 'test',
+        role: 4,
+        color: '#000000',
+        subscriber: true,
+        channel: 'test',
+        isMe: false,
+        isHighlighted: false,
+        isCustomReward: false,
+        isReply: false,
+        isAnonymous: false,
+        bits: 0,
+        firstMessage: false,
+        hasBits: false,
+        emotes: [],
+        cheerEmotes: [],
+        badges: [],
+        monthsSubscribed: 0,
+      },
+    }
+  })
+  res.send('ok');
+});
+
+app.get('/test-twitch-chat-command', async (req, res) => {
+  await streamerbotWebSocketClient.handleCommandTriggered({
+    event: { source: 'Command', type: 'Triggered', },
+    timeStamp: '000',
+    data: {
+      command: String(req.query.command),
+      user: {
+        display: String(req.query.username) || 'test',
+        name: String(req.query.username) || 'test',
+      },
+      message: String(req.query.message) || 'test',
+    }
+  })
+  res.send('ok');
 });
 
 app.get('/seed', async (req, res) => {

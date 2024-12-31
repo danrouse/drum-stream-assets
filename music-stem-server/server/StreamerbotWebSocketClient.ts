@@ -82,10 +82,15 @@ export default class StreamerbotWebSocketClient {
   private currentSong?: SongData;
   private currentSongSelectedAtTime?: string;
   private twitchDebounceQueue: { [key: string]: number } = {};
-
   private lastSongWasNoShens = false;
+  private isTestMode = false;
 
-  constructor(broadcast: WebSocketBroadcaster, songRequestHandler: SongRequestHandler, midiController: MIDIIOController) {
+  constructor(
+    broadcast: WebSocketBroadcaster,
+    songRequestHandler: SongRequestHandler,
+    midiController: MIDIIOController,
+    isTestMode?: boolean,
+  ) {
     this.client = new StreamerbotClient({
       onConnect: () => {
         this.updateActiveViewers();
@@ -111,6 +116,10 @@ export default class StreamerbotWebSocketClient {
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
     this.midiController = midiController;
+    this.isTestMode = Boolean(isTestMode);
+    if (isTestMode) {
+      this.log('Starting in test mode');
+    }
   }
 
   public messageHandler = async (payload: WebSocketServerMessage | WebSocketPlayerMessage) => {
@@ -186,17 +195,25 @@ export default class StreamerbotWebSocketClient {
     }
   };
 
+  private log(...args: any) {
+    console.info(new Date().toLocaleString(), '[StreamerbotWSC]', ...args);
+  }
+
   public doAction(actionName: StreamerbotActionName, args?: any) {
     const actionId = StreamerbotActions.actions.find(action =>
       actionName.toLowerCase() === action.name.toLowerCase()
     )!.id;
+    if (this.isTestMode) {
+      this.log('doAction', actionName, actionId, args);
+      return;
+    }
     return this.client.doAction(actionId, args);
   }
 
   public sendTwitchMessage(message: string, replyTo?: string, debounceKey?: string, debounceTime?: number) {
     if (debounceKey) {
       const now = Date.now();
-      if (debounceTime && this.twitchDebounceQueue[debounceKey] < now + debounceTime) {
+      if (debounceTime && this.twitchDebounceQueue[debounceKey] + debounceTime > now) {
         return;
       }
       this.twitchDebounceQueue[debounceKey] = now;
@@ -204,7 +221,7 @@ export default class StreamerbotWebSocketClient {
     return this.doAction('Twitch chat message', { message, replyTo });
   }
 
-  private async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
+  public async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
     if (payload.data.message.userId === BOT_USER_ID) return;
 
     // Streamerbot Command.Triggered events which were triggered by Twitch messages
@@ -410,7 +427,7 @@ export default class StreamerbotWebSocketClient {
     }
   }
 
-  private async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
+  public async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
     const message = payload.data.message.trim();
     const userName = payload.data.user.display; // user.display vs user.name?
     // also available: bool user.subscribed, int user.role
