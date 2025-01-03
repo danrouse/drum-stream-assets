@@ -36,5 +36,6 @@ export default class WebSocketCoordinatorServer {
   public broadcast = (payload: WebSocketServerMessage | string) => {
     this.wss.clients.forEach(ws =>
       ws.send(typeof payload === 'string' ? payload : JSON.stringify(payload)));
+    Promise.all(this.handlers.map(h => h(payload)));
   }
 }
