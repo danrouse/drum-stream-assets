@@ -177,7 +177,7 @@ export default class SongRequestHandler {
                 .where('id', '=', songRequest[0].id)
                 .execute();
               console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              this.broadcast({ type: 'song_requests_updated' });
+              this.broadcast({ type: 'song_request_added', songRequestId: songRequest[0].id });
               resolve([processedSong, songRequest[0].id]);
             } else {
               await db.updateTable('songRequests')

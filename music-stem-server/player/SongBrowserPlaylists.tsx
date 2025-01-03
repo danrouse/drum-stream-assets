@@ -21,6 +21,7 @@ interface SongBrowserPlaylistsProps {
   className?: string;
   socket?: WebSocket;
   onDownloadComplete: () => void;
+  refreshRequests?: () => void;
 }
 
 export default function SongBrowserPlaylists({
@@ -36,6 +37,7 @@ export default function SongBrowserPlaylists({
   className,
   socket,
   onDownloadComplete,
+  refreshRequests,
 }: SongBrowserPlaylistsProps) {
   const isRequestsPlaylistSelected = ['Requests'].includes(playlists[selectedPlaylistIndex].title);
   return (
@@ -92,6 +94,7 @@ export default function SongBrowserPlaylists({
                 </option>
               ))}
             </select>
+            {refreshRequests && <button onClick={refreshRequests}>🔃</button>}
           </div>
           <SongList
             songs={playlists[selectedPlaylistIndex].songs}

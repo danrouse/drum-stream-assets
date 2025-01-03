@@ -166,7 +166,7 @@ export default function SongBrowserUI() {
 
   const handleWebSocketMessage = (e: MessageEvent) => {
     const message: WebSocketServerMessage = JSON.parse(e.data.toString());
-    if (message?.type === 'song_requests_updated') {
+    if (message?.type === 'song_request_added' || message?.type === 'song_request_removed') {
       fetchNewRequestData();
     } else if (message?.type === 'client_remote_control') {
       handleClientRemoteControl(message.action, message.duration, message.amount);
@@ -372,6 +372,7 @@ export default function SongBrowserUI() {
         addToPlaylist={addToPlaylist}
         removeFromPlaylist={removeFromPlaylist}
         activeViewers={activeViewers}
+        refreshRequests={fetchNewRequestData}
       />
     </div>
   );

@@ -6,7 +6,7 @@ import MIDIIOController from './MIDIIOController';
 import { db } from './database';
 import { formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
-import { ChannelPointReward, WebSocketServerMessage, WebSocketPlayerMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
+import { ChannelPointReward, WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 import StreamerbotActions from '../../streamer.bot/data/actions.json';
 
@@ -122,7 +122,7 @@ export default class StreamerbotWebSocketClient {
     }
   }
 
-  public messageHandler = async (payload: WebSocketServerMessage | WebSocketPlayerMessage) => {
+  public messageHandler = async (payload: WebSocketMessage) => {
     if (payload.type === 'song_speed') {
       // Scale the price of speed up/slow down song redemptions based on current speed
       const playbackRate = payload.speed;
@@ -467,7 +467,10 @@ export default class StreamerbotWebSocketClient {
           .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
           .where('id', '=', res[0].id)
           .execute();
-        this.broadcast({ type: 'song_requests_updated' });
+        this.broadcast({
+          type: 'song_request_removed',
+          songRequestId: res[0].id,
+        });
         await this.sendTwitchMessage(`@${userName} ${res[0].artist} - ${res[0].title} has been removed from the queue.`);
       } else {
         await this.sendTwitchMessage(`@${userName} You don't have any queued songs to cancel!`);

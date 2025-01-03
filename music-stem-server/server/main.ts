@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
@@ -10,6 +11,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 // import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
+import DiscordIntegration from './DiscordIntegration';
 import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
 import * as Paths from './paths';
 import { SongData, SongRequestData } from '../../shared/messages';
@@ -51,8 +53,6 @@ webSocketCoordinatorServer.handlers.push(async (payload) => {
       .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
       .where('id', '=', payload.songRequestId)
       .execute();
-    // Notify client to reload song request list
-    webSocketCoordinatorServer.broadcast({ type: 'song_requests_updated' });
   }
 });
 
@@ -63,6 +63,9 @@ const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
   Boolean(process.env.TEST_MODE)
 );
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
+
+const discordIntegration = new DiscordIntegration();
+webSocketCoordinatorServer.handlers.push(discordIntegration.messageHandler);
 
 // const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
 // webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);

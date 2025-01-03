@@ -30,7 +30,11 @@ type WebSocketServerMessage = {
   type: 'demucs_error',
   message: string,
 } | {
-  type: 'song_requests_updated',
+  type: 'song_request_added',
+  songRequestId: number,
+} | {
+  type: 'song_request_removed',
+  songRequestId: number,
 } | {
   type: 'song_request',
   query: string,
