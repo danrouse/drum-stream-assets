@@ -2,7 +2,6 @@
 import initializeMIDIInput from './midi';
 import { MIDINoteDisplayDefinition, midiNoteDefinitions, midiRimNotes, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
 import { beginCalibration } from './calibration';
-import { CAM_ID_OVERHEAD, CAM_ID_RIDE  } from './camera';
 import { load7tvEmotes } from '../../../shared/twitchEmotes';
 
 // STUPID UTIL CRAP
