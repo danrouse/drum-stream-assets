@@ -17,6 +17,7 @@ type StreamerbotActionName =
   'Reward: Update Redemption' |
   'Twitch chat message' |
   'Toggle OBS graphic' |
+  'Create Stream Marker' |
   '!how';
 
 interface IdMap { [name: string]: string }
@@ -158,6 +159,8 @@ export default class StreamerbotWebSocketClient {
       if (payload.song.requester && payload.song.status === 'ready') {
         await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
       }
+
+      // Allow for "no-shenanigans" SRs
       if (payload.song.noShenanigans) {
         await this.disableShenanigans();
         this.lastSongWasNoShens = true;
@@ -165,6 +168,14 @@ export default class StreamerbotWebSocketClient {
         await this.enableShenanigans();
         this.lastSongWasNoShens = false;
       }
+      
+      // Create stream marker for song requests
+      let markerName = `${payload.song.artist} - ${payload.song.title}`;
+      if (payload.song.songRequestId) {
+        markerName += ` (SR #${payload.song.songRequestId})`;
+      }
+      await this.doAction('Create Stream Marker', { description: markerName })
+
       this.currentSong = payload.song;
       this.currentSongSelectedAtTime = new Date().toISOString();
     } else if (payload.type === 'guess_the_song_round_complete') {
