@@ -27,7 +27,7 @@ function createMIDINotesWindow(key: string) {
     height: 1080,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(`${process.env.VITE_DEV_SERVER_URL!}#MIDINotesWindow,key=${key}`);
+  win.loadURL(`${process.env.VITE_DEV_SERVER_URL!}src/MIDINotesWindow/index.html#key=${key}`);
   ipcMain.on('enable_mouse', () => win.setIgnoreMouseEvents(false));
   ipcMain.on('disable_mouse', () => win.setIgnoreMouseEvents(true));
   ipcMain.on(`generate_mask_${key}`, async (_, i) => {
@@ -52,7 +52,7 @@ function createNowPlayingWindow() {
     height: 128,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#NowPlayingWindow');
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/NowPlayingWindow/index.html');
 
   return win;
 }
@@ -65,7 +65,7 @@ function createSyncedLyricsWindow() {
     height: 400,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#SyncedLyricsWindow');
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/SyncedLyricsWindow/index.html');
 
   return win;
 }
@@ -78,7 +78,7 @@ function createDrumTriggersWindow() {
     height: 128,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#DrumTriggersWindow');
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/DrumTriggersWindow/index.html');
   ipcMain.on('get_samples', ({ reply }) => {
     const samples = readdirSync(join(__dirname, '..', 'samples'));
     reply('get_samples', samples);
@@ -96,7 +96,7 @@ function createSongHistoryWindow() {
     height: 270,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#SongHistoryWindow');
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/SongHistoryWindow/index.html');
 
   return win;
 }
@@ -109,7 +109,7 @@ function createGuessTheSongWindow() {
     height: 1080,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#GuessTheSongWindow');
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/GuessTheSongWindow/index.html');
   ipcMain.on('guess_the_song_round_complete', (event, winner, time, otherWinners) => {
     ws.send(JSON.stringify({ type: 'guess_the_song_round_complete', winner, time, otherWinners }));
   });
@@ -125,7 +125,7 @@ function createAudioDisplayWindow() {
     height: 100,
   });
   win.setIgnoreMouseEvents(true);
-  win.loadURL(process.env.VITE_DEV_SERVER_URL! + '#AudioDisplayWindow');
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/AudioDisplayWindow/index.html');
 
   return win;
 }
