@@ -60,7 +60,7 @@ const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
   webSocketCoordinatorServer.broadcast,
   songRequestHandler,
   midiController,
-  Boolean(process.env.TEST_MODE)
+  process.env.TEST_MODE === '1'
 );
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
