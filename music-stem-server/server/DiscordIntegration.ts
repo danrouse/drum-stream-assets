@@ -8,7 +8,7 @@ export default class DiscordIntegration {
   private songRequestsChannel?: TextChannel;
 
   constructor(
-    songRequestsChannelName: string = 'super-secret',
+    songRequestsChannelName: string = '🤖song-request-queue',
   ) {
     this.client = new Client({
       intents: [GatewayIntentBits.Guilds]
@@ -19,6 +19,7 @@ export default class DiscordIntegration {
           cache[1].type === ChannelType.GuildText &&
           cache[1].name === songRequestsChannelName
         ) {
+          console.info('Found song requests channel:', cache[1].name, cache[1].id);
           this.songRequestsChannel = cache[1];
         }
       }
