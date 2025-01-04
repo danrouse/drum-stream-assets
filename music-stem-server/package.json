@@ -15,8 +15,6 @@
   "dependencies": {
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "@streamerbot/client": "^1.5.1",
-    "@twurple/api": "^7.2.1",
-    "@twurple/auth": "^7.2.1",
     "@vitejs/plugin-react": "^4.3.1",
     "better-sqlite3": "^11.5.0",
     "body-parser": "^1.20.3",
@@ -33,7 +31,6 @@
     "midi": "^2.0.0",
     "music-metadata": "^10.5.0",
     "node-id3tag": "^0.9.8",
-    "open": "^10.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-jsx": "^1.0.0",
