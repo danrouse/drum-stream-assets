@@ -67,7 +67,7 @@ const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
 );
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
-const discordIntegration = new DiscordIntegration();
+const discordIntegration = new DiscordIntegration(IS_TEST_MODE);
 webSocketCoordinatorServer.handlers.push(discordIntegration.messageHandler);
 
 const twitchIntegration = new TwitchIntegration();

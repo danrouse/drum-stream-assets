@@ -8,6 +8,7 @@ export default class DiscordIntegration {
   private songRequestsChannel?: TextChannel;
 
   constructor(
+    isTestMode: boolean = false,
     songRequestsChannelName: string = '🤖song-request-queue',
   ) {
     this.client = new Client({
@@ -20,7 +21,9 @@ export default class DiscordIntegration {
           cache[1].name === songRequestsChannelName
         ) {
           console.info('Found song requests channel:', cache[1].name, cache[1].id);
-          this.songRequestsChannel = cache[1];
+          if (!isTestMode) {
+            this.songRequestsChannel = cache[1];
+          }
         }
       }
     });
