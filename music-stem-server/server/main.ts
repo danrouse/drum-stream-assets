@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
+import { exchangeCode } from '@twurple/auth';
 import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
@@ -12,6 +13,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import DiscordIntegration from './DiscordIntegration';
+import TwitchIntegration from './TwitchIntegration';
 import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
 import * as Paths from './paths';
 import { SongData, SongRequestData } from '../../shared/messages';
@@ -21,6 +23,7 @@ process.on('unhandledRejection', (reason: any) => {
 });
 
 const PORT = 3000;
+const IS_TEST_MODE = process.env.TEST_MODE === '1';
 
 const app = express();
 app.use(bodyParser.json());
@@ -60,12 +63,16 @@ const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
   webSocketCoordinatorServer.broadcast,
   songRequestHandler,
   midiController,
-  process.env.TEST_MODE === '1'
+  IS_TEST_MODE
 );
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
 const discordIntegration = new DiscordIntegration(IS_TEST_MODE);
 webSocketCoordinatorServer.handlers.push(discordIntegration.messageHandler);
+
+const twitchIntegration = new TwitchIntegration();
+twitchIntegration.beginUserAuth('http://localhost:3000/oauth');
+webSocketCoordinatorServer.handlers.push(twitchIntegration.messageHandler);
 
 // const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
 // webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
@@ -183,6 +190,12 @@ app.get('/reprocess', async (req, res) => {
   console.info(`Done reprocessing song with ID ${req.query.id}`);
   res.status(200).send('OK');
 });
+
+app.get('/oauth', async (req, res) => {
+  const tokenData = await exchangeCode(process.env.TWITCH_CLIENT_ID!, process.env.TWITCH_CLIENT_SECRET!, String(req.query.code), 'http://localhost:3000/oauth');
+  await twitchIntegration.authorizeUser(tokenData);
+  return res.sendStatus(200);
+})
 
 if (process.env.NODE_ENV === 'production') {
   app.use('/', express.static(Paths.PLAYER_DIST));
