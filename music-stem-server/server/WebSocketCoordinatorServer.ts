@@ -34,7 +34,11 @@ export default class WebSocketCoordinatorServer {
 
   private log = createLogger('WSS');
 
-  private static unloggedMessageTypes: WebSocketMessage["type"][] = ['viewers_update', 'song_progress'];
+  private static unloggedMessageTypes: WebSocketMessage["type"][] = [
+    'viewers_update',
+    'song_progress',
+    'obs_scene_changed',
+  ];
 
   public broadcast = (payload: WebSocketMessage) => {
     if (!WebSocketCoordinatorServer.unloggedMessageTypes.includes(payload.type)) {
