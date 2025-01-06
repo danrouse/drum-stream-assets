@@ -9,6 +9,7 @@ import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { ChannelPointReward, WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
 import StreamerbotActions from '../../streamer.bot/data/actions.json';
+import StreamerbotCommands from '../../streamer.bot/data/commands.json';
 
 type StreamerbotActionName =
   'Reward: Change Price' |
@@ -21,6 +22,13 @@ type StreamerbotActionName =
   '!how';
 
 interface IdMap { [name: string]: string }
+
+const StreamerbotCommandAliases = StreamerbotCommands.commands.reduce((acc, command) => {
+  for (let alias of command.command.split(/\r?\n/)) {
+    acc[alias] = command.name;
+  }
+  return acc;
+}, {} as IdMap);
 
 const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
@@ -448,15 +456,18 @@ export default class StreamerbotWebSocketClient {
   public async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
     const message = payload.data.message.trim();
     const userName = payload.data.user.display; // user.display vs user.name?
-    this.log('Command triggered', payload.data.command, userName, message);
+    const commandName = StreamerbotCommandAliases[payload.data.command];
+    // Unregistered command triggered
+    if (!commandName) return;
+    this.log('Command triggered', payload.data.command, commandName, userName, message);
     // also available: bool user.subscribed, int user.role
-    if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
+    if (commandName === 'song request') {
       try {
         await this.handleSongRequest(message, userName, this.getMaxDurationForUser(userName), this.getSongRequestLimitForUser(userName));
       } catch (e) {
         this.log('Song reward redemption failed with error', e);
       }
-    } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
+    } else if (commandName === '!when') {
       const songRequest = await this.songRequestHandler.getNextSongRequestByRequester(userName);
       if (!songRequest) {
         await this.sendTwitchMessage(`@${userName} You don't have any songs in the request queue!`);
@@ -471,7 +482,7 @@ export default class StreamerbotWebSocketClient {
           );
         }
       }
-    } else if (['!remove', '!wrongsong', '!delete'].includes(payload.data.command)) {
+    } else if (commandName === '!remove') {
       // Find a valid song request to cancel
       const res = await db.selectFrom('songRequests')
         .innerJoin('songs', 'songs.id', 'songRequests.songId')
@@ -494,7 +505,7 @@ export default class StreamerbotWebSocketClient {
       } else {
         await this.sendTwitchMessage(`@${userName} You don't have any queued songs to cancel!`);
       }
-    } else if (['!sl', '!songlist', '!list', '!queue'].includes(payload.data.command)) {
+    } else if (commandName === '!songlist') {
       const MAX_RESPONSE_SONGS = 5;
       const res = await db.selectFrom('songRequests')
         .innerJoin('songs', 'songs.id', 'songRequests.songId')
@@ -514,15 +525,15 @@ export default class StreamerbotWebSocketClient {
           (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
         );
       }
-    } else if (['++', '--'].includes(payload.data.command)) {
+    } else if (commandName === 'Vote ++' || commandName === 'Vote --') {
       if (!this.currentSong) return;
       let value = 1;
-      if (payload.data.command === '--') value = -1;
+      if (commandName === 'Vote --') value = -1;
       const existingVote = await db
         .selectFrom('songVotes')
         .select(['id'])
         .where('voterName', '=', userName)
-        .where('songId', '=', this.currentSong.id)
+        .where('songId', '=', this.currentSong!.id)
         .execute();
       if (existingVote.length > 0) {
         await db.updateTable('songVotes')
@@ -531,14 +542,14 @@ export default class StreamerbotWebSocketClient {
           .execute();
       } else {
         await db.insertInto('songVotes').values([{
-          songId: this.currentSong.id,
+          songId: this.currentSong!.id,
           voterName: userName,
           value,
         }]).execute();
       }
       const newSongValue = await db.selectFrom('songVotes')
         .select(db.fn.sum('value').as('value'))
-        .where('songId', '=', this.currentSong.id)
+        .where('songId', '=', this.currentSong!.id)
         .execute();
       await this.sendTwitchMessage(
         `@${userName} Current score for ${this.currentSong.artist} - ${this.currentSong.title}: ${newSongValue[0].value}`,
