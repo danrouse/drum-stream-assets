@@ -197,6 +197,6 @@ interface ProcessedSong {
 
 interface SongRequestSource {
   requesterName: string;
-  rewardId?: string;
-  redemptionId?: string;
+  twitchRewardId?: string;
+  twitchRedemptionId?: string;
 }

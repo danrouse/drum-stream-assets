@@ -222,6 +222,15 @@ export default class StreamerbotWebSocketClient {
       if (Number(votes[0].voteCount) > 0) {
         await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);
       }
+    } else if (payload.type === 'song_request_removed') {
+      // Refund reward redemption SRs if removed
+      const row = await db.selectFrom('songRequests')
+        .select(['twitchRewardId', 'twitchRedemptionId'])
+        .where('id', '=', payload.songRequestId)
+        .execute();
+      if (row[0].twitchRewardId && row[0].twitchRedemptionId) {
+        this.updateTwitchRedemption(row[0].twitchRewardId, row[0].twitchRedemptionId, 'cancel');
+      }
     }
   };
 
@@ -400,7 +409,11 @@ export default class StreamerbotWebSocketClient {
           payload.data.user_input,
           payload.data.user_name,
           LONG_SONG_MAX_DURATION,
-          this.getSongRequestLimitForUser(payload.data.user_name)
+          this.getSongRequestLimitForUser(payload.data.user_name),
+          false,
+          false,
+          payload.data.reward.id,
+          payload.data.id
         );
       } catch (err) {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
@@ -413,7 +426,10 @@ export default class StreamerbotWebSocketClient {
           payload.data.user_name,
           this.getMaxDurationForUser(payload.data.user_name),
           0,
-          true
+          true,
+          false,
+          payload.data.reward.id,
+          payload.data.id
         );
       } catch (err) {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
@@ -427,7 +443,9 @@ export default class StreamerbotWebSocketClient {
           this.getMaxDurationForUser(payload.data.user_name),
           this.getSongRequestLimitForUser(payload.data.user_name),
           false,
-          true
+          true,
+          payload.data.reward.id,
+          payload.data.id
         );
       } catch (err) {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
@@ -585,6 +603,8 @@ export default class StreamerbotWebSocketClient {
     perUserLimit?: number,
     priority: boolean = false,
     noShenanigans: boolean = false,
+    twitchRewardId?: string,
+    twitchRedemptionId?: string,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequestCount = await db.selectFrom('songRequests')
@@ -644,7 +664,7 @@ export default class StreamerbotWebSocketClient {
       const [song, songRequestId] = await this.songRequestHandler.execute(
         userInput,
         maxDuration,
-        { requesterName: fromUsername },
+        { requesterName: fromUsername, twitchRewardId, twitchRedemptionId },
         { priority, noShenanigans },
       );
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);

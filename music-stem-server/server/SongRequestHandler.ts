@@ -169,6 +169,8 @@ export default class SongRequestHandler {
             order: 0,
             status: 'processing',
             requester: request?.requesterName,
+            twitchRewardId: request?.twitchRewardId,
+            twitchRedemptionId: request?.twitchRedemptionId,
           }).returning('id as id').execute();
           const download = await db.insertInto('downloads').values({
             path: downloadedSong.path,
