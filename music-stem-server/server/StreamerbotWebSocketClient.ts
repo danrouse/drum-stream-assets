@@ -207,7 +207,7 @@ export default class StreamerbotWebSocketClient {
         .select(db.fn.countAll().as('voteCount'))
         .select(db.fn.sum('songVotes.value').as('value'))
         .where('songId', '=', payload.id)
-        .where('createdAt', '>', sql`datetime(${this.currentSongSelectedAtTime!})`)
+        .where('createdAt', '>', sql<any>`datetime(${this.currentSongSelectedAtTime!})`)
         .execute();
       if (Number(votes[0].voteCount) > 0) {
         await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);

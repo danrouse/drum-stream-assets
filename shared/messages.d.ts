@@ -133,7 +133,7 @@ export type ChannelPointReward = {
 };
 
 type WebSocketMessage = WebSocketServerMessage | WebSocketPlayerMessage;
-type WebSocketBroadcaster = (payload: WebSocketServerMessage | string) => void;
+type WebSocketBroadcaster = (payload: WebSocketServerMessage) => void;
 type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
 
 interface SongData {
