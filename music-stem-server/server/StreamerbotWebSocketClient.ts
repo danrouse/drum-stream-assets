@@ -168,13 +168,6 @@ export default class StreamerbotWebSocketClient {
         await this.enableShenanigans();
         this.lastSongWasNoShens = false;
       }
-      
-      // Create stream marker for song requests
-      let markerName = `${payload.song.artist} - ${payload.song.title}`;
-      if (payload.song.songRequestId) {
-        markerName += ` (SR #${payload.song.songRequestId})`;
-      }
-      await this.doAction('Create Stream Marker', { description: markerName })
 
       this.currentSong = payload.song;
       this.currentSongSelectedAtTime = new Date().toISOString();
@@ -185,7 +178,20 @@ export default class StreamerbotWebSocketClient {
         if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
         await this.sendTwitchMessage(message);
       }
+    } else if (payload.type === 'song_playback_started') {
+      // Create stream marker for song request start
+      if (payload.songRequestId) {
+        const markerName = `SR Start #${payload.songRequestId}`;
+        await this.doAction('Create Stream Marker', { description: markerName });
+      }
     } else if (payload.type === 'song_playback_completed') {
+      // Create stream marker for song request end
+      if (payload.songRequestId) {
+        const markerName = `SR End #${payload.songRequestId}`;
+        await this.doAction('Create Stream Marker', { description: markerName });
+      }
+
+      // Add playback to history
       await db.insertInto('songHistory')
         .values([{
           songId: payload.id,
@@ -194,6 +200,8 @@ export default class StreamerbotWebSocketClient {
           endedAt: new Date().toISOString(),
         }])
         .execute();
+      
+      // Notify chat of any votes that happened during playback
       const votes = await db.selectFrom('songVotes')
         .select(db.fn.countAll().as('voteCount'))
         .select(db.fn.sum('songVotes.value').as('value'))

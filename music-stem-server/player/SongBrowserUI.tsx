@@ -320,6 +320,15 @@ export default function SongBrowserUI() {
               broadcast({ type: 'song_playpack_paused' });
               setIsPlaying(false);
             }}
+            onSongStarted={() => {
+              if (selectedSong) {
+                broadcast({
+                  type: 'song_playback_started',
+                  id: selectedSong?.id,
+                  songRequestId: selectedSong?.songRequestId,
+                });
+              }
+            }}
             onSongStopped={stopPlayback}
             onSongEnded={() => {
               broadcast({ type: 'song_playpack_paused' });

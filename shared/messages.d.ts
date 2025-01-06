@@ -85,6 +85,10 @@ type WebSocketPlayerMessage = {
   type: 'song_speed',
   speed: number,
 } | {
+  type: 'song_playback_started',
+  id: number,
+  songRequestId?: number | null,
+} | {
   type: 'song_playback_completed',
   id: number,
   songRequestId?: number | null,

@@ -19,6 +19,7 @@ interface MultiTrackAudioPlayerProps {
 
   onSongPlayed: (t: number) => void;
   onSongPaused: () => void;
+  onSongStarted: () => void;
   onSongStopped: () => void;
   onSongEnded: () => void;
   onSongSkipped: () => void;
@@ -36,6 +37,7 @@ export default function MultiTrackAudioPlayer({
   isPlaying, shuffle, playbackRate, volume,
   onSongPlayed,
   onSongPaused,
+  onSongStarted,
   onSongStopped,
   onSongEnded,
   onSongSkipped,
@@ -165,10 +167,13 @@ export default function MultiTrackAudioPlayer({
       } else {
         howl.once('load', handleHowlLoaded);
       }
-      howl.on('end', () => {
-        // only trigger callback on one of the stems
-        if (i === 0) onSongEnded();
-      });
+      // only trigger callback on one of the stems
+      if (i === 0) {
+        howl.once('play', () => {
+          if (howl.seek() === 0) onSongStarted();
+        });
+        howl.once('end', () => onSongEnded());
+      }
       return howl;
     });
     setSources(newSources);
