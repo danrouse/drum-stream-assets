@@ -38,6 +38,7 @@ export default class WebSocketCoordinatorServer {
     'viewers_update',
     'song_progress',
     'obs_scene_changed',
+    'midi_note_on',
   ];
 
   public broadcast = (payload: WebSocketMessage) => {
