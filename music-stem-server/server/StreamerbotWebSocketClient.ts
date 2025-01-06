@@ -181,16 +181,18 @@ export default class StreamerbotWebSocketClient {
       }
     } else if (payload.type === 'song_playback_started') {
       // Create stream marker for song request start
+      let markerName = `Song Start: Song #${payload.id}`;
       if (payload.songRequestId) {
-        const markerName = `SR Start #${payload.songRequestId}`;
-        await this.doAction('Create Stream Marker', { description: markerName });
+        markerName += ` SR #${payload.songRequestId}`;
       }
+      await this.doAction('Create Stream Marker', { description: markerName });
     } else if (payload.type === 'song_playback_completed') {
       // Create stream marker for song request end
+      let markerName = `Song End: Song #${payload.id}`;
       if (payload.songRequestId) {
-        const markerName = `SR End #${payload.songRequestId}`;
-        await this.doAction('Create Stream Marker', { description: markerName });
+        markerName += ` SR #${payload.songRequestId}`;
       }
+      await this.doAction('Create Stream Marker', { description: markerName });
 
       // Add playback to history
       await db.insertInto('songHistory')
