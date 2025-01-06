@@ -37,27 +37,7 @@ const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 const midiController = new MIDIIOController(webSocketCoordinatorServer.broadcast);
 
 const songRequestHandler = new SongRequestHandler(webSocketCoordinatorServer.broadcast);
-
-webSocketCoordinatorServer.handlers.push(async (payload) => {
-  if (payload.type === 'song_request') {
-    try {
-      await songRequestHandler.execute(payload.query, 12000);
-    } catch (e) {
-      webSocketCoordinatorServer.broadcast({ type: 'download_error', query: payload.query });
-    }
-  } else if (
-    (payload.type === 'song_playback_completed' || payload.type === 'song_request_removed') &&
-    payload.songRequestId
-  ) {
-    const nextStatus = payload.type === 'song_playback_completed' ? 'fulfilled' : 'cancelled';
-    console.info('Set song request', payload.songRequestId, nextStatus);
-    // Update song request in the database
-    await db.updateTable('songRequests')
-      .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
-      .where('id', '=', payload.songRequestId)
-      .execute();
-  }
-});
+webSocketCoordinatorServer.handlers.push(songRequestHandler.messageHandler);
 
 const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
   webSocketCoordinatorServer.broadcast,

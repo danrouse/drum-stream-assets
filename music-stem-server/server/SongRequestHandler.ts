@@ -5,7 +5,7 @@ import spotdl, { SongDownloadError } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
 import { db, Song } from './database';
-import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster } from '../../shared/messages';
+import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster, WebSocketMessage } from '../../shared/messages';
 
 interface DemucsCallback {
   song: DownloadedSong;
@@ -43,6 +43,29 @@ export default class SongRequestHandler {
 
     this.broadcast = broadcast;
   }
+
+  public messageHandler = async (payload: WebSocketMessage) => {
+    if (payload.type === 'song_request') {
+      try {
+        await this.execute(payload.query, 12000);
+      } catch (e) {
+        this.broadcast({ type: 'download_error', query: payload.query });
+      }
+    } else if (
+      (payload.type === 'song_playback_completed' || payload.type === 'song_request_removed') &&
+      payload.songRequestId
+    ) {
+      const nextStatus = payload.type === 'song_playback_completed' ? 'fulfilled' : 'cancelled';
+      this.log('Set song request', payload.songRequestId, nextStatus);
+      // Update song request in the database
+      await db.updateTable('songRequests')
+        .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
+        .where('id', '=', payload.songRequestId)
+        .execute();
+    }
+  };
+
+  private log = createLogger('SongRequestHandler');
 
   private processDownloadedSong(
     song: DownloadedSong,
