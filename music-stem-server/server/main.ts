@@ -174,7 +174,7 @@ app.get('/reprocess', async (req, res) => {
 app.get('/oauth', async (req, res) => {
   const tokenData = await exchangeCode(process.env.TWITCH_CLIENT_ID!, process.env.TWITCH_CLIENT_SECRET!, String(req.query.code), 'http://localhost:3000/oauth');
   await twitchIntegration.authorizeUser(tokenData);
-  return res.sendStatus(200);
+  return res.send(`<script>window.close()</script>`);
 })
 
 if (process.env.NODE_ENV === 'production') {
