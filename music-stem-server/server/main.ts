@@ -17,9 +17,12 @@ import TwitchIntegration from './TwitchIntegration';
 import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
 import * as Paths from './paths';
 import { SongData, SongRequestData } from '../../shared/messages';
+import { createLogger } from '../../shared/util';
+
+const log = createLogger('Main');
 
 process.on('unhandledRejection', (reason: any) => {
-  console.error(reason?.message || reason);
+  log(reason?.message || reason);
 });
 
 const PORT = 3000;
@@ -31,7 +34,7 @@ app.use(express.static(Paths.STATIC_ASSETS_PATH));
 app.use('/downloads', cors(), express.static(Paths.DOWNLOADS_PATH));
 app.use('/stems', cors(), express.static(Paths.STEMS_PATH));
 
-const httpServer = app.listen(PORT, () => console.info('HTTP server listening on port', PORT));
+const httpServer = app.listen(PORT, () => log('HTTP server listening on port', PORT));
 const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 
 const midiController = new MIDIIOController(webSocketCoordinatorServer.broadcast);
@@ -60,7 +63,7 @@ webSocketCoordinatorServer.handlers.push(twitchIntegration.messageHandler);
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
     if (!existsSync(join(Paths.STEMS_PATH, file.replace(/\....$/, '')))) {
-      console.info(`Found unprocessed download, deleting`, file);
+      log(`Found unprocessed download, deleting`, file);
       unlinkSync(join(Paths.DOWNLOADS_PATH, file));
     }
   }
@@ -165,9 +168,9 @@ app.get('/reprocess', async (req, res) => {
   if (!req.query.id) {
     return res.status(400).send('need id query param');
   }
-  console.info(`Reprocessing song with ID ${req.query.id}`);
+  log(`Reprocessing song with ID ${req.query.id}`);
   await songRequestHandler.reprocessSong(Number(req.query.id));
-  console.info(`Done reprocessing song with ID ${req.query.id}`);
+  log(`Done reprocessing song with ID ${req.query.id}`);
   res.status(200).send('OK');
 });
 

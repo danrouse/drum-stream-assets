@@ -4,7 +4,7 @@ import { SongDownloadError } from './wrappers/spotdl';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
-import { formatTime } from '../../shared/util';
+import { createLogger, formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { ChannelPointReward, WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
@@ -100,10 +100,10 @@ export default class StreamerbotWebSocketClient {
         }, 10000);
       },
       onDisconnect: () => {
-        console.warn('Disconnected from Streamer.bot!');
+        this.log('Disconnected from Streamer.bot!');
       },
       onError: (err) => {
-        console.warn('Streamer.bot error:', err);
+        this.log('Streamer.bot error:', err);
       },
       retries: 3,
     });
@@ -155,6 +155,7 @@ export default class StreamerbotWebSocketClient {
         await this.pauseTwitchRedemption('SpeedUpCurrentSong', 1000 * 60 * 60 * 24);
       }
     } else if (payload.type === 'song_changed') {
+      this.log('recv payload msg');
       // Notify user when their song request is starting
       if (payload.song.requester && payload.song.status === 'ready') {
         await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
@@ -214,18 +215,14 @@ export default class StreamerbotWebSocketClient {
     }
   };
 
-  private log(...args: any) {
-    console.info(new Date().toLocaleString(), '[StreamerbotWSC]', ...args);
-  }
+  private log = createLogger('StreamerbotWSC');
 
   public doAction(actionName: StreamerbotActionName, args?: any) {
     const actionId = StreamerbotActions.actions.find(action =>
       actionName.toLowerCase() === action.name.toLowerCase()
     )!.id;
-    if (this.isTestMode) {
-      this.log('doAction', actionName, actionId, args);
-      return;
-    }
+    this.log('doAction', actionName, actionId, args);
+    if (this.isTestMode) return;
     return this.client.doAction(actionId, args);
   }
 
@@ -355,7 +352,7 @@ export default class StreamerbotWebSocketClient {
 
     const rewardName = Object.entries(REWARD_IDS)
       .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
-    console.info('Twitch Redemption:', rewardName);
+    this.log('Channel point redemption:', rewardName);
 
     if (rewardName === 'NoShenanigans' || rewardName === 'ResetShenanigans') {
       this.disableShenanigans(REWARD_DURATIONS[rewardName]!);
@@ -449,12 +446,13 @@ export default class StreamerbotWebSocketClient {
   public async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
     const message = payload.data.message.trim();
     const userName = payload.data.user.display; // user.display vs user.name?
+    this.log('Command triggered', payload.data.command, userName, message);
     // also available: bool user.subscribed, int user.role
     if (['!request', '!sr', '!ssr', '!songrequest', '!rs'].includes(payload.data.command)) {
       try {
         await this.handleSongRequest(message, userName, this.getMaxDurationForUser(userName), this.getSongRequestLimitForUser(userName));
       } catch (e) {
-        console.warn('Song reward redemption failed with error', e);
+        this.log('Song reward redemption failed with error', e);
       }
     } else if (['!when', '!whenami', '!pos'].includes(payload.data.command)) {
       const songRequest = await this.songRequestHandler.getNextSongRequestByRequester(userName);

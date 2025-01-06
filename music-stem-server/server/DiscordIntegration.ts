@@ -1,7 +1,7 @@
 import { Client, Events, GatewayIntentBits, TextChannel, ChannelType } from 'discord.js';
 import { WebSocketMessage } from '../../shared/messages';
 import { db } from './database';
-import { formatTime, isURL } from '../../shared/util';
+import { formatTime, isURL, createLogger } from '../../shared/util';
 
 export default class DiscordIntegration {
   private client: Client;
@@ -20,7 +20,7 @@ export default class DiscordIntegration {
           cache[1].type === ChannelType.GuildText &&
           cache[1].name === songRequestsChannelName
         ) {
-          console.info('Found song requests channel:', cache[1].name, cache[1].id);
+          this.log('Found song requests channel:', cache[1].name, cache[1].id);
           if (!isTestMode) {
             this.songRequestsChannel = cache[1];
           }
@@ -29,6 +29,8 @@ export default class DiscordIntegration {
     });
     this.client.login(process.env.DISCORD_TOKEN);
   }
+
+  private log = createLogger('Discord');
 
   private getMessageByFooterText(text: string) {
     return this.songRequestsChannel?.messages.cache?.find(message =>
@@ -40,6 +42,7 @@ export default class DiscordIntegration {
   }
 
   private async announceNewSongRequest(songRequestId: number) {
+    this.log('announceNewSongRequest', songRequestId);
     const row = await db.selectFrom('songRequests')
       .innerJoin('songs', 'songs.id', 'songRequests.songId')
       .select(['songRequests.query', 'songRequests.requester', 'songs.artist', 'songs.title', 'songs.duration'])
@@ -74,6 +77,7 @@ export default class DiscordIntegration {
     songRequestId: number,
     timestamp: number = Math.floor(Date.now() / 1000),
   ) {
+    this.log('updateCompletedSongRequest', songRequestId);
     const row = await db.selectFrom('songRequests')
       .select(['songRequests.status'])
       .where('songRequests.id', '=', songRequestId)

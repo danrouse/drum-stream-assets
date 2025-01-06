@@ -5,6 +5,7 @@ import spotdl, { SongDownloadError } from './wrappers/spotdl';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
 import { db, Song } from './database';
+import { createLogger } from '../../shared/util';
 import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster, WebSocketMessage } from '../../shared/messages';
 
 interface DemucsCallback {
@@ -72,7 +73,7 @@ export default class SongRequestHandler {
     callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void,
     ignoreDuplicates: boolean = true
   ) {
-    console.info(`Running ffmpeg-normalize on ${song.basename}`);
+    this.log(`Running ffmpeg-normalize on ${song.basename}`);
     try {
       execSync(`ffmpeg-normalize "${song.path}" -o "${song.path}" -c:a aac -nt rms -t -16 -f`);
     } catch (e) {
@@ -102,16 +103,16 @@ export default class SongRequestHandler {
   }
 
   private async downloadSong(query: string, maxDuration: number) {
-    console.info('Attempting to download:', query);
+    this.log('Attempting to download:', query);
     this.broadcast({ type: 'download_start', query });
     const downloadedSong = await spotdl(query, Paths.DOWNLOADS_PATH, maxDuration);
   
     if (downloadedSong) {
       this.broadcast({ type: 'download_complete', name: downloadedSong.basename });
-      console.info('Downloaded:', downloadedSong.basename);
+      this.log('Downloaded:', downloadedSong.basename);
     } else {
       this.broadcast({ type: 'download_error', query });
-      console.info('Received no basename from spotdl');
+      this.log('Received no basename from spotdl');
     }
     return downloadedSong;
   }
@@ -199,7 +200,7 @@ export default class SongRequestHandler {
                 .set({ status: 'ready', songId: song[0].id })
                 .where('id', '=', songRequest[0].id)
                 .execute();
-              console.info(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
+              this.log(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
               this.broadcast({ type: 'song_request_added', songRequestId: songRequest[0].id });
               resolve([processedSong, songRequest[0].id]);
             } else {

@@ -1,6 +1,7 @@
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 import { Server } from 'http';
-import { WebSocketServerMessage, WebSocketPlayerMessage, WebSocketMessageHandler } from '../../shared/messages';
+import { WebSocketMessage, WebSocketPlayerMessage, WebSocketMessageHandler } from '../../shared/messages';
+import { createLogger } from '../../shared/util';
 
 export default class WebSocketCoordinatorServer {
   public handlers: WebSocketMessageHandler[] = [];
@@ -10,32 +11,37 @@ export default class WebSocketCoordinatorServer {
     this.wss = new WebSocketServer({ server: httpServer });
 
     this.wss.on('connection', (ws) => {
-      console.info(`WebSocket connection opened, now ${this.wss.clients.size} connected clients`);
-      ws.on('error', console.error);
+      this.log(`WebSocket connection opened, now ${this.wss.clients.size} connected clients`);
+      ws.on('error', createLogger('WSS', 'error'));
       ws.on('message', async (message) => {
-        // Broadcast all received messages to all clients
-        this.broadcast(message.toString());
-
         try {
-          const payload = JSON.parse(message.toString()) as WebSocketServerMessage | WebSocketPlayerMessage;
-          for (let handler of this.handlers) {
-            await handler(payload);
-          }
-        } catch (e) {}
+          // Broadcast all received messages to all clients
+          const payload = JSON.parse(message.toString()) as WebSocketMessage;
+          this.broadcast(payload);
+        } catch (e) {
+          this.log('Failed to parse/rebroadcast message', message.toString());
+        }
       });
       ws.on('close', () => {
         // manually cleanup event listeners when closing a connection
         ws.onmessage = null;
         ws.onerror = null;
         ws.onclose = null;
-        console.info(`WebSocket connection closed, now ${this.wss.clients.size} connected clients`);
+        this.log(`WebSocket connection closed, now ${this.wss.clients.size} connected clients`);
       });
     });
   }
 
-  public broadcast = (payload: WebSocketServerMessage | string) => {
+  private log = createLogger('WSS');
+
+  private static unloggedMessageTypes: WebSocketMessage["type"][] = ['viewers_update', 'song_progress'];
+
+  public broadcast = (payload: WebSocketMessage) => {
+    if (!WebSocketCoordinatorServer.unloggedMessageTypes.includes(payload.type)) {
+      this.log('broadcast', payload);
+    }
     this.wss.clients.forEach(ws =>
-      ws.send(typeof payload === 'string' ? payload : JSON.stringify(payload)));
-    Promise.all(this.handlers.map(h => h(payload)));
+      ws.send(JSON.stringify(payload)));
+    this.handlers.forEach(handler => handler(payload));
   }
 }

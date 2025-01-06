@@ -21,3 +21,9 @@ export const formatTime = (secs?: number, showHours: boolean = false) => {
   }
   return `${minutes}:${String(roundedSecs).padStart(2, '0')}`;
 };
+
+export const createLogger = (name: string, logLevel: 'info' | 'error' | 'warn' = 'info') => {
+  return (...args: any) => {
+    console[logLevel](new Date().toLocaleString(), `[${name}]`, ...args);
+  };
+};
