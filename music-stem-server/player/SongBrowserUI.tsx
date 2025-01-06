@@ -183,10 +183,13 @@ export default function SongBrowserUI() {
       }
       setPlaybackRate(1);
       setMutedTrackNames(new Set());
-    } else if (action === 'MuteCurrentSongDrums') {
-      const nextMutedTrackNames = new Set(mutedTrackNames);
-      nextMutedTrackNames.add('drums');
-      setMutedTrackNames(nextMutedTrackNames);
+    } else if (action === 'MuteCurrentSongDrums' || action === 'MuteCurrentSongVocals') {
+      setMutedTrackNames((m) => {
+        const nextMutedTrackNames = new Set(m);
+        const trackToMute = action === 'MuteCurrentSongDrums' ? 'drums' : 'vocals';
+        nextMutedTrackNames.add(trackToMute);
+        return nextMutedTrackNames;
+      });
     } else if (action === 'SpeedUpCurrentSong') {
       setPlaybackRate(r => r + amount!);
       clientRemoteControlResetTimers.push(

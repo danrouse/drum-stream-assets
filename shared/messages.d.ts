@@ -104,7 +104,8 @@ type WebSocketPlayerMessage = {
 
 export type ChannelPointReward = {
   name: 'MuteCurrentSongDrums',
-  duration: number,
+} | {
+  name: 'MuteCurrentSongVocals',
 } | {
   name: 'SlowDownCurrentSong',
   duration: number,

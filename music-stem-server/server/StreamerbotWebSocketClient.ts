@@ -32,6 +32,7 @@ const StreamerbotCommandAliases = StreamerbotCommands.commands.reduce((acc, comm
 
 const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
+  MuteCurrentSongVocals: '74eb4c54-71cb-440a-8bdf-2e56ada2c9e8',
   SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
   OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
@@ -45,7 +46,6 @@ const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
 };
 
 const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
-  MuteCurrentSongDrums: 120000,
   SlowDownCurrentSong: 120000,
   SpeedUpCurrentSong: 120000,
   OopsAllFarts: 60000,
@@ -63,7 +63,7 @@ const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
 ];
 
 const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
-  'MuteCurrentSongDrums',
+  'MuteCurrentSongDrums', 'MuteCurrentSongVocals',
   'SlowDownCurrentSong', 'SpeedUpCurrentSong',
   'OopsAllFarts',
   // 'ChangeDrumKit',
