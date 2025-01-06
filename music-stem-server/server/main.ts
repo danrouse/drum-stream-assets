@@ -27,6 +27,7 @@ process.on('unhandledRejection', (reason: any) => {
 
 const PORT = 3000;
 const IS_TEST_MODE = process.env.TEST_MODE === '1';
+log('Starting with test mode =', IS_TEST_MODE);
 
 const app = express();
 app.use(bodyParser.json());
