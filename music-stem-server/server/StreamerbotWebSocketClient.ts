@@ -71,6 +71,9 @@ const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
 
 const BOT_USER_ID = '1148563762';
 
+const SONG_REQUEST_MAX_DURATION = 60 * 7;
+const LONG_SONG_REQUEST_MAX_DURATION = 15 * 60;
+
 enum StreamerbotUserRole {
   Viewer = 1,
   VIP = 2,
@@ -346,7 +349,7 @@ export default class StreamerbotWebSocketClient {
 
   private getMaxDurationForUser(userName: string) {
     const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
-    let maxDuration = 60 * 7; // 7 mins default max
+    let maxDuration = SONG_REQUEST_MAX_DURATION; // 7 mins default max
     if (viewer?.role === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
     if (viewer?.role === 'Moderator') maxDuration = 60 * 20; // 20 mins for mod
     if (viewer?.role === 'Broadcaster') maxDuration = 12000;
@@ -408,12 +411,11 @@ export default class StreamerbotWebSocketClient {
         delete this.kitResetTimer;
       }, REWARD_DURATIONS[rewardName]);
     } else if (rewardName === 'LongSong') {
-      const LONG_SONG_MAX_DURATION = 15 * 60;
       try {
         await this.handleSongRequest(
           payload.data.user_input,
           payload.data.user_name,
-          LONG_SONG_MAX_DURATION,
+          LONG_SONG_REQUEST_MAX_DURATION,
           this.getSongRequestLimitForUser(payload.data.user_name),
           false,
           false,
@@ -682,7 +684,7 @@ export default class StreamerbotWebSocketClient {
         if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
         if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
         if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-        if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)}.`;
+        if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)} (for songs up to ${formatTime(LONG_SONG_REQUEST_MAX_DURATION)}, redeem a Long Song Request!)`;
         if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
         if (e.type === 'MINIMUM_VIEWS') message = 'Videos with under 1000 views are not allowed.'
         if (e.type === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.'
