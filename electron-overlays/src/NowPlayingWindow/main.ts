@@ -14,6 +14,9 @@ globalContainerElem.innerHTML = `
     <div class="bar">
       <div class="inner" id="NowPlayingProgressBar"></div>
     </div>
+    <div class="bottom">
+      <p class="requester" id="NowPlayingRequester"></p>
+    </div>
   </div>
 `;
 const containerElem = document.getElementById('NowPlayingContainer')!;
@@ -22,9 +25,11 @@ const titleElem = document.getElementById('NowPlayingTitle')!;
 const speedElem = document.getElementById('NowPlayingSpeed')!;
 const timeElem = document.getElementById('NowPlayingTime')!;
 const progressBarElem = document.getElementById('NowPlayingProgressBar')!;
+const requesterElem = document.getElementById('NowPlayingRequester')!;
 
 let artist = '';
 let title = '';
+let requester = '';
 let duration = 0;
 let isPlaying = false;
 let currentTimestamp = 0;
@@ -38,6 +43,7 @@ function render() {
   }
   artistElem.innerHTML = artist + '&nbsp;';
   titleElem.innerHTML = title + '&nbsp;';
+  requesterElem.innerHTML = requester;
   speedElem.innerHTML = playbackRate === 1 ? '' : `${Math.round(playbackRate * 100)}%`;
   // timeElem.innerHTML = `-${formatTime(duration - currentTimestamp)}`;
   timeElem.innerHTML = formatTime(currentTimestamp);
@@ -71,6 +77,7 @@ window.ipcRenderer.on('song_changed', (_, payload) => {
   artist = payload.song.artist;
   title = payload.song.title;
   duration = payload.song.duration;
+  requester = payload.song.status === 'ready' ? payload.song.requester : '';
   currentTimestamp = 0;
   isPlaying = false;
   render();
@@ -82,6 +89,7 @@ window.ipcRenderer.on('song_stopped', () => {
   isPlaying = false;
   artist = '';
   title = '';
+  requester = '';
   duration = 0;
   render();
 });
