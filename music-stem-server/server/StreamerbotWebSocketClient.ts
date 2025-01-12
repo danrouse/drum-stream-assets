@@ -363,6 +363,11 @@ export default class StreamerbotWebSocketClient {
     return limit;
   }
 
+  private isUserAdmin(userName: string) {
+    const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
+    return viewer?.role === 'Broadcaster' || viewer?.role === 'Moderator';
+  }
+
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
     if (!Object.values(REWARD_IDS).includes(payload.data.reward.id)) {
       // A reward was redeemed that is not defined here, nothing to do!
@@ -621,7 +626,7 @@ export default class StreamerbotWebSocketClient {
     }
 
     // Check if the user is on cooldown for their next song request
-    if (!priority) {
+    if (!priority && !this.isUserAdmin(fromUsername)) {
       const lastRequestTime = await db.selectFrom('songRequests')
         .innerJoin('songs', 'songs.id', 'songRequests.songId')
         .select(['songRequests.createdAt', 'songs.duration'])
