@@ -187,6 +187,14 @@ export default class SongRequestHandler {
                   .select('id')
                   .where('stemsPath', '=', processedSong.stemsPath)
                   .execute();
+                const existingSongRequest = await db.selectFrom('songRequests')
+                  .select('id')
+                  .where('songId', '=', song[0].id!)
+                  .where('status', '=', 'ready')
+                  .execute();
+                if (existingSongRequest.length) {
+                  reject(new SongDownloadError('REQUEST_ALREADY_EXISTS'));
+                }
               } else {
                 song = await db.insertInto('songs').values({
                   artist: String(tags.common?.artist) || '',
@@ -210,7 +218,7 @@ export default class SongRequestHandler {
                 .set({ status: 'cancelled' })
                 .where('id', '=', songRequest[0].id)
                 .execute();
-              reject();
+              reject(new SongDownloadError('DEMUCS_FAILURE'));
             }
           });
         } else {

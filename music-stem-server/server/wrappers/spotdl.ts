@@ -15,7 +15,12 @@ export type SongDownloadErrorType =
   'NO_PLAYLISTS' |
   'TOO_LONG' |
   'AGE_RESTRICTED' |
-  'MINIMUM_VIEWS';
+  'MINIMUM_VIEWS' |
+  'COOLDOWN' |
+  'MINIMUM_QUERY_LENGTH' |
+  'TOO_MANY_REQUESTS' |
+  'REQUEST_ALREADY_EXISTS' |
+  'DEMUCS_FAILURE';
 export class SongDownloadError extends Error {
   type: SongDownloadErrorType;
   constructor(type: SongDownloadErrorType = 'DOWNLOAD_FAILED') {

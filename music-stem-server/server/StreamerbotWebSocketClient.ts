@@ -617,7 +617,7 @@ export default class StreamerbotWebSocketClient {
         `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
         `please wait until one of your songs plays before requesting another!`
       );
-      return;
+      throw new SongDownloadError('TOO_MANY_REQUESTS');
     }
 
     // Check if the user is on cooldown for their next song request
@@ -635,7 +635,7 @@ export default class StreamerbotWebSocketClient {
         const now = new Date().getTime();
         if (availableAt > now) {
           await this.sendTwitchMessage(`@${fromUsername} Your next song request will be available in ${formatTime((availableAt - now) / 1000)}! (wait at least the length of your last requested song for your next one)`);
-          return;
+          throw new SongDownloadError('COOLDOWN');
         }
       }
     }
@@ -655,7 +655,7 @@ export default class StreamerbotWebSocketClient {
     const MINIMUM_REQUEST_LENGTH = 4;
     if (userInput.length <= MINIMUM_REQUEST_LENGTH) {
       await this.doAction('!how');
-      return;
+      throw new SongDownloadError('MINIMUM_QUERY_LENGTH');
     }
 
     await this.sendTwitchMessage(`Working on it, @${fromUsername}!`);
@@ -680,6 +680,7 @@ export default class StreamerbotWebSocketClient {
         if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)}.`;
         if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
         if (e.type === 'MINIMUM_VIEWS') message = 'Videos with under 1000 views are not allowed.'
+        if (e.type === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.'
       }
       await this.sendTwitchMessage(`@${fromUsername} ${message}`);
       // rethrow to allow to catch for refund
