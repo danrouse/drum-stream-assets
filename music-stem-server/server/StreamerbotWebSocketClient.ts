@@ -166,7 +166,6 @@ export default class StreamerbotWebSocketClient {
         await this.pauseTwitchRedemption('SpeedUpCurrentSong', 1000 * 60 * 60 * 24);
       }
     } else if (payload.type === 'song_changed') {
-      this.log('recv payload msg');
       // Notify user when their song request is starting
       if (payload.song.requester && payload.song.status === 'ready') {
         await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);

@@ -20,7 +20,7 @@ import { createLogger } from '../../shared/util';
 const log = createLogger('Main');
 
 process.on('unhandledRejection', (reason: any) => {
-  log(reason?.message || reason);
+  log('unhandledRejection', reason?.message, reason);
 });
 
 const PORT = 3000;
