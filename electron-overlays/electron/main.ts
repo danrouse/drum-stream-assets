@@ -49,7 +49,7 @@ function createNowPlayingWindow() {
     ...defaultWindowConfig,
     title: 'Now Playing',
     width: 1640,
-    height: 128,
+    height: 160,
   });
   win.setIgnoreMouseEvents(true);
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/NowPlayingWindow/index.html');
