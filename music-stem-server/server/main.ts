@@ -9,11 +9,9 @@ import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
-// import LiveSplitWebSocketClient from './LiveSplitWebSocketClient';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import DiscordIntegration from './DiscordIntegration';
-import TwitchIntegration from './TwitchIntegration';
 import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
 import * as Paths from './paths';
 import { SongData, SongRequestData } from '../../shared/messages';
@@ -53,13 +51,6 @@ webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandl
 
 const discordIntegration = new DiscordIntegration(IS_TEST_MODE);
 webSocketCoordinatorServer.handlers.push(discordIntegration.messageHandler);
-
-const twitchIntegration = new TwitchIntegration();
-twitchIntegration.beginUserAuth('http://localhost:3000/oauth');
-webSocketCoordinatorServer.handlers.push(twitchIntegration.messageHandler);
-
-// const liveSplitWebSocketClient = new LiveSplitWebSocketClient();
-// webSocketCoordinatorServer.handlers.push(liveSplitWebSocketClient.messageHandler);
 
 app.get('/clean', async () => {
   for (let file of readdirSync(Paths.DOWNLOADS_PATH)) {
