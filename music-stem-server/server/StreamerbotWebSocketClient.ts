@@ -1,9 +1,9 @@
 import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer } from '@streamerbot/client';
 import { sql } from 'kysely';
-import { SongDownloadError } from './wrappers/spotdl';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
+import SongDownloadError from './SongDownloadError';
 import { createLogger, formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { ChannelPointReward, WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
@@ -669,9 +669,8 @@ export default class StreamerbotWebSocketClient {
     try {
       const [song, songRequestId] = await this.songRequestHandler.execute(
         userInput,
-        maxDuration,
+        { priority, noShenanigans, maxDuration, minViews: this.isUserAdmin(fromUsername) ? undefined : 1000 },
         { requesterName: fromUsername, twitchRewardId, twitchRedemptionId },
-        { priority, noShenanigans },
       );
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
       const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';

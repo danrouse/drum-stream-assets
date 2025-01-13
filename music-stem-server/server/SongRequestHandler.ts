@@ -1,10 +1,11 @@
 import { execSync } from 'child_process';
 import { basename } from 'path';
 import Demucs from './wrappers/demucs';
-import spotdl, { SongDownloadError } from './wrappers/spotdl';
+import downloadSong from './downloadSong';
 import getSongTags from './getSongTags';
 import * as Paths from './paths';
 import { db, Song } from './database';
+import SongDownloadError from './SongDownloadError';
 import { createLogger } from '../../shared/util';
 import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster, WebSocketMessage } from '../../shared/messages';
 
@@ -14,8 +15,10 @@ interface DemucsCallback {
 }
 
 interface SongRequestOptions {
-  priority?: boolean,
-  noShenanigans?: boolean,
+  priority: boolean,
+  noShenanigans: boolean,
+  maxDuration: number,
+  minViews: number,
 }
 
 export default class SongRequestHandler {
@@ -48,7 +51,7 @@ export default class SongRequestHandler {
   public messageHandler = async (payload: WebSocketMessage) => {
     if (payload.type === 'song_request') {
       try {
-        await this.execute(payload.query, 12000);
+        await this.execute(payload.query, { maxDuration: 12000 });
       } catch (e) {
         this.broadcast({ type: 'download_error', query: payload.query });
       }
@@ -102,10 +105,10 @@ export default class SongRequestHandler {
     });
   }
 
-  private async downloadSong(query: string, maxDuration: number) {
+  private async downloadSong(query: string, options: Partial<SongRequestOptions> = {}) {
     this.log('Attempting to download:', query);
     this.broadcast({ type: 'download_start', query });
-    const downloadedSong = await spotdl(query, Paths.DOWNLOADS_PATH, maxDuration);
+    const downloadedSong = await downloadSong(query, Paths.DOWNLOADS_PATH, options);
   
     if (downloadedSong) {
       this.broadcast({ type: 'download_complete', name: downloadedSong.basename });
@@ -149,14 +152,14 @@ export default class SongRequestHandler {
     };
   }
   
-  public execute(query: string, maxDuration: number, request?: SongRequestSource, options?: SongRequestOptions) {
+  public execute(query: string, options: Partial<SongRequestOptions> = {}, request?: SongRequestSource) {
     return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {
       try {
-        const downloadedSong = await this.downloadSong(query, maxDuration);
+        const downloadedSong = await this.downloadSong(query, options);
   
         if (downloadedSong) {
           const tags = await getSongTags(downloadedSong.path);
-          if (tags.format?.duration > maxDuration) {
+          if (options.maxDuration && tags.format?.duration > options.maxDuration) {
             reject(new SongDownloadError('TOO_LONG'));
             this.broadcast({ type: 'download_error', query });
             return;
