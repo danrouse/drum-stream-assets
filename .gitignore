@@ -16,3 +16,4 @@ mask.png
 songlist.json
 songrequests.json
 *.sqlite
+youtube_oauth_token.json

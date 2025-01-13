@@ -3,9 +3,12 @@ import { WebSocketMessage } from '../../shared/messages';
 import { db } from './database';
 import { formatTime, isURL, createLogger } from '../../shared/util';
 
+type DiscordEvent = 'ready';
+
 export default class DiscordIntegration {
   private client: Client;
-  private songRequestsChannel?: TextChannel;
+  public songRequestsChannel?: TextChannel;
+  private eventHandlers: { [key: string]: Array<(client: Client) => void> } = {};
 
   constructor(
     isTestMode: boolean = false,
@@ -26,8 +29,16 @@ export default class DiscordIntegration {
           }
         }
       }
+      this.eventHandlers.ready?.forEach(handler => handler(client));
     });
     this.client.login(process.env.DISCORD_TOKEN);
+  }
+
+  public on(event: DiscordEvent, handler: (client: Client) => void) {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = [];
+    }
+    this.eventHandlers[event].push(handler);
   }
 
   private log = createLogger('Discord');
@@ -73,9 +84,10 @@ export default class DiscordIntegration {
     });
   }
 
-  private async updateCompletedSongRequest(
+  public async updateCompletedSongRequest(
     songRequestId: number,
-    timestamp: number = Math.floor(Date.now() / 1000),
+    timestamp?: number,
+    youtubeUrl?: string,
   ) {
     this.log('updateCompletedSongRequest', songRequestId);
     const row = await db.selectFrom('songRequests')
@@ -85,17 +97,31 @@ export default class DiscordIntegration {
     const isCompleted = row[0].status === 'fulfilled';
     const msg = this.getMessageByFooterText(this.formatSongRequestFooter(songRequestId));
     if (!msg) return;
-    await msg.edit({
-      embeds: [{
-        ...msg?.embeds[0].data,
-        color: isCompleted ? 0x00ff00 : 0xaaaaaa,
-        fields: msg?.embeds[0].fields.concat([{
-          name: isCompleted ? 'Played at' : 'Skipped at',
-          value: `<t:${timestamp}:R>`,
-          inline: true,
-        }]),
-      }]
-    });
+    if (timestamp) {
+      await msg.edit({
+        embeds: [{
+          ...msg?.embeds[0].data,
+          color: isCompleted ? 0x00ff00 : 0xaaaaaa,
+          fields: msg?.embeds[0].fields.concat([{
+            name: isCompleted ? 'Played at' : 'Skipped at',
+            value: `<t:${timestamp}:R>`,
+            inline: true,
+          }]),
+        }],
+      });
+    }
+    if (youtubeUrl) {
+      await msg.edit({
+        embeds: [{
+          ...msg?.embeds[0].data,
+          fields: msg?.embeds[0].fields.concat([{
+            name: 'VOD',
+            value: youtubeUrl,
+          }]),
+        }],
+      });
+    }
+
     // await msg.react(isCompleted ? '✅' : '❎');
   }
 
@@ -105,7 +131,7 @@ export default class DiscordIntegration {
     if (payload.type === 'song_request_added') {
       await this.announceNewSongRequest(payload.songRequestId);
     } else if (payload.type === 'song_request_removed' || (payload.type === 'song_playback_completed' && payload.songRequestId)) {
-      await this.updateCompletedSongRequest(payload.songRequestId!);
+      await this.updateCompletedSongRequest(payload.songRequestId!, Math.floor(Date.now() / 1000));
     }
   };
 }
