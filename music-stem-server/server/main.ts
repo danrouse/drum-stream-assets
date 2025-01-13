@@ -4,7 +4,6 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
-import { exchangeCode } from '@twurple/auth';
 import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
@@ -165,12 +164,6 @@ app.get('/reprocess', async (req, res) => {
   log(`Done reprocessing song with ID ${req.query.id}`);
   res.status(200).send('OK');
 });
-
-app.get('/oauth', async (req, res) => {
-  const tokenData = await exchangeCode(process.env.TWITCH_CLIENT_ID!, process.env.TWITCH_CLIENT_SECRET!, String(req.query.code), 'http://localhost:3000/oauth');
-  await twitchIntegration.authorizeUser(tokenData);
-  return res.send(`<script>window.close()</script>`);
-})
 
 if (process.env.NODE_ENV === 'production') {
   app.use('/', express.static(Paths.PLAYER_DIST));
