@@ -79,6 +79,7 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
         resolve(resolveTo);
       } else {
         console.debug('spotdl failed as it did not match a valid return string');
+        console.debug(buf);
         reject(new SongDownloadError());
       }
     });
