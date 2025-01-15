@@ -17,12 +17,15 @@ type StreamerbotActionName =
   'Reward: Unpause' |
   'Reward: Update Redemption' |
   'Twitch chat message' |
-  'Toggle OBS graphic' |
+  'OBS Visibility On' |
+  'OBS Visibility Off' |
   'Create Stream Marker' |
   '!how';
 
 interface IdMap { [name: string]: string }
 
+// NB: TS doesn't treat the imported JSON as const types, so this does *not*
+// provide type safety in the same way as manually defining a string literal union
 const StreamerbotCommandAliases = StreamerbotCommands.commands.reduce((acc, command) => {
   for (let alias of command.command.split(/\r?\n/)) {
     acc[alias] = command.name;
@@ -37,7 +40,7 @@ const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
   SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
   OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
   ChangeDrumKit: '6e366bb7-508d-4419-89a4-32fdcf952419',
-  NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68', // Disabled
+  NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68',
   LongSong: '3db680fc-9fea-42c2-aed5-1e1b447b4842',
   PrioritySong: 'a8691f10-c763-45f3-8c77-945037bd4978',
   ResetShenanigans: 'ab136ab9-9775-4e3c-aeb9-a7408d5dbe71',
@@ -50,7 +53,7 @@ const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
   SpeedUpCurrentSong: 120000,
   OopsAllFarts: 60000,
   ChangeDrumKit: 120000,
-  NoShenanigans: 180000, // Disabled
+  NoShenanigans: 5000000,
   ResetShenanigans: 0,
 };
 
@@ -66,6 +69,7 @@ const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
   'MuteCurrentSongDrums', 'MuteCurrentSongVocals',
   'SlowDownCurrentSong', 'SpeedUpCurrentSong',
   'OopsAllFarts',
+  'NoShenanigans', 'ResetShenanigans',
   // 'ChangeDrumKit',
 ];
 
@@ -105,6 +109,7 @@ export default class StreamerbotWebSocketClient {
   ) {
     this.client = new StreamerbotClient({
       onConnect: () => {
+        this.enableShenanigans();
         this.updateActiveViewers();
         setInterval(() => {
           this.updateActiveViewers();
@@ -239,9 +244,14 @@ export default class StreamerbotWebSocketClient {
   private log = createLogger('StreamerbotWSC');
 
   public doAction(actionName: StreamerbotActionName, args?: any) {
-    const actionId = StreamerbotActions.actions.find(action =>
+    const action = StreamerbotActions.actions.find(action =>
       actionName.toLowerCase() === action.name.toLowerCase()
-    )!.id;
+    );
+    if (!action) {
+      this.log('doAction: Unknown action', actionName);
+      return;
+    }
+    const actionId = action.id;
     this.log('doAction', actionName, actionId, args);
     if (this.isTestMode) return;
     return this.client.doAction(actionId, args);
@@ -291,7 +301,7 @@ export default class StreamerbotWebSocketClient {
     return this.doAction('Reward: Update Redemption', { rewardId, redemptionId, action });
   }
 
-  private async pauseTwitchRedemption(rewardName: ChannelPointReward["name"], duration: number) {
+  private async pauseTwitchRedemption(rewardName: ChannelPointReward["name"], duration?: number) {
     await this.doAction(
       'Reward: Pause',
       { rewardId: REWARD_IDS[rewardName] }
@@ -299,26 +309,32 @@ export default class StreamerbotWebSocketClient {
     if (this.twitchUnpauseTimers[rewardName]) {
       clearTimeout(this.twitchUnpauseTimers[rewardName]);
     }
-    this.twitchUnpauseTimers[rewardName] = setTimeout(
-      () => this.doAction(
-        'Reward: Unpause',
-        { rewardId: REWARD_IDS[rewardName] }
-      ),
-      duration
-    );
+    if (duration) {
+      this.twitchUnpauseTimers[rewardName] = setTimeout(
+        () => this.doAction(
+          'Reward: Unpause',
+          { rewardId: REWARD_IDS[rewardName] }
+        ),
+        duration
+      );
+    }
   }
 
   private async enableShenanigans() {
     this.isShenanigansEnabled = true;
-    Object.keys(this.twitchUnpauseTimers).forEach((key) => {
-      const rewardName = key as ChannelPointReward["name"];
-      this.doAction(
-        'Reward: Unpause',
-        { rewardId: REWARD_IDS[rewardName] }
-      )
-      clearTimeout(this.twitchUnpauseTimers[rewardName]);
-    });
-    await this.doAction('Toggle OBS graphic', {
+    for (let rewardName of DISABLEABLE_REWARDS) {
+      if (this.twitchUnpauseTimers[rewardName]) {
+        clearTimeout(this.twitchUnpauseTimers[rewardName]);
+        delete this.twitchUnpauseTimers[rewardName];
+      }
+      if (REWARD_IDS[rewardName]) {
+        this.doAction(
+          'Reward: Unpause',
+          { rewardId: REWARD_IDS[rewardName] }
+        );
+      }
+    }
+    await this.doAction('OBS Visibility Off', {
       sourceName: 'No shenanigans'
     });
   }
@@ -326,23 +342,24 @@ export default class StreamerbotWebSocketClient {
   private async disableShenanigans(duration?: number) {
     this.midiController.resetKit();
     Object.values(this.twitchUnpauseTimers).forEach(timer => clearTimeout(timer));
-    // an explicit duration of zero means just reset everything
-    if (duration !== 0) {
-      this.broadcast({
-        type: 'client_remote_control',
-        action: 'NoShenanigans',
-      });
-      const actualDuration = duration || (1000 * 60 * 60 * 24);
+
+    this.broadcast({
+      type: 'client_remote_control',
+      action: 'NoShenanigans',
+    });
+    const actualDuration = duration === undefined ? 1000 * 60 * 60 * 24 : duration;
+    if (actualDuration > 0) {
       this.isShenanigansEnabled = false;
+      this.lastSongWasNoShens = true;
       for (let otherRewardName of DISABLEABLE_REWARDS) {
-        await this.pauseTwitchRedemption(otherRewardName, actualDuration);
+        await this.pauseTwitchRedemption(otherRewardName);
       }
-      await this.doAction('Toggle OBS graphic', {
+      await this.doAction('OBS Visibility On', {
         sourceName: 'No shenanigans'
       });
-      setTimeout(() => this.doAction('Toggle OBS graphic', {
-        sourceName: 'No shenanigans'
-      }), actualDuration);
+      this.twitchUnpauseTimers['NoShenanigans'] = setTimeout(() => {
+        this.enableShenanigans();
+      }, actualDuration);
     }
   }
 
@@ -378,7 +395,7 @@ export default class StreamerbotWebSocketClient {
 
     const rewardName = Object.entries(REWARD_IDS)
       .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
-    this.log('Channel point redemption:', rewardName);
+    this.log(`Channel point redemption by ${payload.data.user_name}: ${rewardName}`);
 
     if (rewardName === 'NoShenanigans' || rewardName === 'ResetShenanigans') {
       this.disableShenanigans(REWARD_DURATIONS[rewardName]!);
