@@ -572,6 +572,14 @@ export default class StreamerbotWebSocketClient {
         'songVoteResponse',
         5000
       );
+    } else if (commandName === '!today') {
+      const res = await db.selectFrom('songHistory')
+        .select(db.fn.countAll().as('count'))
+        .where(sql<any>`datetime(songHistory.startedAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
+        .execute();
+      await this.sendTwitchMessage(
+        `@${userName} ${res[0].count} songs have been played today`
+      );
     }
   }
 
