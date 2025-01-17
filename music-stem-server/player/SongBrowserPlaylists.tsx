@@ -111,7 +111,7 @@ export default function SongBrowserPlaylists({
                   <i className="fa-solid fa-play" /> Select
                 </button>
                 <button onClick={() =>
-                  removeFromPlaylist(playlists[selectedPlaylistIndex], playlists[selectedPlaylistIndex].songs[index])
+                  confirm(`Remove ${song.title} from playlist?`) && removeFromPlaylist(playlists[selectedPlaylistIndex], playlists[selectedPlaylistIndex].songs[index])
                 }>
                   <i className="fa-solid fa-trash" /> Remove
                 </button>
