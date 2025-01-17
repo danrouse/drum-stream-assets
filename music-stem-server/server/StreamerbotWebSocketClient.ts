@@ -94,6 +94,8 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
     this.client.on('General.Custom', this.handleCustom.bind(this));
     this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged.bind(this));
+    this.client.on('Obs.StreamingStarted', this.handleOBSStreamingStarted.bind(this));
+    this.client.on('Obs.StreamingStopped', this.handleOBSStreamingStopped.bind(this));
 
     this.broadcast = broadcast;
     this.songRequestHandler = songRequestHandler;
@@ -589,6 +591,20 @@ export default class StreamerbotWebSocketClient {
       oldScene: payload.data.oldScene.sceneName,
       scene: payload.data.scene.sceneName,
     });
+  }
+
+  private async handleOBSStreamingStarted(payload: StreamerbotEventPayload<"Obs.StreamingStarted">) {
+    await db.insertInto('streamHistory')
+      .defaultValues()
+      .execute();
+  }
+
+  private async handleOBSStreamingStopped(payload: StreamerbotEventPayload<"Obs.StreamingStopped">) {
+    const record = await db.selectFrom('streamHistory').select('id').orderBy('id desc').limit(1).execute();
+    await db.updateTable('streamHistory')
+      .set('endedAt', sql`current_timestamp`)
+      .where('id', '=', record[0].id)
+      .execute();
   }
 
   private async handleSongRequest(

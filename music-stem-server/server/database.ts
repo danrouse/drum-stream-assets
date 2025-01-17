@@ -83,6 +83,12 @@ interface SongHistoryTable {
   songRequestId: number | null;
 }
 
+interface StreamHistoryTable {
+  id: Generated<number>;
+  startedAt: CreatedAtType;
+  endedAt: CreatedAtType;
+}
+
 export type SongRequest = Selectable<SongRequestsTable>;
 export type NewSongRequest = Insertable<SongRequestsTable>;
 export type SongRequestUpdate = Updateable<SongRequestsTable>;
@@ -101,6 +107,9 @@ export type SongVoteUpdate = Updateable<SongVotesTable>;
 export type SongHistory = Selectable<SongHistoryTable>;
 export type NewSongHistory = Insertable<SongHistoryTable>;
 export type SongHistoryUpdate = Updateable<SongHistoryTable>;
+export type StreamHistory = Selectable<StreamHistoryTable>;
+export type NewStreamHistory = Insertable<StreamHistoryTable>;
+export type StreamHistoryUpdate = Updateable<StreamHistoryTable>;
 
 interface Database {
   songRequests: SongRequestsTable;
@@ -109,6 +118,7 @@ interface Database {
   songTags: SongTagsTable;
   songVotes: SongVotesTable;
   songHistory: SongHistoryTable;
+  streamHistory: StreamHistoryTable;
 }
 
 const dialect = new SqliteDialect({
@@ -126,6 +136,8 @@ export async function initializeDatabase() {
   await db.schema.dropTable('songs').ifExists().execute();
   await db.schema.dropTable('downloads').ifExists().execute();
   await db.schema.dropTable('songRequests').ifExists().execute();
+  await db.schema.dropTable('songHistory').ifExists().execute();
+  await db.schema.dropTable('streamHistory').ifExists().execute();
   await db.executeQuery(sql`PRAGMA foreign_keys = ON;`.compile(db));
 
   await db.schema.createTable('songRequests')
@@ -193,5 +205,10 @@ export async function initializeDatabase() {
     .addColumn('songRequestId', 'integer', (cb) => cb.references('songRequests.id'))
     .execute();
 
+  await db.schema.createTable('streamHistory')
+    .ifNotExists()
+    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
+    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
+    .addColumn('endedAt', 'timestamp')
     .execute();
 }
