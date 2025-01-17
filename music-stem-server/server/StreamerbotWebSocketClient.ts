@@ -200,13 +200,16 @@ export default class StreamerbotWebSocketClient {
       }
     } else if (payload.type === 'song_request_removed') {
       // Refund reward redemption SRs if removed
-      const row = await db.selectFrom('songRequests')
-        .select(['twitchRewardId', 'twitchRedemptionId'])
-        .where('id', '=', payload.songRequestId)
-        .execute();
-      if (row[0].twitchRewardId && row[0].twitchRedemptionId) {
-        this.updateTwitchRedemption(row[0].twitchRewardId, row[0].twitchRedemptionId, 'cancel');
-      }
+      // REFUND DISABLED: priority song requests were getting refunded if
+      // not going directly (like "my song in queue" and then doing it manually)
+      
+      // const row = await db.selectFrom('songRequests')
+      //   .select(['twitchRewardId', 'twitchRedemptionId'])
+      //   .where('id', '=', payload.songRequestId)
+      //   .execute();
+      // if (row[0].twitchRewardId && row[0].twitchRedemptionId) {
+      //   this.updateTwitchRedemption(row[0].twitchRewardId, row[0].twitchRedemptionId, 'cancel');
+      // }
     }
   };
 
