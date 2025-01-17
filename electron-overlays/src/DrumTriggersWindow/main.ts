@@ -1,5 +1,5 @@
 import { midiNoteDefinitions, MIDINoteDefinition, MIDI_TRIGGER_VELOCITY_MAX } from '../../../shared/midiNoteDefinitions';
-import { ChannelPointReward } from '../../../shared/messages';
+import { TwitchRewardName } from '../../../shared/streamerbot';
 import { Howl } from 'howler';
 
 const HOWL_POOL_SIZE = 4;
@@ -41,8 +41,8 @@ function handleMIDINote(midiNote: number, velocity: number) {
 }
 
 window.ipcRenderer.on('client_remote_control', (_, payload) => {
-  const action: ChannelPointReward['name'] = payload.action;
-  if (action === 'OopsAllFarts') {
+  const action: TwitchRewardName = payload.action;
+  if (action === 'Fart Mode') {
     drumReplacementSounds.Tom1 = 'Fart 1.wav';
     drumReplacementSounds.Tom2 = 'Fart 2.wav';
     drumReplacementSounds.Tom3 = 'Fart 3.wav';
@@ -53,7 +53,7 @@ window.ipcRenderer.on('client_remote_control', (_, payload) => {
       delete drumReplacementSounds.Tom3;
       delete drumReplacementSounds.Tom4;
     }, payload.duration);
-  } else if (action === 'NoShenanigans' || action === 'ResetShenanigans') {
+  } else if (action === 'Disable Shenanigans (Current Song)' || action === 'Reset All Shenanigans') {
     for (let key in drumReplacementSounds) {
       delete drumReplacementSounds[key];
     }

@@ -1,5 +1,7 @@
+import * as Streamerbot from './streamerbot';
+
 // partial from Streamerbot, since these definitions are in a place without dependencies
-type StreamerbotViewer = {
+export type StreamerbotViewer = {
   login: string;
   display: string;
   previousActive: string;
@@ -7,7 +9,7 @@ type StreamerbotViewer = {
   subscribed: boolean;
 };
 
-type WebSocketServerMessage = {
+export type WebSocketServerMessage = {
   type: 'download_start',
   query: string,
 } | {
@@ -40,7 +42,7 @@ type WebSocketServerMessage = {
   query: string,
 } | {
   type: 'client_remote_control',
-  action: ChannelPointReward['name'],
+  action: Streamerbot.TwitchRewardName,
   duration?: number,
   amount?: number,
 } | {
@@ -66,7 +68,7 @@ type WebSocketServerMessage = {
   message: string,
 };
 
-type WebSocketPlayerMessage = {
+export type WebSocketPlayerMessage = {
   type: 'song_changed',
   song: SongData,
   previousSongs?: SongData[],
@@ -102,42 +104,11 @@ type WebSocketPlayerMessage = {
   otherWinners: string[],
 };
 
-export type ChannelPointReward = {
-  name: 'MuteCurrentSongDrums',
-} | {
-  name: 'MuteCurrentSongVocals',
-} | {
-  name: 'SlowDownCurrentSong',
-  duration: number,
-  amount: number,
-} | {
-  name: 'SpeedUpCurrentSong',
-  duration: number,
-  amount: number,
-} | {
-  name: 'OopsAllFarts',
-  duration: number,
-} | {
-  name: 'ChangeDrumKit',
-  duration: number,
-} | {
-  name: 'NoShenanigans',
-  duration: number,
-} | {
-  name: 'LongSong',
-} | {
-  name: 'PrioritySong',
-} | {
-  name: 'NoShenanigansSong',
-} | {
-  name: 'ResetShenanigans',
-};
+export type WebSocketMessage = WebSocketServerMessage | WebSocketPlayerMessage;
+export type WebSocketBroadcaster = (payload: WebSocketServerMessage) => void;
+export type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
 
-type WebSocketMessage = WebSocketServerMessage | WebSocketPlayerMessage;
-type WebSocketBroadcaster = (payload: WebSocketServerMessage) => void;
-type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
-
-interface SongData {
+export interface SongData {
   id: number;
   createdAt: string | null;
   artist: string;
@@ -155,7 +126,7 @@ interface SongData {
   songRequestId?: number | null;
 }
 
-interface SongRequestData extends SongData {
+export interface SongRequestData extends SongData {
   downloadPath: string;
   isVideo: number;
   lyricsPath: string | null;
@@ -167,7 +138,7 @@ interface SongRequestData extends SongData {
   createdAt: string;
 }
 
-interface LegacySongData {
+export interface LegacySongData {
   name: string; // for paths
   artist: string;
   title: string;
@@ -181,7 +152,7 @@ interface LegacySongData {
   requestTime?: Date;
 }
 
-interface DownloadedSong {
+export interface DownloadedSong {
   basename: string;
   path: string;
 
@@ -189,13 +160,13 @@ interface DownloadedSong {
   lyricsPath?: string;
 }
 
-interface ProcessedSong {
+export interface ProcessedSong {
   basename: string;
   songPath: string;
   stemsPath: string;
 }
 
-interface SongRequestSource {
+export interface SongRequestSource {
   requesterName: string;
   twitchRewardId?: string;
   twitchRedemptionId?: string;

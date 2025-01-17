@@ -3,7 +3,8 @@ import { unstable_batchedUpdates } from 'react-dom';
 
 import MultiTrackAudioPlayer from './MultiTrackAudioPlayer';
 import SongBrowserPlaylists from './SongBrowserPlaylists';
-import { ChannelPointReward, SongData, SongRequestData, WebSocketPlayerMessage, WebSocketServerMessage, StreamerbotViewer } from '../../shared/messages';
+import { SongData, SongRequestData, WebSocketPlayerMessage, WebSocketServerMessage, StreamerbotViewer } from '../../shared/messages';
+import { TwitchRewardName } from '../../shared/streamerbot';
 
 // localStorage persistence of user state
 const SONG_REQUEST_PLAYLIST_NAME = 'Requests';
@@ -175,27 +176,27 @@ export default function SongBrowserUI() {
     }
   };
 
-  const handleClientRemoteControl = (action: ChannelPointReward['name'], duration?: number, amount?: number) => {
-    if (action === 'NoShenanigans' || action === 'ResetShenanigans') {
+  const handleClientRemoteControl = (action: TwitchRewardName, duration?: number, amount?: number) => {
+    if (action === 'Disable Shenanigans (Current Song)' || action === 'Reset All Shenanigans') {
       while (clientRemoteControlResetTimers.length > 0) {
         clearTimeout(clientRemoteControlResetTimers[0]);
         clientRemoteControlResetTimers.shift();
       }
       setPlaybackRate(1);
       setMutedTrackNames(new Set());
-    } else if (action === 'MuteCurrentSongDrums' || action === 'MuteCurrentSongVocals') {
+    } else if (action === 'Mute Song\'s Drums' || action === 'Mute Song\'s Vocals') {
       setMutedTrackNames((m) => {
         const nextMutedTrackNames = new Set(m);
-        const trackToMute = action === 'MuteCurrentSongDrums' ? 'drums' : 'vocals';
+        const trackToMute = action === 'Mute Song\'s Drums' ? 'drums' : 'vocals';
         nextMutedTrackNames.add(trackToMute);
         return nextMutedTrackNames;
       });
-    } else if (action === 'SpeedUpCurrentSong') {
+    } else if (action === 'Speed Up Music') {
       setPlaybackRate(r => r + amount!);
       clientRemoteControlResetTimers.push(
         setTimeout(() => setPlaybackRate(r => r - amount!), duration)
       );
-    } else if (action === 'SlowDownCurrentSong') {
+    } else if (action === 'Slow Down Music') {
       const MIN_PLAYBACK_SPEED = 0.25; // TODO: Share this somehow
       setPlaybackRate(r => Math.max(r - amount!, MIN_PLAYBACK_SPEED));
       clientRemoteControlResetTimers.push(

@@ -6,77 +6,42 @@ import { db } from './database';
 import SongDownloadError from './SongDownloadError';
 import { createLogger, formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
-import { ChannelPointReward, WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
+import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../shared/td30Kits';
-import StreamerbotActions from '../../streamer.bot/data/actions.json';
-import StreamerbotCommands from '../../streamer.bot/data/commands.json';
+import * as Streamerbot from '../../shared/streamerbot';
 
-type StreamerbotActionName =
-  'Reward: Change Price' |
-  'Reward: Pause' |
-  'Reward: Unpause' |
-  'Reward: Update Redemption' |
-  'Twitch chat message' |
-  'OBS Visibility On' |
-  'OBS Visibility Off' |
-  'Create Stream Marker' |
-  '!how';
+type StreamerbotTwitchRewardMeta<T> = { [name in Streamerbot.TwitchRewardName]?: T };
 
-interface IdMap { [name: string]: string }
-
-// NB: TS doesn't treat the imported JSON as const types, so this does *not*
-// provide type safety in the same way as manually defining a string literal union
-const StreamerbotCommandAliases = StreamerbotCommands.commands.reduce((acc, command) => {
-  for (let alias of command.command.split(/\r?\n/)) {
-    acc[alias] = command.name;
-  }
-  return acc;
-}, {} as IdMap);
-
-const REWARD_IDS: { [name in ChannelPointReward["name"]]: string } = {
-  MuteCurrentSongDrums: '0dc1de6b-26fb-4a00-99ba-367b96d660a6',
-  MuteCurrentSongVocals: '74eb4c54-71cb-440a-8bdf-2e56ada2c9e8',
-  SlowDownCurrentSong: 'b07f3e10-7042-4c96-8ba3-e5e385c63aee',
-  SpeedUpCurrentSong: '7f7873d6-a017-4a2f-a075-7ad098e65a92',
-  OopsAllFarts: 'e97a4982-a2f8-441a-afa9-f7d2d8ab11e1',
-  ChangeDrumKit: '6e366bb7-508d-4419-89a4-32fdcf952419',
-  NoShenanigans: '3fe13282-ba0a-412c-99af-f76a7c9f7c68',
-  LongSong: '3db680fc-9fea-42c2-aed5-1e1b447b4842',
-  PrioritySong: 'a8691f10-c763-45f3-8c77-945037bd4978',
-  ResetShenanigans: 'ab136ab9-9775-4e3c-aeb9-a7408d5dbe71',
-  NoShenanigansSong: 'ceec33d2-040e-4b44-b68e-d6dd6a14a28b',
-  // TODO: LongNoShenanigansSong, PriorityNoShenanigansSong
+const TwitchRewardDurations: StreamerbotTwitchRewardMeta<number> = {
+  'Slow Down Music': 120000,
+  'Speed Up Music': 120000,
+  'Fart Mode': 60000,
+  'Change Drum Kit': 120000,
+  'Disable Shenanigans (Current Song)': 5000000,
+  'Reset All Shenanigans': 0,
 };
 
-const REWARD_DURATIONS: { [name in ChannelPointReward["name"]]?: number } = {
-  SlowDownCurrentSong: 120000,
-  SpeedUpCurrentSong: 120000,
-  OopsAllFarts: 60000,
-  ChangeDrumKit: 120000,
-  NoShenanigans: 5000000,
-  ResetShenanigans: 0,
+const TwitchRewardAmounts: StreamerbotTwitchRewardMeta<number> = {
+  'Slow Down Music': 0.15,
+  'Speed Up Music': 0.15,
 };
 
-const REWARD_AMOUNTS: { [name in ChannelPointReward["name"]]?: number } = {
-  SlowDownCurrentSong: 0.15,
-  SpeedUpCurrentSong: 0.15,
-};
-
-const MUTUALLY_EXCLUSIVE_REWARD_GROUPS: ChannelPointReward["name"][][] = [
+const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
 ];
 
-const DISABLEABLE_REWARDS: ChannelPointReward["name"][] = [
-  'MuteCurrentSongDrums', 'MuteCurrentSongVocals',
-  'SlowDownCurrentSong', 'SpeedUpCurrentSong',
-  'OopsAllFarts',
-  'NoShenanigans', 'ResetShenanigans',
-  // 'ChangeDrumKit',
+const DisableableShenanigans: Streamerbot.TwitchRewardName[] = [
+  'Mute Song\'s Drums', 'Mute Song\'s Vocals',
+  'Slow Down Music', 'Speed Up Music',
+  'Fart Mode',
+  'Disable Shenanigans (Current Song)', 'Reset All Shenanigans',
+  // 'Change Drum Kit'
 ];
 
-const BOT_USER_ID = '1148563762';
+const BOT_TWITCH_USER_ID = '1148563762';
 
 const SONG_REQUEST_MAX_DURATION = 60 * 7;
 const LONG_SONG_REQUEST_MAX_DURATION = 15 * 60;
+const SPEED_CHANGE_BASE_PRICE = 200;
 
 enum StreamerbotUserRole {
   Viewer = 1,
@@ -90,8 +55,8 @@ export default class StreamerbotWebSocketClient {
   private midiController: MIDIIOController;
   private broadcast: WebSocketBroadcaster;
   private songRequestHandler: SongRequestHandler;
-  private twitchMessageIdsByUser: IdMap = {};
-  private twitchUnpauseTimers: { [rewardName in ChannelPointReward["name"]]?: NodeJS.Timeout } = {};
+  private twitchMessageIdsByUser: { [userName: string]: string } = {};
+  private twitchUnpauseTimers: { [rewardName in Streamerbot.TwitchRewardName]?: NodeJS.Timeout } = {};
   private kitResetTimer?: NodeJS.Timeout;
   private isShenanigansEnabled = true;
   private viewers: StreamerbotViewer[] = [];
@@ -143,17 +108,21 @@ export default class StreamerbotWebSocketClient {
     if (payload.type === 'song_speed') {
       // Scale the price of speed up/slow down song redemptions based on current speed
       const playbackRate = payload.speed;
-      const speedDiffSteps = Math.abs(1 - playbackRate) / REWARD_AMOUNTS.SpeedUpCurrentSong!;
+      const speedDiffSteps = Math.abs(1 - playbackRate) / TwitchRewardAmounts['Speed Up Music']!;
       const isFaster = playbackRate > 1;
-      const nextSlowDownPrice = Math.round(isFaster ? 100 - (speedDiffSteps * 50) : 100 + (speedDiffSteps * 100));
-      const nextSpeedUpPrice = Math.round(!isFaster ? 100 - (speedDiffSteps * 50) : 100 + (speedDiffSteps * 100));
+      const nextSlowDownPrice = Math.round(isFaster ?
+        SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
+        SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
+      const nextSpeedUpPrice = Math.round(!isFaster ?
+        SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
+        SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
 
       await this.doAction('Reward: Change Price', {
-        rewardId: REWARD_IDS.SlowDownCurrentSong,
+        rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'],
         price: nextSlowDownPrice,
       });
       await this.doAction('Reward: Change Price', {
-        rewardId: REWARD_IDS.SpeedUpCurrentSong,
+        rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'],
         price: nextSpeedUpPrice,
       });
 
@@ -161,14 +130,14 @@ export default class StreamerbotWebSocketClient {
       const MIN_PLAYBACK_SPEED = 0.4;
       const MAX_PLAYBACK_SPEED = 1.9;
       const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
-      await this.doAction(slowDownRewardAction, { rewardId: REWARD_IDS.SlowDownCurrentSong });
+      await this.doAction(slowDownRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'] });
       const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
-      await this.doAction(speedUpRewardAction, { rewardId: REWARD_IDS.SpeedUpCurrentSong });
+      await this.doAction(speedUpRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'] });
 
       // Re-disable the rewards if shenanigans are off
       if (!this.isShenanigansEnabled) {
-        await this.pauseTwitchRedemption('SlowDownCurrentSong', 1000 * 60 * 60 * 24);
-        await this.pauseTwitchRedemption('SpeedUpCurrentSong', 1000 * 60 * 60 * 24);
+        await this.pauseTwitchRedemption('Slow Down Music', 1000 * 60 * 60 * 24);
+        await this.pauseTwitchRedemption('Speed Up Music', 1000 * 60 * 60 * 24);
       }
     } else if (payload.type === 'song_changed') {
       // Notify user when their song request is starting
@@ -243,8 +212,8 @@ export default class StreamerbotWebSocketClient {
 
   private log = createLogger('StreamerbotWSC');
 
-  public doAction(actionName: StreamerbotActionName, args?: any) {
-    const action = StreamerbotActions.actions.find(action =>
+  public doAction(actionName: Streamerbot.ActionName, args?: any) {
+    const action = Streamerbot.Actions.actions.find(action =>
       actionName.toLowerCase() === action.name.toLowerCase()
     );
     if (!action) {
@@ -269,7 +238,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   public async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
-    if (payload.data.message.userId === BOT_USER_ID) return;
+    if (payload.data.message.userId === BOT_TWITCH_USER_ID) return;
 
     // Streamerbot Command.Triggered events which were triggered by Twitch messages
     // don't include the messageId which triggered them, but the Twitch.ChatMessage
@@ -301,10 +270,10 @@ export default class StreamerbotWebSocketClient {
     return this.doAction('Reward: Update Redemption', { rewardId, redemptionId, action });
   }
 
-  private async pauseTwitchRedemption(rewardName: ChannelPointReward["name"], duration?: number) {
+  private async pauseTwitchRedemption(rewardName: Streamerbot.TwitchRewardName, duration?: number) {
     await this.doAction(
       'Reward: Pause',
-      { rewardId: REWARD_IDS[rewardName] }
+      { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
     );
     if (this.twitchUnpauseTimers[rewardName]) {
       clearTimeout(this.twitchUnpauseTimers[rewardName]);
@@ -313,7 +282,7 @@ export default class StreamerbotWebSocketClient {
       this.twitchUnpauseTimers[rewardName] = setTimeout(
         () => this.doAction(
           'Reward: Unpause',
-          { rewardId: REWARD_IDS[rewardName] }
+          { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
         ),
         duration
       );
@@ -322,15 +291,15 @@ export default class StreamerbotWebSocketClient {
 
   private async enableShenanigans() {
     this.isShenanigansEnabled = true;
-    for (let rewardName of DISABLEABLE_REWARDS) {
+    for (let rewardName of DisableableShenanigans) {
       if (this.twitchUnpauseTimers[rewardName]) {
         clearTimeout(this.twitchUnpauseTimers[rewardName]);
         delete this.twitchUnpauseTimers[rewardName];
       }
-      if (REWARD_IDS[rewardName]) {
+      if (Streamerbot.TwitchRewardIds[rewardName]) {
         this.doAction(
           'Reward: Unpause',
-          { rewardId: REWARD_IDS[rewardName] }
+          { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
         );
       }
     }
@@ -345,19 +314,19 @@ export default class StreamerbotWebSocketClient {
 
     this.broadcast({
       type: 'client_remote_control',
-      action: 'NoShenanigans',
+      action: 'Disable Shenanigans (Current Song)',
     });
     const actualDuration = duration === undefined ? 1000 * 60 * 60 * 24 : duration;
     if (actualDuration > 0) {
       this.isShenanigansEnabled = false;
       this.lastSongWasNoShens = true;
-      for (let otherRewardName of DISABLEABLE_REWARDS) {
-        await this.pauseTwitchRedemption(otherRewardName);
+      for (let rewardName of DisableableShenanigans) {
+        await this.pauseTwitchRedemption(rewardName);
       }
       await this.doAction('OBS Visibility On', {
         sourceName: 'No shenanigans'
       });
-      this.twitchUnpauseTimers['NoShenanigans'] = setTimeout(() => {
+      this.twitchUnpauseTimers['Disable Shenanigans (Current Song)'] = setTimeout(() => {
         this.enableShenanigans();
       }, actualDuration);
     }
@@ -388,18 +357,18 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
-    if (!Object.values(REWARD_IDS).includes(payload.data.reward.id)) {
+    if (!Object.values(Streamerbot.TwitchRewardIds).includes(payload.data.reward.id)) {
       // A reward was redeemed that is not defined here, nothing to do!
       return;
     }
 
-    const rewardName = Object.entries(REWARD_IDS)
-      .find(([name, id]) => id === payload.data.reward.id)![0] as ChannelPointReward['name'];
+    const rewardName = Object.entries(Streamerbot.TwitchRewardIds)
+      .find(([name, id]) => id === payload.data.reward.id)![0] as Streamerbot.TwitchRewardName;
     this.log(`Channel point redemption by ${payload.data.user_name}: ${rewardName}`);
 
-    if (rewardName === 'NoShenanigans' || rewardName === 'ResetShenanigans') {
-      this.disableShenanigans(REWARD_DURATIONS[rewardName]!);
-    } else if (rewardName === 'OopsAllFarts') {
+    if (rewardName === 'Disable Shenanigans (Current Song)' || rewardName === 'Reset All Shenanigans') {
+      this.disableShenanigans(TwitchRewardDurations[rewardName]!);
+    } else if (rewardName === 'Fart Mode') {
       this.midiController.muteToms(!this.kitResetTimer);
       if (this.kitResetTimer) {
         clearTimeout(this.kitResetTimer);
@@ -408,8 +377,8 @@ export default class StreamerbotWebSocketClient {
       this.kitResetTimer = setTimeout(() => {
         this.midiController.resetKit();
         delete this.kitResetTimer;
-      }, REWARD_DURATIONS[rewardName]);
-    } else if (rewardName === 'ChangeDrumKit') {
+      }, TwitchRewardDurations[rewardName]);
+    } else if (rewardName === 'Change Drum Kit') {
       const kit = getKitDefinition(payload.data.user_input);
       if (!kit) {
         await this.sendTwitchMessage(`${payload.data.user_name}, please include one of the numbers or names of a kit from here: ${td30KitsPastebin} (refunded!)`);
@@ -425,8 +394,8 @@ export default class StreamerbotWebSocketClient {
       this.kitResetTimer = setTimeout(() => {
         this.midiController.resetKit();
         delete this.kitResetTimer;
-      }, REWARD_DURATIONS[rewardName]);
-    } else if (rewardName === 'LongSong') {
+      }, TwitchRewardDurations[rewardName]);
+    } else if (rewardName === 'Long Song Request') {
       try {
         await this.handleSongRequest(
           payload.data.user_input,
@@ -442,7 +411,7 @@ export default class StreamerbotWebSocketClient {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
       }
       return;
-    } else if (rewardName === 'PrioritySong') {
+    } else if (rewardName === 'Priority Song Request') {
       try {
         await this.handleSongRequest(
           payload.data.user_input,
@@ -458,7 +427,7 @@ export default class StreamerbotWebSocketClient {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
       }
       return;
-    } else if (rewardName === 'NoShenanigansSong') {
+    } else if (rewardName === 'No Shens Song Request') {
       try {
         await this.handleSongRequest(
           payload.data.user_input,
@@ -480,16 +449,16 @@ export default class StreamerbotWebSocketClient {
     this.broadcast({
       type: 'client_remote_control',
       action: rewardName,
-      duration: REWARD_DURATIONS[rewardName],
-      amount: REWARD_AMOUNTS[rewardName],
+      duration: TwitchRewardDurations[rewardName],
+      amount: TwitchRewardAmounts[rewardName],
     });
     
     // For mutually-exclusive rewards, pause everything in the category
     // until this redemption expires
-    const mutuallyExclusiveGroup = MUTUALLY_EXCLUSIVE_REWARD_GROUPS.find(rewardNames => rewardNames.includes(rewardName));
-    if (mutuallyExclusiveGroup && REWARD_DURATIONS[rewardName]) {
+    const mutuallyExclusiveGroup = TwitchRewardGroups.find(rewardNames => rewardNames.includes(rewardName));
+    if (mutuallyExclusiveGroup && TwitchRewardDurations[rewardName]) {
       for (let otherRewardName of mutuallyExclusiveGroup) {
-        await this.pauseTwitchRedemption(otherRewardName, REWARD_DURATIONS[rewardName]);
+        await this.pauseTwitchRedemption(otherRewardName, TwitchRewardDurations[rewardName]);
       }
     }
   }
@@ -497,7 +466,7 @@ export default class StreamerbotWebSocketClient {
   public async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
     const message = payload.data.message.trim();
     const userName = payload.data.user.display; // user.display vs user.name?
-    const commandName = StreamerbotCommandAliases[payload.data.command];
+    const commandName = Streamerbot.CommandAliases[payload.data.command];
     // Unregistered command triggered
     if (!commandName) return;
     this.log('Command triggered', payload.data.command, commandName, userName, message);
