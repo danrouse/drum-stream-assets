@@ -11,7 +11,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import DiscordIntegration from './DiscordIntegration';
-import { db, initializeDatabase, populateDatabaseFromJSON } from './database';
+import { db } from './database';
 import * as Paths from './paths';
 import { SongData, SongRequestData } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
@@ -147,12 +147,6 @@ app.get('/test-twitch-chat-command', async (req, res) => {
     }
   })
   res.send('ok');
-});
-
-app.get('/seed', async (req, res) => {
-  await initializeDatabase();
-  await populateDatabaseFromJSON();
-  res.send('widePeepoHappy');
 });
 
 app.get('/reprocess', async (req, res) => {
