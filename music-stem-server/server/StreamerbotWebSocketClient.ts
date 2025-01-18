@@ -637,7 +637,7 @@ export default class StreamerbotWebSocketClient {
     fromUsername: string,
     maxDuration: number,
     perUserLimit?: number,
-    priority: boolean = false,
+    priority: number = 0,
     noShenanigans: boolean = false,
     twitchRewardId?: string,
     twitchRedemptionId?: string,
@@ -702,6 +702,22 @@ export default class StreamerbotWebSocketClient {
         { priority, noShenanigans, maxDuration, minViews: this.isUserAdmin(fromUsername) ? undefined : 1000 },
         { requesterName: fromUsername, twitchRewardId, twitchRedemptionId },
       );
+      // If it's someone's first song request of the stream, set it to priority 1
+      // Waiting until the song request is added to ensure it doesn't get set erroneously
+      const requestsFromUserToday = await db.selectFrom('songRequests')
+        .select(db.fn.countAll().as('count'))
+        .where('requester', '=', fromUsername)
+        .where('status', '!=', 'cancelled')
+        .where('createdAt', '>', sql<any>`(select createdAt from streamHistory order by id desc limit 1)`)
+        .execute();
+      if (requestsFromUserToday[0].count === 1) {
+        await db.updateTable('songRequests')
+          .set({ priority: 1 })
+          .where('id', '=', songRequestId)
+          .execute();
+        await this.sendTwitchMessage(`@${fromUsername} Your first song request of the day has been bumped up!`);
+      }
+
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
       const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
       await this.sendTwitchMessage(`@${fromUsername} ${song.basename} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
