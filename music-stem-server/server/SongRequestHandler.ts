@@ -196,7 +196,12 @@ export default class SongRequestHandler {
                   .where('status', '=', 'ready')
                   .execute();
                 if (existingSongRequest.length) {
-                  reject(new SongDownloadError('REQUEST_ALREADY_EXISTS'));
+                  // Cancel the new song request because one already exists
+                  await db.updateTable('songRequests')
+                    .set({ status: 'cancelled' })
+                    .where('id', '=', songRequest[0].id)
+                    .execute();
+                  return reject(new SongDownloadError('REQUEST_ALREADY_EXISTS'));
                 }
               } else {
                 song = await db.insertInto('songs').values({
