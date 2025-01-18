@@ -417,19 +417,36 @@ export default class StreamerbotWebSocketClient {
       }
       return;
     } else if (rewardName === 'Priority Song Request') {
-      try {
-        await this.handleSongRequest(
-          payload.data.user_input,
-          payload.data.user_name,
-          this.getMaxDurationForUser(payload.data.user_name),
-          0,
-          true,
-          false,
-          payload.data.reward.id,
-          payload.data.id
-        );
-      } catch (err) {
-        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+      if (['queue', 'queued song', 'song in queue'].includes(payload.data.user_input.trim().toLowerCase())) {
+        // prioritize existing song
+        const existingSong = await db.selectFrom('songRequests')
+          .innerJoin('songs', 'songs.id', 'songRequests.songId')
+          .select(['songRequests.id', 'songs.artist', 'songs.title'])
+          .orderBy('songRequests.createdAt desc')
+          .limit(1)
+          .execute();
+        if (existingSong.length > 0) {
+          await db.updateTable('songRequests').set({ priority: 5 }).where('id', '=', existingSong[0].id).execute();
+          await this.sendTwitchMessage(`@${payload.data.user_name} Your song request for ${existingSong[0].artist} - ${existingSong[0].title} has been bumped!`);
+        } else {
+          await this.sendTwitchMessage(`@${payload.data.user_name} You don't have any songs in the queue to prioritize!`);
+          await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+        }
+      } else {
+        try {
+          await this.handleSongRequest(
+            payload.data.user_input,
+            payload.data.user_name,
+            this.getMaxDurationForUser(payload.data.user_name),
+            0,
+            5,
+            false,
+            payload.data.reward.id,
+            payload.data.id
+          );
+        } catch (err) {
+          await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+        }
       }
       return;
     } else if (rewardName === 'No Shens Song Request') {
