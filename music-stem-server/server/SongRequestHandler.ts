@@ -167,7 +167,7 @@ export default class SongRequestHandler {
 
           const songRequest = await db.insertInto('songRequests').values({
             query,
-            priority: Number(options?.priority || 0),
+            priority: options?.priority || 0,
             noShenanigans: Number(options?.noShenanigans || 0),
             order: 0,
             status: 'processing',
@@ -213,6 +213,15 @@ export default class SongRequestHandler {
                 .set({ status: 'ready', songId: song[0].id })
                 .where('id', '=', songRequest[0].id)
                 .execute();
+              
+              // Recalculate song ordering: bump priority of requests that are more than half an hour old
+              await db.updateTable('songRequests')
+                .set({ priority: 2 })
+                .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - 30 * 60 * 1000).toISOString()})`)
+                .where('priority', '=', 0)
+                .where('status', '=', 'ready')
+                .execute();
+              
               this.log(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
               this.broadcast({ type: 'song_request_added', songRequestId: songRequest[0].id });
               resolve([processedSong, songRequest[0].id]);
