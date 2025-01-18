@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import { basename } from 'path';
+import { sql } from 'kysely';
 import Demucs from './wrappers/demucs';
 import downloadSong from './downloadSong';
 import getSongTags from './getSongTags';
