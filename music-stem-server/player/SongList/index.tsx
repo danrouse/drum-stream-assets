@@ -31,7 +31,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, showRuntime
         {songs.map((song, index) => (
           <li key={index} className={[
             selectedSong === song ? 'selected' : '',
-            song.priority ? 'priority' : '',
+            song.priority ? `priority priority-${song.priority}` : '',
             song.noShenanigans ? 'no-shens' : '',
           ].join(' ')}>
             <div>
