@@ -15,7 +15,7 @@ interface DemucsCallback {
 }
 
 interface SongRequestOptions {
-  priority: boolean,
+  priority: number,
   noShenanigans: boolean,
   maxDuration: number,
   minViews: number,
@@ -140,9 +140,9 @@ export default class SongRequestHandler {
       .select(db.fn.sum('duration').as('totalDuration'))
       .select(db.fn.countAll().as('numSongRequests'))
       .where('songRequests.status', '=', 'ready')
-      .where(q => q.and([
-        q('songRequests.id', '<', songRequestId),
-        q('songRequests.priority', '>=', priority[0].priority)
+      .where(q => q.or([
+        q('songRequests.priority', '>', priority[0].priority),
+        q.and([q('songRequests.priority', '=', priority[0].priority), q('songRequests.id', '<', songRequestId)])
       ]))
       .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
       .execute();
