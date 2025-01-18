@@ -81,7 +81,7 @@ window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
     }
     timerDisplayValueMs = 0;
     songListElem.innerHTML = '';
-    howls.forEach(h => h.unload());
+    howls.forEach(h => h.stop() && h.unload());
     howls = [];
     isActive = false;
   }
@@ -134,7 +134,7 @@ function endRound(correctResponse: number, songPool: SongData[]) {
     howls.forEach(h => h.fade(1, 0, FADE_OUT_TIME_MS));
   }, LAG_COMPENSATION_DELAY_MS + POST_ROUND_LENGTH_MS - FADE_OUT_TIME_MS);
 
-  setTimeout(() => {
+  nextSceneChange = setTimeout(() => {
     // take only last response per user
     const userResponses = responses.reduce((acc, cur) => {
       acc[cur.user] = cur;
