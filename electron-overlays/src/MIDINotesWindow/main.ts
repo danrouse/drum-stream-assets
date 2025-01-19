@@ -56,7 +56,12 @@ notesContainerElem.classList.add('notes');
 globalContainerElem.appendChild(notesContainerElem);
 
 // LOAD/SAVE CONFIG
+// Set this mapping when camera IDs change because they're dumb >:(
+const cameraRemapping: { [newKey: string]: string } = {
+  // 'new id': 'old id',
+};
 const LOCAL_STORAGE_KEY = location.hash.match(/key=(.+)/)?.[1]!;
+const loadKey = cameraRemapping[LOCAL_STORAGE_KEY] || LOCAL_STORAGE_KEY;
 function saveConfig(config: MIDINoteDisplayDefinition[]) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
 }
@@ -69,7 +74,7 @@ function loadConfig(): MIDINoteDisplayDefinition[] {
     h: 100,
     r: 0,
   }));
-  const savedString = localStorage.getItem(LOCAL_STORAGE_KEY);
+  const savedString = localStorage.getItem(loadKey);
   if (savedString) {
     const loadedDefs = JSON.parse(savedString) as MIDINoteDisplayDefinition[];
     return loadedDefs.filter(n => n.name !== 'Kick Secondary').map(def => {
