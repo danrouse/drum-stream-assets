@@ -16,6 +16,8 @@ const TwitchRewardDurations: StreamerbotTwitchRewardMeta<number> = {
   'Slow Down Music': 120000,
   'Speed Up Music': 120000,
   'Fart Mode': 60000,
+  'Randomize Drums': 120000,
+  'Randomize EVERY HIT': 30000,
   'Change Drum Kit': 120000,
   'Disable Shenanigans (Current Song)': 5000000,
   'Reset All Shenanigans': 0,
@@ -27,12 +29,14 @@ const TwitchRewardAmounts: StreamerbotTwitchRewardMeta<number> = {
 };
 
 const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
+  ['Fart Mode', 'Randomize Drums', 'Randomize EVERY HIT'],
 ];
 
 const DisableableShenanigans: Streamerbot.TwitchRewardName[] = [
   'Mute Song\'s Drums', 'Mute Song\'s Vocals',
   'Slow Down Music', 'Speed Up Music',
   'Fart Mode',
+  'Randomize Drums', 'Randomize EVERY HIT',
   'Disable Shenanigans (Current Song)', 'Reset All Shenanigans',
   // 'Change Drum Kit'
 ];
@@ -375,6 +379,16 @@ export default class StreamerbotWebSocketClient {
       this.disableShenanigans(TwitchRewardDurations[rewardName]!);
     } else if (rewardName === 'Fart Mode') {
       this.midiController.muteToms(!this.kitResetTimer);
+      if (this.kitResetTimer) {
+        clearTimeout(this.kitResetTimer);
+        delete this.kitResetTimer;
+      }
+      this.kitResetTimer = setTimeout(() => {
+        this.midiController.resetKit();
+        delete this.kitResetTimer;
+      }, TwitchRewardDurations[rewardName]);
+    } else if (rewardName === 'Randomize Drums' || rewardName === 'Randomize EVERY HIT') {
+      this.midiController.randomize(rewardName === 'Randomize Drums');
       if (this.kitResetTimer) {
         clearTimeout(this.kitResetTimer);
         delete this.kitResetTimer;
