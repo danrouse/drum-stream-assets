@@ -152,6 +152,28 @@ export default class SongRequestHandler {
       numSongRequests: Number(precedingRequests[0].numSongRequests) + 1,
     };
   }
+
+  public async getExistingSongRequest(query: string, requesterName: string) {
+    const sameQuery = await db.selectFrom('songRequests')
+      .innerJoin('songs', 'songs.id', 'songRequests.songId')
+      .select(['songRequests.id', 'songs.artist', 'songs.title'])
+      .orderBy('songRequests.createdAt desc')
+      .where('query', '=', query)
+      .limit(1)
+      .execute();
+    if (sameQuery.length > 0) return sameQuery[0];
+    if (['queue', 'queued song', 'song in queue'].includes(query)) {
+      // find most recent request from the same requester
+      const sameRequester = await db.selectFrom('songRequests')
+        .innerJoin('songs', 'songs.id', 'songRequests.songId')
+        .select(['songRequests.id', 'songs.artist', 'songs.title'])
+        .orderBy('songRequests.createdAt desc')
+        .where('requester', '=', requesterName)
+        .limit(1)
+        .execute();
+      if (sameRequester.length > 0) return sameRequester[0];
+    }
+  }
   
   public execute(query: string, options: Partial<SongRequestOptions> = {}, request?: SongRequestSource) {
     return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {

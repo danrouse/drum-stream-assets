@@ -421,31 +421,27 @@ export default class StreamerbotWebSocketClient {
           payload.data.user_name,
           LONG_SONG_REQUEST_MAX_DURATION,
           this.getSongRequestLimitForUser(payload.data.user_name),
-          false,
+          0,
           false,
           payload.data.reward.id,
           payload.data.id
         );
       } catch (err) {
         await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+        await this.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
       }
       return;
     } else if (rewardName === 'Priority Song Request') {
-      if (['queue', 'queued song', 'song in queue'].includes(payload.data.user_input.trim().toLowerCase())) {
-        // prioritize existing song
-        const existingSong = await db.selectFrom('songRequests')
-          .innerJoin('songs', 'songs.id', 'songRequests.songId')
-          .select(['songRequests.id', 'songs.artist', 'songs.title'])
-          .orderBy('songRequests.createdAt desc')
-          .limit(1)
+      const existingRequest = await this.songRequestHandler.getExistingSongRequest(
+        payload.data.user_input.trim().toLowerCase(),
+        payload.data.user_name
+      );
+      if (existingRequest) {
+        await db.updateTable('songRequests')
+          .set({ priority: 5 })
+          .where('id', '=', existingRequest.id)
           .execute();
-        if (existingSong.length > 0) {
-          await db.updateTable('songRequests').set({ priority: 5 }).where('id', '=', existingSong[0].id).execute();
-          await this.sendTwitchMessage(`@${payload.data.user_name} Your song request for ${existingSong[0].artist} - ${existingSong[0].title} has been bumped!`);
-        } else {
-          await this.sendTwitchMessage(`@${payload.data.user_name} You don't have any songs in the queue to prioritize!`);
-          await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-        }
+        await this.sendTwitchMessage(`@${payload.data.user_name} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
       } else {
         try {
           await this.handleSongRequest(
@@ -460,23 +456,36 @@ export default class StreamerbotWebSocketClient {
           );
         } catch (err) {
           await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+          await this.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
         }
       }
       return;
     } else if (rewardName === 'No Shens Song Request') {
-      try {
-        await this.handleSongRequest(
-          payload.data.user_input,
-          payload.data.user_name,
-          this.getMaxDurationForUser(payload.data.user_name),
-          this.getSongRequestLimitForUser(payload.data.user_name),
-          false,
-          true,
-          payload.data.reward.id,
-          payload.data.id
-        );
-      } catch (err) {
-        await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+      const existingRequest = await this.songRequestHandler.getExistingSongRequest(
+        payload.data.user_input.trim().toLowerCase(),
+        payload.data.user_name
+      );
+      if (existingRequest) {
+        await db.updateTable('songRequests')
+          .set({ noShenanigans: 1 })
+          .where('id', '=', existingRequest.id)
+          .execute();
+      } else {
+        try {
+          await this.handleSongRequest(
+            payload.data.user_input,
+            payload.data.user_name,
+            this.getMaxDurationForUser(payload.data.user_name),
+            this.getSongRequestLimitForUser(payload.data.user_name),
+            0,
+            true,
+            payload.data.reward.id,
+            payload.data.id
+          );
+        } catch (err) {
+          await this.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+          await this.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
+        }
       }
       return;
     }
