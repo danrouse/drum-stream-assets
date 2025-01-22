@@ -246,7 +246,7 @@ export default class SongRequestHandler {
               await db.updateTable('songRequests')
                 .set({ priority: 2 })
                 .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - 30 * 60 * 1000).toISOString()})`)
-                .where('priority', '=', 0)
+                .where('priority', '<', 2)
                 .where('status', '=', 'ready')
                 .execute();
               
