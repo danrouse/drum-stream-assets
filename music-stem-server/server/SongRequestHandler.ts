@@ -243,9 +243,10 @@ export default class SongRequestHandler {
                 .execute();
               
               // Recalculate song ordering: bump priority of requests that are more than half an hour old
+              const minutesOldToBump = 40;
               await db.updateTable('songRequests')
                 .set({ priority: 2 })
-                .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - 30 * 60 * 1000).toISOString()})`)
+                .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - (minutesOldToBump * 60 * 1000)).toISOString()})`)
                 .where('priority', '<', 2)
                 .where('status', '=', 'ready')
                 .execute();
