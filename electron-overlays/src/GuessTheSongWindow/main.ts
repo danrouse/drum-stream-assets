@@ -25,7 +25,7 @@ const NUM_SONG_OPTIONS = 4;
 const ROUND_LENGTH_MS = 25000;
 const POST_ROUND_LENGTH_MS = 10000;
 const FADE_OUT_TIME_MS = 2000;
-const LAG_COMPENSATION_DELAY_MS = 4000;
+const LAG_COMPENSATION_DELAY_MS = 5000;
 
 interface UserChatResponse {
   user: string;
@@ -145,7 +145,7 @@ function endRound(correctResponse: number, songPool: SongData[]) {
     window.ipcRenderer.send(
       'guess_the_song_round_complete',
       correctResponses[0]?.user,
-      (correctResponses[0]?.time.getTime() - roundStartTime.getTime()) / 1000,
+      (correctResponses[0]?.time.getTime() - roundStartTime.getTime() - LAG_COMPENSATION_DELAY_MS) / 1000,
       correctResponses.slice(1).map(r => r.user),
     );
     nextSceneChange = setTimeout(() => startRound(), POST_ROUND_LENGTH_MS);
