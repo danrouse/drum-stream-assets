@@ -169,9 +169,7 @@ export default function MultiTrackAudioPlayer({
       }
       // only trigger callback on one of the stems
       if (i === 0) {
-        howl.once('play', () => {
-          if (howl.seek() === 0) onSongStarted();
-        });
+        howl.once('play', () => onSongStarted());
         howl.once('end', () => onSongEnded());
       }
       return howl;
