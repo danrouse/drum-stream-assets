@@ -68,6 +68,9 @@ export default class StreamerbotWebSocketClient {
   private currentSongSelectedAtTime?: string;
   private twitchDebounceQueue: { [key: string]: number } = {};
   private lastSongWasNoShens = false;
+  private isConnected = false;
+  private actionQueue: Array<[Streamerbot.ActionName, any]> = [];
+  private updateViewersTimer?: NodeJS.Timeout;
   private isTestMode = false;
 
   constructor(
@@ -78,13 +81,19 @@ export default class StreamerbotWebSocketClient {
   ) {
     this.client = new StreamerbotClient({
       onConnect: () => {
-        this.enableShenanigans();
+        this.isConnected = true;
+        while (this.actionQueue.length) {
+          const action = this.actionQueue.shift()!;
+          this.doAction(action[0], action[1]);
+        }
         this.updateActiveViewers();
-        setInterval(() => {
+        this.updateViewersTimer = setInterval(() => {
           this.updateActiveViewers();
         }, 10000);
       },
       onDisconnect: () => {
+        this.isConnected = false;
+        if (this.updateViewersTimer) clearInterval(this.updateViewersTimer);
         this.log('Disconnected from Streamer.bot!');
       },
       onError: (err) => {
@@ -222,6 +231,11 @@ export default class StreamerbotWebSocketClient {
   private log = createLogger('StreamerbotWSC');
 
   public doAction(actionName: Streamerbot.ActionName, args?: any) {
+    if (!this.isConnected) {
+      this.actionQueue.push([actionName, args]);
+      this.log('Disconnected, queuing action', actionName, args);
+      return;
+    }
     const action = Streamerbot.Actions.actions.find(action =>
       actionName.toLowerCase() === action.name.toLowerCase()
     );
