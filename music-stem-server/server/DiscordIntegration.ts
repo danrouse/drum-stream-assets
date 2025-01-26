@@ -87,7 +87,7 @@ export default class DiscordIntegration {
   public async updateCompletedSongRequest(
     songRequestId: number,
     timestamp?: number,
-    youtubeUrl?: string,
+    vodUrl?: string,
   ) {
     this.log('updateCompletedSongRequest', songRequestId);
     const row = await db.selectFrom('songRequests')
@@ -110,14 +110,16 @@ export default class DiscordIntegration {
         }],
       });
     }
-    if (youtubeUrl) {
+    if (vodUrl) {
       await msg.edit({
         embeds: [{
           ...msg?.embeds[0].data,
-          fields: msg?.embeds[0].fields.concat([{
-            name: 'VOD',
-            value: youtubeUrl,
-          }]),
+          fields: msg?.embeds[0].fields
+            .filter(field => field.name !== 'VOD') // Remove previous VOD attachment
+            .concat([{
+              name: 'VOD',
+              value: vodUrl,
+            }]),
         }],
       });
     }
