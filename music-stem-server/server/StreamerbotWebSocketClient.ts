@@ -353,8 +353,8 @@ export default class StreamerbotWebSocketClient {
   private getSongRequestLimitForUser(userName: string) {
     const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
     let limit = 1;
-    if (viewer?.subscribed) limit = 3;
-    if (viewer?.role === 'VIP') limit = 3;
+    if (viewer?.subscribed) limit = 2;
+    if (viewer?.role === 'VIP') limit = 2;
     if (viewer?.role === 'Moderator') limit = 0;
     if (viewer?.role === 'Broadcaster') limit = 0;
     return limit;
