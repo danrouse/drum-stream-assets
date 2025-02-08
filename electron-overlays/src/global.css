@@ -5,4 +5,7 @@
   -webkit-text-stroke: 0.2em black;
   paint-order: stroke fill;
   text-shadow: 2px 2px 0.1em rgba(0, 0, 0, 0.8);
+
+  --red: #ef5959;
+  --tan: #e1dcc1;
 }

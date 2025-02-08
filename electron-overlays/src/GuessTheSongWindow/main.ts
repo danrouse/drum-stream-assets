@@ -1,25 +1,7 @@
 import { SongData } from '../../../shared/messages';
 import { Howl } from 'howler';
-import { formatTime } from '../../../shared/util';
+import titleType from '../../../assets/name-that-tune-title-type.png';
 
-/*
-      - activate when going into pause
-        - need: OBS scene change notification
-      - when activating, request a full list of stemmed songs
-        - need: request song list from host? (or HTTP request same way player gets it?)
-- pick four randomly
-- pick one of the four as the selected song
-- play one of the stemmed tracks
-- show a pick 4 list of the songs
-- listen to chat messages for numbers
-  - need: twitch chat message notification
-  - track only the most recent number message from a user
-  - the first one who gave the right answer as their final answer wins
-- count down a timer
-- when done: give success somehow
-  - maybe: bump winner's next SR up one position in queue?
-  - maybe: WS send message back to coordinator of guessthesong winner
-*/
 const ACTIVE_SCENE_NAME = 'BRB';
 const NUM_SONG_OPTIONS = 4;
 const ROUND_LENGTH_MS = 25000;
@@ -42,19 +24,15 @@ let roundStartTime: Date;
 
 const globalContainerElem = document.getElementById('app')!;
 
+const descriptionElem = document.createElement('p');
+descriptionElem.classList.add('GuessTheSong-description');
+globalContainerElem.appendChild(descriptionElem);
+descriptionElem.innerHTML = `<img src="${titleType}">`;
+
 const timerElem = document.createElement('div');
 timerElem.classList.add('GuessTheSong-timer');
 globalContainerElem.appendChild(timerElem);
 let timerDisplayValueMs = 0;
-
-const descriptionElem = document.createElement('p');
-descriptionElem.classList.add('GuessTheSong-description');
-globalContainerElem.appendChild(descriptionElem);
-descriptionElem.innerHTML = `
-  Guess the song using only the drums and bass!<br />
-  Type the number of the song in chat<br />
-  <small><em>These songs are all from past song requests. Some of them might be horrible!</em></small>
-`;
 
 const songListElem = document.createElement('ol');
 songListElem.classList.add('GuessTheSong-songs');
@@ -70,6 +48,11 @@ setInterval(() => {
   }
 }, 100);
 
+setTimeout(async () => {
+  songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
+  startRound();
+}, 1000);
+
 window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
   if (payload.scene === ACTIVE_SCENE_NAME) {
     songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
@@ -81,7 +64,7 @@ window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
     }
     timerDisplayValueMs = 0;
     songListElem.innerHTML = '';
-    howls.forEach(h => h.stop() && h.unload());
+    howls.forEach(h => { h.stop(); h.unload(); });
     howls = [];
     isActive = false;
   }
@@ -98,6 +81,10 @@ window.ipcRenderer.on('chat_message', (_, payload) => {
       time: new Date(),
     });
   }
+});
+
+window.ipcRenderer.on('guess_the_song_scores', (_, payload) => {
+  renderLeaderboards(payload.daily, payload.weekly, payload.lifetime);
 });
 
 function startRound() {
@@ -150,16 +137,20 @@ function endRound(correctResponse: number, songPool: SongData[]) {
     );
     nextSceneChange = setTimeout(() => startRound(), POST_ROUND_LENGTH_MS);
     timerDisplayValueMs = POST_ROUND_LENGTH_MS;
+    timerElem.classList.add('results');
   }, LAG_COMPENSATION_DELAY_MS);
 }
+
+const truncate = (s: string, len: number = 32) => s.length < len ? s : s.substring(0, len).trim() + '…';
 
 function renderGuessingView(songPool: SongData[], correctSong: SongData) {
   songListElem.innerHTML = '';
   songListElem.classList.remove('results');
+  timerElem.classList.remove('results');
 
   songPool.forEach((song, i) => {
     const elem = document.createElement('li');
-    elem.innerText = [song.artist, song.title].filter(s => s).join(' - ');
+    elem.innerHTML = `<span class="marker-number">${i + 1}</span> ${[truncate(song.artist), truncate(song.title, 48)].filter(s => s).join(' - ')}`;
     if (song === correctSong) {
       elem.classList.add('correct');
     }
@@ -203,6 +194,7 @@ function renderResultsView(songPool: SongData[], song: SongData) {
       onload: () => {
         howl.seek(howls[0].seek());
         howl.play();
+        howl.fade(0, 1, 1000);
       },
     });
     return howl;
@@ -215,4 +207,41 @@ function renderResultsView(songPool: SongData[], song: SongData) {
   //   onload: () => howl.seek(songPosition),
   // });
   // howls = [howl];
+}
+
+type LeaderboardScores = Array<{ name: string, count: number }>;
+function renderLeaderboards(dailyScores: LeaderboardScores, weeklyScores: LeaderboardScores, lifetimeScores: LeaderboardScores) {
+  document.querySelector('.GuessTheSong-leaderboard')?.remove();
+
+  const leaderboardContainerElem = document.createElement('div');
+  leaderboardContainerElem.classList.add('GuessTheSong-leaderboard');
+  globalContainerElem.appendChild(leaderboardContainerElem);
+
+  const createSection = (title: string) => {
+    const headerElem = document.createElement('h2');
+    headerElem.innerText = title;
+    leaderboardContainerElem.appendChild(headerElem);
+    const listElem = document.createElement('ol');
+    leaderboardContainerElem.appendChild(listElem);
+    return listElem;
+  };
+
+  const renderScores = (scores: LeaderboardScores, count: number, parent: HTMLOListElement) => {
+    scores.slice(0, count).forEach(({ name, count }) => {
+      const row = document.createElement('li');
+      const index = scores.findIndex(s => s.count === count) + 1;
+      if (index === 1) row.classList.add('leader');
+      row.innerHTML = `<span class="marker">${index}</span><span class="score">${count}</span>${name}`;
+      parent.appendChild(row);
+    });
+    if (!scores.length) {
+      const dummy = document.createElement('li');
+      dummy.innerHTML = '<center>-</center>';
+      parent.appendChild(dummy);
+    }
+  };
+
+  renderScores(dailyScores, 6, createSection('Today\'s Leaderboard'));
+  renderScores(weeklyScores, 3, createSection('Weekly Top 3'));
+  // renderScores(lifetimeScores, 3, createSection('All Time'));
 }

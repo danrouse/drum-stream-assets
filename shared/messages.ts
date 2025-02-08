@@ -66,6 +66,11 @@ export type WebSocketServerMessage = {
   type: 'chat_message',
   user: string,
   message: string,
+} | {
+  type: 'guess_the_song_scores',
+  daily: Array<{ name: string, count: number }>,
+  weekly: Array<{ name: string, count: number }>,
+  lifetime: Array<{ name: string, count: number }>,
 };
 
 export type WebSocketPlayerMessage = {

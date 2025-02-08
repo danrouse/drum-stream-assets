@@ -89,6 +89,13 @@ interface StreamHistoryTable {
   endedAt: CreatedAtType;
 }
 
+interface NameThatTuneScoresTable {
+  id: Generated<number>;
+  createdAt: CreatedAtType;
+  name: string;
+  placement: number;
+}
+
 export type SongRequest = Selectable<SongRequestsTable>;
 export type NewSongRequest = Insertable<SongRequestsTable>;
 export type SongRequestUpdate = Updateable<SongRequestsTable>;
@@ -110,6 +117,9 @@ export type SongHistoryUpdate = Updateable<SongHistoryTable>;
 export type StreamHistory = Selectable<StreamHistoryTable>;
 export type NewStreamHistory = Insertable<StreamHistoryTable>;
 export type StreamHistoryUpdate = Updateable<StreamHistoryTable>;
+export type NameThatTuneScore = Selectable<NameThatTuneScoresTable>;
+export type NewNameThatTuneScore = Insertable<NameThatTuneScoresTable>;
+export type NameThatTuneScoreUpdate = Updateable<NameThatTuneScoresTable>;
 
 interface Database {
   songRequests: SongRequestsTable;
@@ -119,6 +129,7 @@ interface Database {
   songVotes: SongVotesTable;
   songHistory: SongHistoryTable;
   streamHistory: StreamHistoryTable;
+  nameThatTuneScores: NameThatTuneScoresTable;
 }
 
 const dialect = new SqliteDialect({
@@ -138,6 +149,7 @@ export async function initializeDatabase() {
   await db.schema.dropTable('songRequests').ifExists().execute();
   await db.schema.dropTable('songHistory').ifExists().execute();
   await db.schema.dropTable('streamHistory').ifExists().execute();
+  await db.schema.dropTable('nameThatTuneScores').ifExists().execute();
   await db.executeQuery(sql`PRAGMA foreign_keys = ON;`.compile(db));
 
   await db.schema.createTable('songRequests')
@@ -210,5 +222,13 @@ export async function initializeDatabase() {
     .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
     .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
     .addColumn('endedAt', 'timestamp')
+    .execute();
+
+  await db.schema.createTable('nameThatTuneScores')
+    .ifNotExists()
+    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
+    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
+    .addColumn('name', 'varchar(255)', (cb) => cb.notNull())
+    .addColumn('placement', 'integer', (cb) => cb.notNull())
     .execute();
 }

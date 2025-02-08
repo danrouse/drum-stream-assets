@@ -177,7 +177,31 @@ export default class StreamerbotWebSocketClient {
         let message = `@${payload.winner} got the right answer quickest in ${roundedTime} seconds!`;
         if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
         await this.sendTwitchMessage(message);
+
+        db.insertInto('nameThatTuneScores').values([{
+          name: payload.winner,
+          placement: 1,
+        }].concat(payload.otherWinners.map((name, i) => ({
+          name,
+          placement: i + 1,
+        })))).execute();
       }
+      const queryScores = () => db.selectFrom('nameThatTuneScores')
+        .select('name')
+        .select(q => q.fn.count<number>('id').as('count'))
+        .groupBy('name')
+        .where('placement', '=', 1)
+        .orderBy('count desc')
+        .orderBy('createdAt desc');
+      const dailyScores = await queryScores()
+        .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
+        .execute();
+      const weeklyScores = await queryScores()
+        .where('createdAt', '>', sql<any>`datetime(\'now\', \'-7 day\')`)
+        .execute();
+      const lifetimeScores = await queryScores()
+        .execute();
+      this.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
     } else if (payload.type === 'song_playback_started') {
       // Create stream marker for song request start
       let markerName = `Song Start: Song #${payload.id}`;
