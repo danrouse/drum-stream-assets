@@ -13,14 +13,21 @@ import * as Streamerbot from '../../shared/streamerbot';
 type StreamerbotTwitchRewardMeta<T> = { [name in Streamerbot.TwitchRewardName]?: T };
 
 const TwitchRewardDurations: StreamerbotTwitchRewardMeta<number> = {
-  'Slow Down Music': 120000,
-  'Speed Up Music': 120000,
-  'Fart Mode': 60000,
-  'Randomize Drums': 120000,
+  'Slow Down Music': 60000,
+  'Speed Up Music': 60000,
+  'Fart Mode': 30000,
+  'Randomize Drums': 30000,
   'Randomize EVERY HIT': 30000,
   'Change Drum Kit': 120000,
   'Disable Shenanigans (Current Song)': 5000000,
   'Reset All Shenanigans': 0,
+
+  'Hat: Beanie': 120000,
+  'Hat: Bucket Hat': 120000,
+  'Hat: Cowboy': 120000,
+  'Hat: Fedora': 120000,
+  'Hat: Motorcycle Helmet': 120000,
+  'Hat: Pink Sparkly Cowboy Hat': 120000,
 };
 
 const TwitchRewardAmounts: StreamerbotTwitchRewardMeta<number> = {
@@ -30,6 +37,7 @@ const TwitchRewardAmounts: StreamerbotTwitchRewardMeta<number> = {
 
 const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
   ['Fart Mode', 'Randomize Drums', 'Randomize EVERY HIT'],
+  ['Hat: Beanie', 'Hat: Bucket Hat', 'Hat: Cowboy', 'Hat: Fedora', 'Hat: Motorcycle Helmet', 'Hat: Pink Sparkly Cowboy Hat'],
 ];
 
 const DisableableShenanigans: Streamerbot.TwitchRewardName[] = [
@@ -45,7 +53,7 @@ const BOT_TWITCH_USER_ID = '1148563762';
 
 const SONG_REQUEST_MAX_DURATION = 60 * 7;
 const LONG_SONG_REQUEST_MAX_DURATION = 15 * 60;
-const SPEED_CHANGE_BASE_PRICE = 200;
+const SPEED_CHANGE_BASE_PRICE = 150;
 
 enum StreamerbotUserRole {
   Viewer = 1,
