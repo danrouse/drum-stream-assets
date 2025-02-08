@@ -7,7 +7,7 @@
   "scripts": {
     "start": "cross-env NODE_ENV=production npm run dev 2>&1 | tee --append logs/log.txt",
     "dev": "concurrently \"tsx watch generateStreamerbotTypes.ts\" \"tsx watch server/main.ts\"",
-    "build": "cd player && vite build"
+    "build": "tsx generateStreamerbotTypes.ts && cd player && vite build"
   },
   "keywords": [],
   "author": "",
