@@ -406,7 +406,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   private getMaxDurationForUser(userName: string) {
-    const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
+    const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
     let maxDuration = SONG_REQUEST_MAX_DURATION; // 7 mins default max
     if (viewer?.role === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
     if (viewer?.role === 'Moderator') maxDuration = 60 * 20; // 20 mins for mod
@@ -808,20 +808,23 @@ export default class StreamerbotWebSocketClient {
         { priority, noShenanigans, maxDuration, minViews: this.isUserAdmin(fromUsername) ? undefined : 1000 },
         { requesterName: fromUsername, twitchRewardId, twitchRedemptionId },
       );
-      // If it's someone's first song request of the stream, set it to priority 1
+      // If it's a sub's first song request of the stream, set it to priority 1
       // Waiting until the song request is added to ensure it doesn't get set erroneously
-      const requestsFromUserToday = await db.selectFrom('songRequests')
-        .select(db.fn.countAll().as('count'))
-        .where('requester', '=', fromUsername)
-        .where('status', '!=', 'cancelled')
-        .where('createdAt', '>', sql<any>`(select createdAt from streamHistory order by id desc limit 1)`)
-        .execute();
-      if (requestsFromUserToday[0].count === 1) {
-        await db.updateTable('songRequests')
-          .set({ priority: 1 })
-          .where('id', '=', songRequestId)
+      const viewer = this.viewers.find(v => v.login.toLowerCase() === fromUsername.toLowerCase());
+      if (viewer?.subscribed) {
+        const requestsFromUserToday = await db.selectFrom('songRequests')
+          .select(db.fn.countAll().as('count'))
+          .where('requester', '=', fromUsername)
+          .where('status', '!=', 'cancelled')
+          .where('createdAt', '>', sql<any>`(select createdAt from streamHistory order by id desc limit 1)`)
           .execute();
-        await this.sendTwitchMessage(`@${fromUsername} Your first song request of the day has been bumped up!`);
+        if (requestsFromUserToday[0].count === 1) {
+          await db.updateTable('songRequests')
+            .set({ priority: 1 })
+            .where('id', '=', songRequestId)
+            .execute();
+          await this.sendTwitchMessage(`@${fromUsername} Your first song request of the day has been bumped up!`);
+        }
       }
 
       const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
