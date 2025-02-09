@@ -131,7 +131,10 @@ export default class DiscordIntegration {
     if (!this.songRequestsChannel) return;
 
     if (payload.type === 'song_request_added') {
-      await this.announceNewSongRequest(payload.songRequestId);
+      const requester = await db.selectFrom('songRequests').select('requester').where('id', '=', payload.songRequestId).execute();
+      if (requester[0].requester !== 'danny_the_liar') {
+        await this.announceNewSongRequest(payload.songRequestId);
+      }
     } else if (payload.type === 'song_request_removed' || (payload.type === 'song_playback_completed' && payload.songRequestId)) {
       await this.updateCompletedSongRequest(payload.songRequestId!, Math.floor(Date.now() / 1000));
     }
