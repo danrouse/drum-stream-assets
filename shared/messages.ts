@@ -7,6 +7,7 @@ export type StreamerbotViewer = {
   previousActive: string;
   role: string;
   subscribed: boolean;
+  online: boolean;
 };
 
 export type WebSocketServerMessage = {

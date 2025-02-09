@@ -71,7 +71,7 @@ export default class StreamerbotWebSocketClient {
   private twitchUnpauseTimers: { [rewardName in Streamerbot.TwitchRewardName]?: NodeJS.Timeout } = {};
   private kitResetTimer?: NodeJS.Timeout;
   private isShenanigansEnabled = true;
-  private viewers: StreamerbotViewer[] = [];
+  private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
   private currentSong?: SongData;
   private currentSongSelectedAtTime?: string;
   private twitchDebounceQueue: { [key: string]: number } = {};
@@ -317,8 +317,17 @@ export default class StreamerbotWebSocketClient {
 
   private async updateActiveViewers() {
     const res = await this.client.getActiveViewers();
-    this.viewers = res.viewers;
-    this.broadcast({ type: 'viewers_update', viewers: res.viewers });
+    const viewers = res.viewers.map(v => ({ ...v, online: true }));
+    for (let prevViewer of this.viewers) {
+      if (!viewers.find(v => v.id === prevViewer.id)) {
+        // viewer was in previous list but is no longer showing online
+        // retain the viewer information but mark as offline
+        prevViewer.online = false;
+        viewers.push(prevViewer)
+      }
+    }
+    this.viewers = viewers;
+    this.broadcast({ type: 'viewers_update', viewers });
   }
 
   public updateTwitchRedemption(rewardId: string, redemptionId: string, action: 'cancel' | 'fulfill') {
@@ -397,7 +406,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   private getSongRequestLimitForUser(userName: string) {
-    const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
+    const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
     let limit = 1;
     if (viewer?.subscribed) limit = 2;
     if (viewer?.role === 'VIP') limit = 2;
