@@ -80,6 +80,7 @@ export default class StreamerbotWebSocketClient {
   private actionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private updateViewersTimer?: NodeJS.Timeout;
   private isTestMode = false;
+  private currentScene?: string;
 
   constructor(
     broadcast: WebSocketBroadcaster,
@@ -179,6 +180,14 @@ export default class StreamerbotWebSocketClient {
 
       this.currentSong = payload.song;
       this.currentSongSelectedAtTime = new Date().toISOString();
+      this.setFullscreenVideoEnabled();
+
+      // Leave fullscreen video if we switch to a song that isn't a video
+      if (this.currentScene === 'Fullscreen Video' && !this.currentSong.isVideo) {
+        await this.doAction('Set OBS Scene', {
+          sceneName: 'Drums main'
+        });
+      }
     } else if (payload.type === 'guess_the_song_round_complete') {
       if (payload.winner && payload.time) {
         const roundedTime = Math.round(payload.time * 10) / 10;
@@ -420,6 +429,17 @@ export default class StreamerbotWebSocketClient {
     return viewer?.role === 'Broadcaster' || viewer?.role === 'Moderator';
   }
 
+  private setFullscreenVideoEnabled() {
+    if (this.currentScene?.startsWith('Drums') && this.currentSong?.isVideo) {
+      this.doAction(
+        'Reward: Unpause',
+        { rewardId: Streamerbot.TwitchRewardIds['Fullscreen Video'] }
+      );
+    } else {
+      this.pauseTwitchRedemption('Fullscreen Video');
+    }
+  }
+
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
     if (!Object.values(Streamerbot.TwitchRewardIds).includes(payload.data.reward.id)) {
       // A reward was redeemed that is not defined here, nothing to do!
@@ -543,6 +563,12 @@ export default class StreamerbotWebSocketClient {
         }
       }
       return;
+    } else if (rewardName === 'Fullscreen Video') {
+      if (this.currentSong?.isVideo) {
+        await this.doAction('Set OBS Scene', {
+          sceneName: 'Fullscreen Video'
+        });
+      }
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI
@@ -689,6 +715,8 @@ export default class StreamerbotWebSocketClient {
   }
 
   private handleOBSSceneChanged(payload: StreamerbotEventPayload<"Obs.SceneChanged">) {
+    this.currentScene = payload.data.scene.sceneName;
+    this.setFullscreenVideoEnabled();
     this.broadcast({
       type: 'obs_scene_changed',
       oldScene: payload.data.oldScene.sceneName,
