@@ -24,10 +24,9 @@ let roundStartTime: Date;
 
 const globalContainerElem = document.getElementById('app')!;
 
-const descriptionElem = document.createElement('p');
-descriptionElem.classList.add('GuessTheSong-description');
+const descriptionElem = document.createElement('img');
+descriptionElem.src = titleType;
 globalContainerElem.appendChild(descriptionElem);
-descriptionElem.innerHTML = `<img src="${titleType}">`;
 
 const timerElem = document.createElement('div');
 timerElem.classList.add('GuessTheSong-timer');
@@ -47,11 +46,6 @@ setInterval(() => {
     timerElem.innerText = '';
   }
 }, 100);
-
-setTimeout(async () => {
-  songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
-  startRound();
-}, 1000);
 
 window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
   if (payload.scene === ACTIVE_SCENE_NAME) {
@@ -167,7 +161,7 @@ function renderGuessingView(songPool: SongData[], correctSong: SongData) {
       onload: () => {
         if (howls.every(h => h.state() === 'loaded') && !isLoaded) {
           isLoaded = true;
-          const minRequiredDuration = (ROUND_LENGTH_MS - POST_ROUND_LENGTH_MS - LAG_COMPENSATION_DELAY_MS) / 1000;
+          const minRequiredDuration = (ROUND_LENGTH_MS + POST_ROUND_LENGTH_MS + LAG_COMPENSATION_DELAY_MS) / 1000;
           const startPosition = Math.random() * (howls[0].duration() - minRequiredDuration);
           howls.forEach(h => {
             h.seek(startPosition);
