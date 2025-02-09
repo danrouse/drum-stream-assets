@@ -200,7 +200,7 @@ export default class StreamerbotWebSocketClient {
           placement: 1,
         }].concat(payload.otherWinners.map((name, i) => ({
           name,
-          placement: i + 1,
+          placement: i + 2,
         })))).execute();
       }
       const queryScores = () => db.selectFrom('nameThatTuneScores')
