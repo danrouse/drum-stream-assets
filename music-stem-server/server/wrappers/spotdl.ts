@@ -42,7 +42,8 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
           .replace(/:/g, '-')
           .replace(/\?/g, '')
           .replace(/"/g, "'")
-          .replace(/\//g, '');
+          .replace(/\//g, '')
+          .replace(/\*/g, '');
         const dstPath = join(outputPath, `${basename}.m4a`);
         // Double check that the expected path exists first!
         if (existsSync(dstPath)) {
