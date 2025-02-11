@@ -65,6 +65,7 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
     });
     cmd.on('close', () => {
       if (downloadedSong) return resolve(downloadedSong);
+      console.log('yt-dlp closed without a downloadedSong');
       reject(new SongDownloadError('DOWNLOAD_FAILED'));
     });
     cmd.on('error', (err) => {
