@@ -290,8 +290,9 @@ export default class StreamerbotWebSocketClient {
 
   private async handleGuessTheSongRoundComplete(winner?: string, time?: number, otherWinners: string[] = []) {
     if (winner && time) {
+      // Record this round's winner
       const roundedTime = Math.round(time * 10) / 10;
-      let message = `@${winner} got the right answer quickest in ${roundedTime} seconds!`;
+      let message = `${winner} got the right answer quickest in ${roundedTime} seconds!`;
       if (otherWinners.length) message += ` (${otherWinners.join(', ')} also got it right!)`
       await this.sendTwitchMessage(message);
 
@@ -302,7 +303,15 @@ export default class StreamerbotWebSocketClient {
         name,
         placement: i + 2,
       })))).execute();
+
+      // Report win streaks
+      const streak = await queries.nameThatTuneWinStreak();
+      if (streak[0].streak > 1) {
+        await this.sendTwitchMessage(`${winner} is on a ${streak[0].streak} round win streak!`);
+      }
     }
+    
+    // Update scores in leaderboard
     const dailyScores = await queries.nameThatTuneScores()
       .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
       .execute();

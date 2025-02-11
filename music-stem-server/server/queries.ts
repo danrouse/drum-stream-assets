@@ -125,6 +125,14 @@ export const nameThatTuneScores = () => db.selectFrom('nameThatTuneScores')
   .orderBy('count desc')
   .orderBy('createdAt desc');
 
+export const nameThatTuneWinStreak = () => db.selectFrom('nameThatTuneScores')
+  .select(q => q.fn.count<number>('id').as('streak'))
+  .where('id', '>', q => q.selectFrom('nameThatTuneScores').select('id').where('placement', '=', 1)
+    .where('name', '!=', q2 => q2.selectFrom('nameThatTuneScores').select('name').where('placement', '=', 1).orderBy('id desc'))
+    .orderBy('id desc')
+  )
+  .execute();
+
 //
 // song voting
 //
