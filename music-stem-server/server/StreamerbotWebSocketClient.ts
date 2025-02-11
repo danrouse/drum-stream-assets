@@ -89,11 +89,11 @@ export default class StreamerbotWebSocketClient {
     isTestMode?: boolean,
   ) {
     this.client = new StreamerbotClient({
-      onConnect: () => {
+      onConnect: async () => {
         this.isConnected = true;
         while (this.actionQueue.length) {
           const action = this.actionQueue.shift()!;
-          this.doAction(action[0], action[1]);
+          await this.doAction(action[0], action[1]);
         }
         this.updateActiveViewers();
         this.updateViewersTimer = setInterval(() => {
@@ -108,7 +108,7 @@ export default class StreamerbotWebSocketClient {
       onError: (err) => {
         this.log('Streamer.bot error:', err);
       },
-      retries: 3,
+      retries: 50,
     });
     this.client.on('Application.*', async () => {});
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
@@ -271,7 +271,7 @@ export default class StreamerbotWebSocketClient {
 
   private log = createLogger('StreamerbotWSC');
 
-  public doAction(actionName: Streamerbot.ActionName, args?: any) {
+  public async doAction(actionName: Streamerbot.ActionName, args?: any) {
     if (!this.isConnected) {
       this.actionQueue.push([actionName, args]);
       this.log('Disconnected, queuing action', actionName, args);
@@ -287,7 +287,22 @@ export default class StreamerbotWebSocketClient {
     const actionId = action.id;
     this.log('doAction', actionName, actionId, args);
     if (this.isTestMode) return;
-    return this.client.doAction(actionId, args);
+
+    // const result = await this.client.doAction(actionId, args);
+    const result = await this.client.request({
+      request: "DoAction",
+      action: {
+        id: actionId,
+        name: undefined,
+      },
+      args
+    }, undefined, 30000);
+    
+    if (result.status === 'error') {
+      this.actionQueue.push([actionName, args]);
+      this.log('doAction error, queueing retry...');
+    }
+    return result;
   }
 
   public sendTwitchMessage(message: string, replyTo?: string, debounceKey?: string, debounceTime?: number) {

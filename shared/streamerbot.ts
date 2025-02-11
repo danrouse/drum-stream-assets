@@ -12,7 +12,7 @@ export type CommandName = typeof Commands.commands[number]['name'];
 export type TwitchRewardName = typeof TwitchRewards.rewards[number]['name'];
 
 export const CommandAliases = Commands.commands.reduce((acc, command) => {
-  if (!command.enabled) return acc;
+  // if (!command.enabled) return acc;
   for (let alias of command.command.split(/\r?\n/)) {
     acc[alias] = command.name;
   }
