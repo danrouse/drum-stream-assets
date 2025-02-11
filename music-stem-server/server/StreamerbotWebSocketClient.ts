@@ -132,118 +132,15 @@ export default class StreamerbotWebSocketClient {
 
   public messageHandler = async (payload: WebSocketMessage) => {
     if (payload.type === 'song_speed') {
-      // Scale the price of speed up/slow down song redemptions based on current speed
-      const playbackRate = payload.speed;
-      const speedDiffSteps = Math.abs(1 - playbackRate) / TwitchRewardAmounts['Speed Up Music']!;
-      const isFaster = playbackRate > 1;
-      const nextSlowDownPrice = Math.round(isFaster ?
-        SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
-        SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
-      const nextSpeedUpPrice = Math.round(!isFaster ?
-        SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
-        SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
-
-      await this.doAction('Reward: Change Price', {
-        rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'],
-        price: nextSlowDownPrice,
-      });
-      await this.doAction('Reward: Change Price', {
-        rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'],
-        price: nextSpeedUpPrice,
-      });
-
-      // Limit min/max speed within the realm of reason
-      const MIN_PLAYBACK_SPEED = 0.4;
-      const MAX_PLAYBACK_SPEED = 1.9;
-      const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
-      await this.doAction(slowDownRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'] });
-      const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
-      await this.doAction(speedUpRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'] });
-
-      // Re-disable the rewards if shenanigans are off
-      if (!this.isShenanigansEnabled) {
-        await this.pauseTwitchRedemption('Slow Down Music', 1000 * 60 * 60 * 24);
-        await this.pauseTwitchRedemption('Speed Up Music', 1000 * 60 * 60 * 24);
-      }
+      this.handleSongSpeedChanged(payload.speed);
     } else if (payload.type === 'song_changed') {
-      // Notify user when their song request is starting
-      if (payload.song.requester && payload.song.status === 'ready') {
-        await this.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
-      }
-
-      // Allow for "no-shenanigans" SRs
-      if (payload.song.noShenanigans) {
-        await this.disableShenanigans();
-        this.lastSongWasNoShens = true;
-      } else if (this.lastSongWasNoShens) {
-        await this.enableShenanigans();
-        this.lastSongWasNoShens = false;
-      }
-
-      this.currentSong = payload.song;
-      this.currentSongSelectedAtTime = new Date().toISOString();
-      this.setFullscreenVideoEnabled();
-
-      // Leave fullscreen video if we switch to a song that isn't a video
-      if (this.currentScene === 'Fullscreen Video' && !this.currentSong.isVideo) {
-        await this.doAction('Set OBS Scene', {
-          sceneName: 'Drums main'
-        });
-      }
+      this.handleSongChanged(payload.song);
     } else if (payload.type === 'guess_the_song_round_complete') {
-      if (payload.winner && payload.time) {
-        const roundedTime = Math.round(payload.time * 10) / 10;
-        let message = `@${payload.winner} got the right answer quickest in ${roundedTime} seconds!`;
-        if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
-        await this.sendTwitchMessage(message);
-
-        db.insertInto('nameThatTuneScores').values([{
-          name: payload.winner,
-          placement: 1,
-        }].concat(payload.otherWinners.map((name, i) => ({
-          name,
-          placement: i + 2,
-        })))).execute();
-      }
-      const dailyScores = await queries.nameThatTuneScores()
-        .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
-        .execute();
-      const weeklyScores = await queries.nameThatTuneScores()
-        .where('createdAt', '>', sql<any>`datetime(\'now\', \'-7 day\')`)
-        .execute();
-      const lifetimeScores = await queries.nameThatTuneScores()
-        .execute();
-      this.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
+      this.handleGuessTheSongRoundComplete(payload.winner, payload.time, payload.otherWinners);
     } else if (payload.type === 'song_playback_started') {
-      // Create stream marker for song request start
-      let markerName = `Song Start: Song #${payload.id}`;
-      if (payload.songRequestId) {
-        markerName += ` SR #${payload.songRequestId}`;
-      }
-      await this.doAction('Create Stream Marker', { description: markerName });
+      this.handleSongStarted(payload.id, payload.songRequestId);
     } else if (payload.type === 'song_playback_completed') {
-      // Create stream marker for song request end
-      let markerName = `Song End: Song #${payload.id}`;
-      if (payload.songRequestId) {
-        markerName += ` SR #${payload.songRequestId}`;
-      }
-      await this.doAction('Create Stream Marker', { description: markerName });
-
-      // Add playback to history
-      await db.insertInto('songHistory')
-        .values([{
-          songId: payload.id,
-          songRequestId: payload.songRequestId,
-          startedAt: this.currentSongSelectedAtTime,
-          endedAt: new Date().toISOString(),
-        }])
-        .execute();
-      
-      // Notify chat of any votes that happened during playback
-      const votes = await queries.songVotesSinceTime(payload.id, this.currentSongSelectedAtTime!);
-      if (Number(votes[0].voteCount) > 0) {
-        await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);
-      }
+      this.handleSongEnded(payload.id, payload.songRequestId);
     } else if (payload.type === 'song_request_removed') {
       // Refund reward redemption SRs if removed
       // REFUND DISABLED: priority song requests were getting refunded if
@@ -293,6 +190,128 @@ export default class StreamerbotWebSocketClient {
       this.log('doAction error, queueing retry...');
     }
     return result;
+  }
+
+  private async handleSongStarted(songId: number, songRequestId?: number | null) {
+    // Create stream marker for song request start
+    let markerName = `Song Start: Song #${songId}`;
+    if (songRequestId) {
+      markerName += ` SR #${songRequestId}`;
+    }
+    await this.doAction('Create Stream Marker', { description: markerName });
+  }
+
+  private async handleSongEnded(songId: number, songRequestId?: number | null) {
+    // Create stream marker for song request end
+    let markerName = `Song End: Song #${songId}`;
+    if (songRequestId) {
+      markerName += ` SR #${songRequestId}`;
+    }
+    await this.doAction('Create Stream Marker', { description: markerName });
+
+    // Add playback to history
+    await db.insertInto('songHistory')
+      .values([{
+        songId: songId,
+        songRequestId: songRequestId,
+        startedAt: this.currentSongSelectedAtTime,
+        endedAt: new Date().toISOString(),
+      }])
+      .execute();
+    
+    // Notify chat of any votes that happened during playback
+    const votes = await queries.songVotesSinceTime(songId, this.currentSongSelectedAtTime!);
+    if (Number(votes[0].voteCount) > 0) {
+      await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);
+    }
+  }
+
+  private async handleSongChanged(song: SongData) {
+    // Notify user when their song request is starting
+    if (song.requester && song.status === 'ready') {
+      await this.sendTwitchMessage(`@${song.requester} ${song.artist} - ${song.title} is starting!`);
+    }
+
+    // Allow for "no-shenanigans" SRs
+    if (song.noShenanigans) {
+      await this.disableShenanigans();
+      this.lastSongWasNoShens = true;
+    } else if (this.lastSongWasNoShens) {
+      await this.enableShenanigans();
+      this.lastSongWasNoShens = false;
+    }
+
+    this.currentSong = song;
+    this.currentSongSelectedAtTime = new Date().toISOString();
+    this.setFullscreenVideoEnabled();
+
+    // Leave fullscreen video if we switch to a song that isn't a video
+    if (this.currentScene === 'Fullscreen Video' && !this.currentSong?.isVideo) {
+      await this.doAction('Set OBS Scene', {
+        sceneName: 'Drums main'
+      });
+    }
+  }
+
+  private async handleSongSpeedChanged(playbackRate: number) {
+    // Scale the price of speed up/slow down song redemptions based on current speed
+    const speedDiffSteps = Math.abs(1 - playbackRate) / TwitchRewardAmounts['Speed Up Music']!;
+    const isFaster = playbackRate > 1;
+    const nextSlowDownPrice = Math.round(isFaster ?
+      SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
+      SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
+    const nextSpeedUpPrice = Math.round(!isFaster ?
+      SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
+      SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
+
+    await this.doAction('Reward: Change Price', {
+      rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'],
+      price: nextSlowDownPrice,
+    });
+    await this.doAction('Reward: Change Price', {
+      rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'],
+      price: nextSpeedUpPrice,
+    });
+
+    // Limit min/max speed within the realm of reason
+    const MIN_PLAYBACK_SPEED = 0.4;
+    const MAX_PLAYBACK_SPEED = 1.9;
+    const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
+    await this.doAction(slowDownRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'] });
+    const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
+    await this.doAction(speedUpRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'] });
+
+    // Re-disable the rewards if shenanigans are off
+    if (!this.isShenanigansEnabled) {
+      await this.pauseTwitchRedemption('Slow Down Music', 1000 * 60 * 60 * 24);
+      await this.pauseTwitchRedemption('Speed Up Music', 1000 * 60 * 60 * 24);
+    }
+  }
+
+  private async handleGuessTheSongRoundComplete(winner?: string, time?: number, otherWinners: string[] = []) {
+    if (winner && time) {
+      const roundedTime = Math.round(time * 10) / 10;
+      let message = `@${winner} got the right answer quickest in ${roundedTime} seconds!`;
+      if (otherWinners.length) message += ` (${otherWinners.join(', ')} also got it right!)`
+      await this.sendTwitchMessage(message);
+
+      db.insertInto('nameThatTuneScores').values([{
+        name: winner,
+        placement: 1,
+      }].concat(otherWinners.map((name, i) => ({
+        name,
+        placement: i + 2,
+      })))).execute();
+    }
+    const dailyScores = await queries.nameThatTuneScores()
+      .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
+      .execute();
+    const weeklyScores = await queries.nameThatTuneScores()
+      .where('createdAt', '>', sql<any>`datetime(\'now\', \'-7 day\')`)
+      .execute();
+    const lifetimeScores = await queries.nameThatTuneScores()
+      .execute();
+    this.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
   }
 
   public sendTwitchMessage(message: string, replyTo?: string, debounceKey?: string, debounceTime?: number) {
