@@ -121,7 +121,7 @@ export type NameThatTuneScore = Selectable<NameThatTuneScoresTable>;
 export type NewNameThatTuneScore = Insertable<NameThatTuneScoresTable>;
 export type NameThatTuneScoreUpdate = Updateable<NameThatTuneScoresTable>;
 
-interface Database {
+export interface Database {
   songRequests: SongRequestsTable;
   downloads: DownloadsTable;
   songs: SongsTable;

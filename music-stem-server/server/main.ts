@@ -11,7 +11,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import DiscordIntegration from './DiscordIntegration';
-import { db } from './database';
+import * as Queries from './queries';
 import * as Paths from './paths';
 import { SongData, SongRequestData } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
@@ -71,30 +71,12 @@ const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
 }));
 
 app.get('/songs', cors(), async (req, res) => {
-  const songs = await db.selectFrom('songs')
-    .leftJoin('downloads', 'downloads.id', 'downloadId')
-    .leftJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
-    .select([
-      'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.createdAt',
-      'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-      'songRequests.requester', // 'songRequests.priority', 'songRequests.status', 'songRequests.id as songRequestId',
-    ])
-    .execute() satisfies SongData[];
+  const songs = await Queries.allSongs();
   res.send(convertLocalPathsToURLs(songs));
 });
 
 app.get('/requests', async (req, res) => {
-  const songs = await db.selectFrom('songRequests')
-    .innerJoin('songs', 'songs.id', 'songRequests.songId')
-    .innerJoin('downloads', 'downloads.id', 'songs.downloadId')
-    .where('songRequests.status', '=', 'ready')
-    .select([
-      'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
-      'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-      'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
-    ])
-    .orderBy(['songRequests.priority desc', 'songRequests.order asc', 'songRequests.id asc'])
-    .execute() satisfies SongRequestData[];
+  const songs = await Queries.allSongRequests();
   res.send(convertLocalPathsToURLs(songs));
 });
 

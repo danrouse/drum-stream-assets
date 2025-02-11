@@ -4,6 +4,7 @@ import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
 import SongDownloadError from './SongDownloadError';
+import * as queries from './queries';
 import { createLogger, formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
@@ -204,20 +205,13 @@ export default class StreamerbotWebSocketClient {
           placement: i + 2,
         })))).execute();
       }
-      const queryScores = () => db.selectFrom('nameThatTuneScores')
-        .select('name')
-        .select(q => q.fn.count<number>('id').as('count'))
-        .groupBy('name')
-        .where('placement', '=', 1)
-        .orderBy('count desc')
-        .orderBy('createdAt desc');
-      const dailyScores = await queryScores()
+      const dailyScores = await queries.nameThatTuneScores()
         .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
         .execute();
-      const weeklyScores = await queryScores()
+      const weeklyScores = await queries.nameThatTuneScores()
         .where('createdAt', '>', sql<any>`datetime(\'now\', \'-7 day\')`)
         .execute();
-      const lifetimeScores = await queryScores()
+      const lifetimeScores = await queries.nameThatTuneScores()
         .execute();
       this.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
     } else if (payload.type === 'song_playback_started') {
@@ -246,12 +240,7 @@ export default class StreamerbotWebSocketClient {
         .execute();
       
       // Notify chat of any votes that happened during playback
-      const votes = await db.selectFrom('songVotes')
-        .select(db.fn.countAll().as('voteCount'))
-        .select(db.fn.sum('songVotes.value').as('value'))
-        .where('songId', '=', payload.id)
-        .where('createdAt', '>', sql<any>`datetime(${this.currentSongSelectedAtTime!})`)
-        .execute();
+      const votes = await queries.songVotesSinceTime(payload.id, this.currentSongSelectedAtTime!);
       if (Number(votes[0].voteCount) > 0) {
         await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);
       }
@@ -626,7 +615,7 @@ export default class StreamerbotWebSocketClient {
         this.log('Song reward redemption failed with error', e);
       }
     } else if (commandName === '!when') {
-      const songRequest = await this.songRequestHandler.getNextSongRequestByRequester(userName);
+      const songRequest = await queries.nextSongByUser(userName);
       if (!songRequest) {
         await this.sendTwitchMessage(`@${userName} You don't have any songs in the request queue!`);
       } else {
@@ -639,12 +628,12 @@ export default class StreamerbotWebSocketClient {
             await this.sendTwitchMessage(`@${userName} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Be patient.`);
           // }
         } else {
-          const remaining = await this.songRequestHandler.getTimeUntilSongRequest(songRequest.id);
+          const remaining = await queries.getTimeUntilSongRequest(songRequest[0].id);
           if (remaining.numSongRequests === 1) {
-            await this.sendTwitchMessage(`@${userName} Your song (${songRequest.artist} - ${songRequest.title}) is up next!`);
+            await this.sendTwitchMessage(`@${userName} Your song (${songRequest[0].artist} - ${songRequest[0].title}) is up next!`);
           } else {
             await this.sendTwitchMessage(
-              `@${userName} Your next song (${songRequest.artist} - ${songRequest.title}) is in position ` +
+              `@${userName} Your next song (${songRequest[0].artist} - ${songRequest[0].title}) is in position ` +
               `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
             );
           }
@@ -652,14 +641,7 @@ export default class StreamerbotWebSocketClient {
       }
     } else if (commandName === '!remove') {
       // Find a valid song request to cancel
-      const res = await db.selectFrom('songRequests')
-        .innerJoin('songs', 'songs.id', 'songRequests.songId')
-        .select(['songRequests.id', 'songs.artist', 'songs.title'])
-        .where('status', 'in', ['processing', 'ready'])
-        .where('requester', '=', userName)
-        .orderBy('songRequests.id desc')
-        .limit(1)
-        .execute();
+      const res = await queries.mostRecentlyRequestedSongByUser(userName);
       if (res[0]) {
         await db.updateTable('songRequests')
           .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
@@ -675,12 +657,7 @@ export default class StreamerbotWebSocketClient {
       }
     } else if (commandName === '!songlist') {
       const MAX_RESPONSE_SONGS = 5;
-      const res = await db.selectFrom('songRequests')
-        .innerJoin('songs', 'songs.id', 'songRequests.songId')
-        .where('songRequests.status', '=', 'ready')
-        .select(['songs.title', 'songs.artist', 'songs.duration', 'songRequests.id'])
-        .orderBy('songRequests.id asc')
-        .execute();
+      const res = await queries.songRequestQueue();
       if (res.length === 0) {
         await this.sendTwitchMessage(`@${userName} The song request queue is empty.`);
       } else {
@@ -697,12 +674,7 @@ export default class StreamerbotWebSocketClient {
       if (!this.currentSong) return;
       let value = 1;
       if (commandName === 'Vote --') value = -1;
-      const existingVote = await db
-        .selectFrom('songVotes')
-        .select(['id'])
-        .where('voterName', '=', userName)
-        .where('songId', '=', this.currentSong!.id)
-        .execute();
+      const existingVote = await queries.existingSongVoteForUser(this.currentSong.id, userName);
       if (existingVote.length > 0) {
         await db.updateTable('songVotes')
           .set({ value, createdAt: sql`current_timestamp` })
@@ -715,10 +687,7 @@ export default class StreamerbotWebSocketClient {
           value,
         }]).execute();
       }
-      const newSongValue = await db.selectFrom('songVotes')
-        .select(db.fn.sum('value').as('value'))
-        .where('songId', '=', this.currentSong!.id)
-        .execute();
+      const newSongValue = await queries.songVoteScore(this.currentSong.id);
       await this.sendTwitchMessage(
         `@${userName} Current score for ${this.currentSong.artist} - ${this.currentSong.title}: ${newSongValue[0].value}`,
         undefined,
@@ -726,13 +695,8 @@ export default class StreamerbotWebSocketClient {
         5000
       );
     } else if (commandName === '!today') {
-      const res = await db.selectFrom('songHistory')
-        .select(db.fn.countAll().as('count'))
-        .where(sql<any>`datetime(songHistory.startedAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
-        .execute();
-      await this.sendTwitchMessage(
-        `@${userName} ${res[0].count} songs have been played today`
-      );
+      const res = await queries.songsPlayedTodayCount();
+      await this.sendTwitchMessage(`@${userName} ${res[0].count} songs have been played today`);
     }
 
     this.commandHistory[userName].push([commandName, now]);
@@ -765,7 +729,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleOBSStreamingStopped(payload: StreamerbotEventPayload<"Obs.StreamingStopped">) {
-    const record = await db.selectFrom('streamHistory').select('id').orderBy('id desc').limit(1).execute();
+    const record = await queries.currentStreamHistory();
     await db.updateTable('streamHistory')
       .set('endedAt', sql`current_timestamp`)
       .where('id', '=', record[0].id)
@@ -783,11 +747,7 @@ export default class StreamerbotWebSocketClient {
     twitchRedemptionId?: string,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
-    const existingRequestCount = await db.selectFrom('songRequests')
-      .select(db.fn.countAll().as('count'))
-      .where('requester', '=', fromUsername)
-      .where('status', '=', 'ready')
-      .execute();
+    const existingRequestCount = await queries.numRequestsByUser(fromUsername);
     if (perUserLimit && Number(existingRequestCount[0].count) >= perUserLimit) {
       await this.sendTwitchMessage(
         `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
@@ -798,13 +758,7 @@ export default class StreamerbotWebSocketClient {
 
     // Check if the user is on cooldown for their next song request
     if (!priority && !this.isUserAdmin(fromUsername)) {
-      const lastRequestTime = await db.selectFrom('songRequests')
-        .innerJoin('songs', 'songs.id', 'songRequests.songId')
-        .select(['songRequests.createdAt', 'songs.duration'])
-        .where('requester', '=', fromUsername)
-        .where('status', '=', 'ready')
-        .orderBy('songRequests.id desc')
-        .execute();
+      const lastRequestTime = await queries.lastRequestTimeByUser(fromUsername);
       if (lastRequestTime[0]) {
         const createdAt = new Date(lastRequestTime[0].createdAt + 'Z');
         const availableAt = createdAt.getTime() + (lastRequestTime[0].duration * 1000);
@@ -846,13 +800,8 @@ export default class StreamerbotWebSocketClient {
       // Waiting until the song request is added to ensure it doesn't get set erroneously
       const viewer = this.viewers.find(v => v.login.toLowerCase() === fromUsername.toLowerCase());
       if (viewer?.subscribed) {
-        const requestsFromUserToday = await db.selectFrom('songRequests')
-          .select(db.fn.countAll().as('count'))
-          .where('requester', '=', fromUsername)
-          .where('status', '!=', 'cancelled')
-          .where('createdAt', '>', sql<any>`(select createdAt from streamHistory order by id desc limit 1)`)
-          .execute();
-        if (requestsFromUserToday[0].count === 1) {
+        const requestsFromUserToday = await queries.requestsByUserToday(fromUsername);
+        if (requestsFromUserToday.length === 1 && requestsFromUserToday[0].priority === 0) {
           await db.updateTable('songRequests')
             .set({ priority: 1 })
             .where('id', '=', songRequestId)
@@ -861,7 +810,7 @@ export default class StreamerbotWebSocketClient {
         }
       }
 
-      const waitTime = await this.songRequestHandler.getTimeUntilSongRequest(songRequestId);
+      const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
       const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
       await this.sendTwitchMessage(`@${fromUsername} ${song.basename} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
     } catch (e: any) {

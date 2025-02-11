@@ -121,38 +121,6 @@ export default class SongRequestHandler {
     return downloadedSong;
   }
 
-  public async getNextSongRequestByRequester(requester: string) {
-    const res = await db.selectFrom('songRequests')
-      .innerJoin('songs', 'songs.id', 'songRequests.songId')
-      .selectAll('songRequests')
-      .select(['songs.title', 'songs.artist'])
-      .where('songRequests.status', '=', 'ready')
-      .where('songRequests.requester', '=', requester)
-      .limit(1)
-      .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
-      .execute();
-    return res[0];
-  }
-
-  public async getTimeUntilSongRequest(songRequestId: number) {
-    const priority = await db.selectFrom('songRequests').select('priority').where('id', '=', songRequestId).execute();
-    const precedingRequests = await db.selectFrom('songRequests')
-      .innerJoin('songs', 'songs.id', 'songRequests.songId')
-      .select(db.fn.sum('duration').as('totalDuration'))
-      .select(db.fn.countAll().as('numSongRequests'))
-      .where('songRequests.status', '=', 'ready')
-      .where(q => q.or([
-        q('songRequests.priority', '>', priority[0].priority),
-        q.and([q('songRequests.priority', '=', priority[0].priority), q('songRequests.id', '<', songRequestId)])
-      ]))
-      .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
-      .execute();
-    return {
-      totalDuration: Number(precedingRequests[0].totalDuration),
-      numSongRequests: Number(precedingRequests[0].numSongRequests) + 1,
-    };
-  }
-
   public async getExistingSongRequest(query: string, requesterName: string) {
     const sameQuery = await db.selectFrom('songRequests')
       .innerJoin('songs', 'songs.id', 'songRequests.songId')
