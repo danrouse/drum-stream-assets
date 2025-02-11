@@ -28,6 +28,10 @@ let emoteURLs7tv: { [word: string]: string } | undefined;
 export async function get7tvEmotes(words: string[]) {
   if (!emoteURLs7tv) {
     emoteURLs7tv = await load7tvEmotes();
+    // cache invalidation
+    setTimeout(() => {
+      emoteURLs7tv = undefined;
+    }, 60000);
   }
   return words.filter(word => emoteURLs7tv!.hasOwnProperty(word)).map(emote => emoteURLs7tv![emote])
 }
