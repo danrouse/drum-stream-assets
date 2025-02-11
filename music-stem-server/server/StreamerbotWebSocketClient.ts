@@ -81,6 +81,7 @@ export default class StreamerbotWebSocketClient {
   private updateViewersTimer?: NodeJS.Timeout;
   private isTestMode = false;
   private currentScene?: string;
+  private commandHistory: { [username: string]: [string, number][] } = {};
 
   constructor(
     broadcast: WebSocketBroadcaster,
@@ -608,10 +609,16 @@ export default class StreamerbotWebSocketClient {
     const message = payload.data.message.trim();
     const userName = payload.data.user.display; // user.display vs user.name?
     const commandName = Streamerbot.CommandAliases[payload.data.command];
+    
     // Unregistered command triggered
     if (!commandName) return;
+
     this.log('Command triggered', payload.data.command, commandName, userName, message);
-    // also available: bool user.subscribed, int user.role
+
+    this.commandHistory[userName] ||= [];
+    const [_, lastUsage] = this.commandHistory[userName].findLast(([command, time]) => command === commandName) || [];
+    const now = Date.now();
+
     if (commandName === 'song request') {
       try {
         await this.handleSongRequest(message, userName, this.getMaxDurationForUser(userName), this.getSongRequestLimitForUser(userName));
@@ -623,14 +630,24 @@ export default class StreamerbotWebSocketClient {
       if (!songRequest) {
         await this.sendTwitchMessage(`@${userName} You don't have any songs in the request queue!`);
       } else {
-        const remaining = await this.songRequestHandler.getTimeUntilSongRequest(songRequest.id);
-        if (remaining.numSongRequests === 1) {
-          await this.sendTwitchMessage(`@${userName} Your song (${songRequest.artist} - ${songRequest.title}) is up next!`);
+        const FIVE_MINUTES = 5 * 60 * 1000;
+        if (lastUsage && now - lastUsage < FIVE_MINUTES) {
+          // const pastUsageCount = this.commandHistory[userName].filter(([command, time]) => command === commandName && now - time < FIVE_MINUTES).length;
+          // if (pastUsageCount > 2) {
+          //   await this.sendTwitchMessage(`@${userName} Your song has been removed from the queue, you can go listen to it on Spotify instead.`);
+          // } else {
+            await this.sendTwitchMessage(`@${userName} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Be patient.`);
+          // }
         } else {
-          await this.sendTwitchMessage(
-            `@${userName} Your next song (${songRequest.artist} - ${songRequest.title}) is in position ` +
-            `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
-          );
+          const remaining = await this.songRequestHandler.getTimeUntilSongRequest(songRequest.id);
+          if (remaining.numSongRequests === 1) {
+            await this.sendTwitchMessage(`@${userName} Your song (${songRequest.artist} - ${songRequest.title}) is up next!`);
+          } else {
+            await this.sendTwitchMessage(
+              `@${userName} Your next song (${songRequest.artist} - ${songRequest.title}) is in position ` +
+              `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
+            );
+          }
         }
       }
     } else if (commandName === '!remove') {
@@ -717,6 +734,8 @@ export default class StreamerbotWebSocketClient {
         `@${userName} ${res[0].count} songs have been played today`
       );
     }
+
+    this.commandHistory[userName].push([commandName, now]);
   }
 
   private handleCustom(payload: StreamerbotEventPayload<"General.Custom">) {
