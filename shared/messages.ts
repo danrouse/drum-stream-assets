@@ -53,6 +53,9 @@ export type WebSocketServerMessage = {
   type: 'emote_default_set',
   emoteURL: string,
 } | {
+  type: 'emote_pinned',
+  emoteURL: string | null,
+} | {
   type: 'midi_note_on',
   note: number,
   velocity: number,

@@ -18,10 +18,12 @@ const emoteURLs7tv = Object.values(emotes7tv);
 const EMOTE_RANDOM_SWAP_TIME = 5000;
 const EMOTE_USER_DURATION = 60000;
 let usedEmotes: string[][] = [];
-let selectedEmoteURL = emoteURLs7tv[Math.floor(Math.random() * emoteURLs7tv.length)];
+let pinnedEmoteURL: string | undefined;
 let defaultEmoteURL: string | undefined;
 const getEmote = (lastEmoteURL: string) => {
-  if (usedEmotes.length) {
+  if (pinnedEmoteURL) {
+    return pinnedEmoteURL;
+  } else if (usedEmotes.length) {
     // if there are any emotes used by users, use a random one
     // and ensure it is not the same as the previous (if applicable)
     const emotePool = Array.from(new Set(usedEmotes.flat()));
@@ -47,6 +49,9 @@ window.ipcRenderer.on('emote_used', (_, payload) => {
 });
 window.ipcRenderer.on('emote_default_set', (_, payload) => {
   defaultEmoteURL = payload.emoteURL;
+});
+window.ipcRenderer.on('emote_pinned', (_, payload) => {
+  pinnedEmoteURL = payload.emoteURL;
 });
 
 // ELEMENT INIT

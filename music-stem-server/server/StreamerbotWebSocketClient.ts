@@ -22,6 +22,7 @@ const TwitchRewardDurations: StreamerbotTwitchRewardMeta<number> = {
   'Change Drum Kit': 120000,
   'Disable Shenanigans (Current Song)': 5000000,
   'Reset All Shenanigans': 0,
+  'Pin an Emote': 30000,
 
   'Hat: Beanie': 120000,
   'Hat: Bucket Hat': 120000,
@@ -83,6 +84,7 @@ export default class StreamerbotWebSocketClient {
   private isTestMode = false;
   private currentScene?: string;
   private commandHistory: { [username: string]: [string, number][] } = {};
+  private pinNextEmoteForUser?: string;
 
   constructor(
     broadcast: WebSocketBroadcaster,
@@ -348,6 +350,19 @@ export default class StreamerbotWebSocketClient {
     ];
     if (emotes.length) {
       this.broadcast({ type: 'emote_used', emoteURLs: emotes });
+
+      if (this.pinNextEmoteForUser?.toLowerCase() === payload.data.message.username.toLowerCase()) {
+        this.broadcast({
+          type: 'emote_pinned',
+          emoteURL: emotes[0],
+        });
+        this.pauseTwitchRedemption('Pin an Emote', TwitchRewardDurations['Pin an Emote'], () => {
+          this.broadcast({
+            type: 'emote_pinned',
+            emoteURL: null,
+          });
+        });
+      }
     }
 
     this.broadcast({
@@ -376,7 +391,7 @@ export default class StreamerbotWebSocketClient {
     return this.doAction('Reward: Update Redemption', { rewardId, redemptionId, action });
   }
 
-  private async pauseTwitchRedemption(rewardName: Streamerbot.TwitchRewardName, duration?: number) {
+  private async pauseTwitchRedemption(rewardName: Streamerbot.TwitchRewardName, duration?: number, unpauseCallback?: () => void) {
     await this.doAction(
       'Reward: Pause',
       { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
@@ -386,10 +401,13 @@ export default class StreamerbotWebSocketClient {
     }
     if (duration) {
       this.twitchUnpauseTimers[rewardName] = setTimeout(
-        () => this.doAction(
-          'Reward: Unpause',
-          { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
-        ),
+        () => {
+          this.doAction(
+            'Reward: Unpause',
+            { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
+          );
+          unpauseCallback?.();
+        },
         duration
       );
     }
@@ -602,6 +620,8 @@ export default class StreamerbotWebSocketClient {
           sceneName: 'Fullscreen Video'
         });
       }
+    } else if (rewardName === "Pin an Emote") {
+      this.pinNextEmoteForUser = payload.data.user_name;
     }
 
     // If we haven't returned from an error yet, broadcast changes to the player UI
