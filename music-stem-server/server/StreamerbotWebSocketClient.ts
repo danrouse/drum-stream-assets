@@ -30,6 +30,8 @@ const TwitchRewardDurations: StreamerbotTwitchRewardMeta<number> = {
   'Hat: Fedora': 120000,
   'Hat: Motorcycle Helmet': 120000,
   'Hat: Pink Sparkly Cowboy Hat': 120000,
+  'THREE hats': 120000,
+  'TWO hats': 120000,
 };
 
 const TwitchRewardAmounts: StreamerbotTwitchRewardMeta<number> = {
@@ -39,7 +41,7 @@ const TwitchRewardAmounts: StreamerbotTwitchRewardMeta<number> = {
 
 const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
   ['Fart Mode', 'Randomize Drums', 'Randomize EVERY HIT'],
-  ['Hat: Beanie', 'Hat: Bucket Hat', 'Hat: Cowboy', 'Hat: Fedora', 'Hat: Motorcycle Helmet', 'Hat: Pink Sparkly Cowboy Hat'],
+  ['Hat: Beanie', 'Hat: Bucket Hat', 'Hat: Cowboy', 'Hat: Fedora', 'Hat: Motorcycle Helmet', 'Hat: Pink Sparkly Cowboy Hat', 'THREE hats', 'TWO hats'],
 ];
 
 const DisableableShenanigans: Streamerbot.TwitchRewardName[] = [
