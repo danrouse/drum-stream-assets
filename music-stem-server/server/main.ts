@@ -13,7 +13,7 @@ import MIDIIOController from './MIDIIOController';
 import DiscordIntegration from './DiscordIntegration';
 import * as Queries from './queries';
 import * as Paths from './paths';
-import { SongData, SongRequestData } from '../../shared/messages';
+import { SongData } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
