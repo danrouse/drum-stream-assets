@@ -125,12 +125,19 @@ export const nameThatTuneScores = () => db.selectFrom('nameThatTuneScores')
   .orderBy('count desc')
   .orderBy('createdAt desc');
 
-export const nameThatTuneWinStreak = () => db.selectFrom('nameThatTuneScores')
+export const nameThatTuneWinStreak = () => db
+  .with('currentWinner', q => q.selectFrom('nameThatTuneScores').select('name as n').where('placement', '=', 1).orderBy('id desc').limit(1))
+  .selectFrom(['nameThatTuneScores', 'currentWinner'])
+  .select('name')
   .select(q => q.fn.count<number>('id').as('streak'))
-  .where('id', '>', q => q.selectFrom('nameThatTuneScores').select('id').where('placement', '=', 1)
-    .where('name', '!=', q2 => q2.selectFrom('nameThatTuneScores').select('name').where('placement', '=', 1).orderBy('id desc'))
+  .where('id', '>', q => q.selectFrom('nameThatTuneScores')
+    .select('id')
+    .where('placement', '=', 1)
+    .where('name', '!=', sql<string>`currentWinner.n`)
     .orderBy('id desc')
   )
+  .where('placement', '=', 1)
+  .where('name', '=', sql<string>`currentWinner.n`)
   .execute();
 
 //
