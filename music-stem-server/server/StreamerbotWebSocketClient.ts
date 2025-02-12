@@ -710,13 +710,15 @@ export default class StreamerbotWebSocketClient {
         await this.sendTwitchMessage(`@${userName} The song request queue is empty.`);
       } else {
         await this.sendTwitchMessage(
-          `@${userName} There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
+          `There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
           res.slice(0, MAX_RESPONSE_SONGS).map(s =>
             `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
             ` [${formatTime(s.duration)}]`
           ).join(', ') +
           (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
         );
+        const totalTime = res.reduce((acc, cur) => acc + cur.duration, 0);
+        await this.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
       }
     } else if (commandName === 'Vote ++' || commandName === 'Vote --') {
       if (!this.currentSong) return;
@@ -744,7 +746,7 @@ export default class StreamerbotWebSocketClient {
       );
     } else if (commandName === '!today') {
       const res = await queries.songsPlayedTodayCount();
-      await this.sendTwitchMessage(`@${userName} ${res[0].count} songs have been played today`);
+      await this.sendTwitchMessage(`${res[0].count} songs have been played today. ${'🥁'.repeat(res[0].count)}`);
     }
 
     this.commandHistory[userName].push([commandName, now]);
@@ -836,7 +838,7 @@ export default class StreamerbotWebSocketClient {
       throw new SongDownloadError('MINIMUM_QUERY_LENGTH');
     }
 
-    await this.sendTwitchMessage(`Working on it, @${fromUsername}!`);
+    await this.sendTwitchMessage(`Working on it, @${fromUsername}! Give me a moment to download that song.`);
 
     try {
       const [song, songRequestId] = await this.songRequestHandler.execute(

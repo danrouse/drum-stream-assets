@@ -103,7 +103,7 @@ export const songRequestQueue = () => db.selectFrom('songRequests')
 //
 
 export const songsPlayedTodayCount = () => db.selectFrom('songHistory')
-  .select(db.fn.countAll().as('count'))
+  .select(db.fn.countAll<number>().as('count'))
   .where(sql<any>`datetime(songHistory.startedAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
   .execute();
 
