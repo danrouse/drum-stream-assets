@@ -71,22 +71,25 @@ export default class StreamerbotWebSocketClient {
   private midiController: MIDIIOController;
   private broadcast: WebSocketBroadcaster;
   private songRequestHandler: SongRequestHandler;
+
   private twitchMessageIdsByUser: { [userName: string]: string } = {};
   private twitchUnpauseTimers: { [rewardName in Streamerbot.TwitchRewardName]?: NodeJS.Timeout } = {};
+  private twitchDebounceQueue: { [key: string]: number } = {};
+  private userCommandHistory: { [username: string]: [string, number][] } = {};
+  private streamerbotActionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private kitResetTimer?: NodeJS.Timeout;
-  private isShenanigansEnabled = true;
+  private updateViewersTimer?: NodeJS.Timeout;
+  private currentScene?: string;
   private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
+
+  private isConnected = false;
+  private isTestMode = false;
+  
+  private isShenanigansEnabled = true;
+  private lastSongWasNoShens = false;
+  private pinNextEmoteForUser?: string;
   private currentSong?: SongData;
   private currentSongSelectedAtTime?: string;
-  private twitchDebounceQueue: { [key: string]: number } = {};
-  private lastSongWasNoShens = false;
-  private isConnected = false;
-  private actionQueue: Array<[Streamerbot.ActionName, any]> = [];
-  private updateViewersTimer?: NodeJS.Timeout;
-  private isTestMode = false;
-  private currentScene?: string;
-  private commandHistory: { [username: string]: [string, number][] } = {};
-  private pinNextEmoteForUser?: string;
 
   constructor(
     broadcast: WebSocketBroadcaster,
@@ -97,8 +100,8 @@ export default class StreamerbotWebSocketClient {
     this.client = new StreamerbotClient({
       onConnect: async () => {
         this.isConnected = true;
-        while (this.actionQueue.length) {
-          const action = this.actionQueue.shift()!;
+        while (this.streamerbotActionQueue.length) {
+          const action = this.streamerbotActionQueue.shift()!;
           await this.doAction(action[0], action[1]);
         }
         this.updateActiveViewers();
@@ -164,7 +167,7 @@ export default class StreamerbotWebSocketClient {
 
   public async doAction(actionName: Streamerbot.ActionName, args?: any) {
     if (!this.isConnected) {
-      this.actionQueue.push([actionName, args]);
+      this.streamerbotActionQueue.push([actionName, args]);
       this.log('Disconnected, queuing action', actionName, args);
       return;
     }
@@ -190,7 +193,7 @@ export default class StreamerbotWebSocketClient {
     }, undefined, 30000);
     
     if (result.status === 'error') {
-      this.actionQueue.push([actionName, args]);
+      this.streamerbotActionQueue.push([actionName, args]);
       this.log('doAction error, queueing retry...');
     }
     return result;
@@ -247,7 +250,7 @@ export default class StreamerbotWebSocketClient {
 
     this.currentSong = song;
     this.currentSongSelectedAtTime = new Date().toISOString();
-    this.setFullscreenVideoEnabled();
+    this.updateFullscreenVideoEnabled();
 
     // Leave fullscreen video if we switch to a song that isn't a video
     if (this.currentScene === 'Fullscreen Video' && !this.currentSong?.isVideo) {
@@ -458,7 +461,7 @@ export default class StreamerbotWebSocketClient {
     }
   }
 
-  private getMaxDurationForUser(userName: string) {
+  private songRequestMaxDurationForUser(userName: string) {
     const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
     let maxDuration = SONG_REQUEST_MAX_DURATION; // 7 mins default max
     if (viewer?.role === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
@@ -467,7 +470,7 @@ export default class StreamerbotWebSocketClient {
     return maxDuration;
   }
 
-  private getSongRequestLimitForUser(userName: string) {
+  private songRequestMaxCountForUser(userName: string) {
     const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
     let limit = 1;
     if (viewer?.subscribed) limit = 2;
@@ -482,7 +485,7 @@ export default class StreamerbotWebSocketClient {
     return viewer?.role === 'Broadcaster' || viewer?.role === 'Moderator';
   }
 
-  private setFullscreenVideoEnabled() {
+  private updateFullscreenVideoEnabled() {
     if (this.currentScene?.startsWith('Drums') && this.currentSong?.isVideo) {
       this.doAction(
         'Reward: Unpause',
@@ -491,6 +494,30 @@ export default class StreamerbotWebSocketClient {
     } else {
       this.pauseTwitchRedemption('Fullscreen Video');
     }
+  }
+
+  private enableFartMode(duration: number) {
+    this.midiController.muteToms(!this.kitResetTimer);
+    if (this.kitResetTimer) {
+      clearTimeout(this.kitResetTimer);
+      delete this.kitResetTimer;
+    }
+    this.kitResetTimer = setTimeout(() => {
+      this.midiController.resetKit();
+      delete this.kitResetTimer;
+    }, duration);
+  }
+
+  private enableRandomizedDrums(duration: number, randomizeEveryHit: boolean) {
+    this.midiController.randomize(!randomizeEveryHit);
+    if (this.kitResetTimer) {
+      clearTimeout(this.kitResetTimer);
+      delete this.kitResetTimer;
+    }
+    this.kitResetTimer = setTimeout(() => {
+      this.midiController.resetKit();
+      delete this.kitResetTimer;
+    }, duration);
   }
 
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
@@ -506,25 +533,9 @@ export default class StreamerbotWebSocketClient {
     if (rewardName === 'Disable Shenanigans (Current Song)' || rewardName === 'Reset All Shenanigans') {
       this.disableShenanigans(TwitchRewardDurations[rewardName]!);
     } else if (rewardName === 'Fart Mode') {
-      this.midiController.muteToms(!this.kitResetTimer);
-      if (this.kitResetTimer) {
-        clearTimeout(this.kitResetTimer);
-        delete this.kitResetTimer;
-      }
-      this.kitResetTimer = setTimeout(() => {
-        this.midiController.resetKit();
-        delete this.kitResetTimer;
-      }, TwitchRewardDurations[rewardName]);
+      this.enableFartMode(TwitchRewardDurations[rewardName]!);
     } else if (rewardName === 'Randomize Drums' || rewardName === 'Randomize EVERY HIT') {
-      this.midiController.randomize(rewardName === 'Randomize Drums');
-      if (this.kitResetTimer) {
-        clearTimeout(this.kitResetTimer);
-        delete this.kitResetTimer;
-      }
-      this.kitResetTimer = setTimeout(() => {
-        this.midiController.resetKit();
-        delete this.kitResetTimer;
-      }, TwitchRewardDurations[rewardName]);
+      this.enableRandomizedDrums(TwitchRewardDurations[rewardName]!, rewardName === 'Randomize Drums');
     } else if (rewardName === 'Change Drum Kit') {
       const kit = getKitDefinition(payload.data.user_input);
       if (!kit) {
@@ -548,7 +559,7 @@ export default class StreamerbotWebSocketClient {
           payload.data.user_input,
           payload.data.user_name,
           LONG_SONG_REQUEST_MAX_DURATION,
-          this.getSongRequestLimitForUser(payload.data.user_name),
+          this.songRequestMaxCountForUser(payload.data.user_name),
           0,
           false,
           payload.data.reward.id,
@@ -575,7 +586,7 @@ export default class StreamerbotWebSocketClient {
           await this.handleSongRequest(
             payload.data.user_input,
             payload.data.user_name,
-            this.getMaxDurationForUser(payload.data.user_name),
+            this.songRequestMaxDurationForUser(payload.data.user_name),
             0,
             5,
             false,
@@ -603,8 +614,8 @@ export default class StreamerbotWebSocketClient {
           await this.handleSongRequest(
             payload.data.user_input,
             payload.data.user_name,
-            this.getMaxDurationForUser(payload.data.user_name),
-            this.getSongRequestLimitForUser(payload.data.user_name),
+            this.songRequestMaxDurationForUser(payload.data.user_name),
+            this.songRequestMaxCountForUser(payload.data.user_name),
             0,
             true,
             payload.data.reward.id,
@@ -654,13 +665,13 @@ export default class StreamerbotWebSocketClient {
 
     this.log('Command triggered', payload.data.command, commandName, userName, message);
 
-    this.commandHistory[userName] ||= [];
-    const [_, lastUsage] = this.commandHistory[userName].findLast(([command, time]) => command === commandName) || [];
+    this.userCommandHistory[userName] ||= [];
+    const [_, lastUsage] = this.userCommandHistory[userName].findLast(([command, time]) => command === commandName) || [];
     const now = Date.now();
 
     if (commandName === 'song request') {
       try {
-        await this.handleSongRequest(message, userName, this.getMaxDurationForUser(userName), this.getSongRequestLimitForUser(userName));
+        await this.handleSongRequest(message, userName, this.songRequestMaxDurationForUser(userName), this.songRequestMaxCountForUser(userName));
       } catch (e) {
         this.log('Song reward redemption failed with error', e);
       }
@@ -751,7 +762,7 @@ export default class StreamerbotWebSocketClient {
       await this.sendTwitchMessage(`${res[0].count} songs have been played today. ${'🥁'.repeat(res[0].count)}`);
     }
 
-    this.commandHistory[userName].push([commandName, now]);
+    this.userCommandHistory[userName].push([commandName, now]);
   }
 
   private handleCustom(payload: StreamerbotEventPayload<"General.Custom">) {
@@ -766,7 +777,7 @@ export default class StreamerbotWebSocketClient {
 
   private handleOBSSceneChanged(payload: StreamerbotEventPayload<"Obs.SceneChanged">) {
     this.currentScene = payload.data.scene.sceneName;
-    this.setFullscreenVideoEnabled();
+    this.updateFullscreenVideoEnabled();
     this.broadcast({
       type: 'obs_scene_changed',
       oldScene: payload.data.oldScene.sceneName,
