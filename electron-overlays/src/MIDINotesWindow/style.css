@@ -100,7 +100,7 @@
   background-image: url(./sloth-zoom.png);
   background-size: cover;
   background-position: center;
-  background-blend-mode: overlay;
+  background-blend-mode: hard-light;
 
   box-shadow:
     currentColor 0 0 100px,
