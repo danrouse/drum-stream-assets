@@ -81,6 +81,9 @@ export default class StreamerbotWebSocketClient {
   private updateViewersTimer?: NodeJS.Timeout;
   private currentScene?: string;
   private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
+  private previousMessage: string = '';
+  private previousMessageUser: string = '';
+  private messageRepeatTimer?: NodeJS.Timeout;
 
   private isConnected = false;
   private isTestMode = false;
@@ -356,6 +359,7 @@ export default class StreamerbotWebSocketClient {
     if (emotes.length) {
       this.broadcast({ type: 'emote_used', emoteURLs: emotes });
 
+      // if someone redeemed Pin an Emote, take the first emote and pin it
       if (this.pinNextEmoteForUser?.toLowerCase() === payload.data.message.username.toLowerCase()) {
         this.broadcast({
           type: 'emote_pinned',
@@ -368,8 +372,23 @@ export default class StreamerbotWebSocketClient {
           });
         });
       }
+      
+      // if two people sent the same emote-only message twice in a row, echo it
+      if (payload.data.message.message === this.previousMessage && payload.data.message.username !== this.previousMessageUser && !this.messageRepeatTimer) {
+        const wholeMessageIsTwitchEmote = payload.data.message.emotes[0]?.startIndex === 0 &&
+          payload.data.message.emotes[0]?.endIndex === payload.data.message.message.length - 1;
+        const isOwnTwitchEmote = payload.data.message.emotes[0]?.name.startsWith('dannyt75');
+        const wholeMessage7tvEmote = await get7tvEmotes([payload.data.message.message]);
+        
+        if ((wholeMessageIsTwitchEmote && isOwnTwitchEmote) || wholeMessage7tvEmote.length) {
+          await this.sendTwitchMessage(payload.data.message.message);
+          this.messageRepeatTimer = setTimeout(() => { delete this.messageRepeatTimer; }, 30000);
+        }
+      }
     }
 
+    this.previousMessage = payload.data.message.message;
+    this.previousMessageUser = payload.data.message.username;
     this.broadcast({
       type: 'chat_message',
       user: payload.data.message.displayName,
