@@ -225,6 +225,7 @@ ipcMain.on('error', (event) => console.error(event));
 process.on('uncaughtException', (err) => console.error(err));
 process.on('unhandledRejection', (reason, promise) => console.error(reason, promise));
 
+process.on('exit', () => app.quit());
 app.on('window-all-closed', () => app.quit());
 app.on('activate', () => BrowserWindow.getAllWindows().length || createWindows());
 app.whenReady().then(createWindows);
