@@ -49,3 +49,9 @@ window.ipcRenderer.on('song_changed', (_, payload) => {
   }
   currentSongElem.appendChild(renderSong(payload.song, 'DIV'));
 });
+
+window.ipcRenderer.on('song_stopped', () => {
+  previousSongsElem.innerHTML = '';
+  nextSongsElem.innerHTML = '';
+  currentSongElem.innerHTML = '';
+});
