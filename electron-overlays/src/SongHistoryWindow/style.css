@@ -81,6 +81,11 @@ li {
 #next-songs li:last-child {
   border-radius: 0 0 12px 12px;
 }
+#next-songs .queue-length {
+  font-size: 90%;
+  justify-content: center;
+  opacity: 0.9;
+}
 
 #current-song {
   font-size: 150%;
@@ -103,3 +108,6 @@ li {
   #current-song .duration {
     font-size: 60%;
   }
+#current-song:empty {
+  display: none;
+}

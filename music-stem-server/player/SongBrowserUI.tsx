@@ -311,7 +311,16 @@ export default function SongBrowserUI() {
                 previousSongs = songList.slice(0, currentSelectedSongIndex);
                 nextSongs = songList.slice(currentSelectedSongIndex + 1);
               }
-              broadcast({ type: 'song_changed', song: selectedSong!, previousSongs, nextSongs });
+              broadcast({
+                type: 'song_changed',
+                song: selectedSong!,
+                previousSongs,
+                nextSongs,
+                queue: {
+                  songs: nextSongs.length + 1,
+                  duration: nextSongs.reduce((acc, cur) => acc + cur.duration, 0) + selectedSong!.duration,
+                }
+              });
               if (!isAutoplayEnabled) {
                 setIsPlaying(false);
               }

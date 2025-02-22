@@ -82,6 +82,10 @@ export type WebSocketPlayerMessage = {
   song: SongData,
   previousSongs?: SongData[],
   nextSongs?: SongData[],
+  queue?: {
+    songs: number,
+    duration: number,
+  }
 } | {
   type: 'song_progress',
   timestamp: number,
