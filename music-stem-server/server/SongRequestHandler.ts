@@ -167,8 +167,8 @@ export default class SongRequestHandler {
             twitchRedemptionId: request?.twitchRedemptionId,
           }).returning('id as id').execute();
           const download = await db.insertInto('downloads').values({
-            path: downloadedSong.path,
-            lyricsPath: downloadedSong.lyricsPath,
+            path: downloadedSong.path.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
+            lyricsPath: downloadedSong.lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
             isVideo: Number(downloadedSong.isVideo),
             songRequestId: songRequest[0].id,
           }).returning('id as id').execute();

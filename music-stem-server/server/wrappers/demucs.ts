@@ -54,7 +54,6 @@ export default class Demucs {
       if (this.onProcessingComplete) {
         this.onProcessingComplete({
           basename: song.basename,
-          songPath: song.path,
           stemsPath: dstPath,
         }, true);
       }
@@ -95,8 +94,7 @@ export default class Demucs {
       if (this.onProcessingComplete) {
         this.onProcessingComplete({
           basename: song.basename,
-          songPath: song.path,
-          stemsPath: dstPath,
+          stemsPath: dstPath.replace(join(this.outputPath, this.model), '').replace(/^[/\\]+/, ''),
         });
       }
       this.cleanup();

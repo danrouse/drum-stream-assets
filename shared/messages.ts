@@ -175,7 +175,6 @@ export interface DownloadedSong {
 
 export interface ProcessedSong {
   basename: string;
-  songPath: string;
   stemsPath: string;
 }
 

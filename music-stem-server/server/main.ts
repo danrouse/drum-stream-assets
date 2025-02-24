@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import reactVitePlugin from '@vitejs/plugin-react';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readdirSync, existsSync, unlinkSync } from 'fs';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
@@ -65,9 +65,9 @@ app.get('/clean', async () => {
 // probably temporary, until this data is stored In The Cloud
 const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
   ...song,
-  stemsPath: `/stems/${encodeURIComponent(song.stemsPath.replace(Paths.STEMS_PATH, ''))}`,
-  downloadPath: song.downloadPath ? `http://localhost:3000/downloads/${encodeURIComponent(song.downloadPath.replace(Paths.DOWNLOADS_PATH, ''))}` : undefined,
-  lyricsPath: song.lyricsPath, // ? `/downloads/${song.lyricsPath.replace(Paths.DOWNLOADS_PATH, '')}` : undefined,
+  stemsPath: `/stems/${encodeURIComponent(song.stemsPath)}`,
+  downloadPath: song.downloadPath ? `http://localhost:3000/downloads/${encodeURIComponent(song.downloadPath)}` : undefined,
+  lyricsPath: song.lyricsPath,
 }));
 
 app.get('/songs', cors(), async (req, res) => {
