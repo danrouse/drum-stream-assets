@@ -494,6 +494,16 @@ export default class StreamerbotWebSocketClient {
     return limit;
   }
 
+  private songRequestMinViewsForUser(userName: string) {
+    const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
+    let minViews: number | undefined = 1000;
+    if (viewer?.subscribed) minViews = 100;
+    if (viewer?.role === 'VIP') minViews = undefined;
+    if (viewer?.role === 'Moderator') minViews = undefined;
+    if (viewer?.role === 'Broadcaster') minViews = undefined;
+    return minViews;
+  }
+
   private isUserAdmin(userName: string) {
     const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
     return viewer?.role === 'Broadcaster' || viewer?.role === 'Moderator';
@@ -865,7 +875,12 @@ export default class StreamerbotWebSocketClient {
       throw new Error('MINIMUM_QUERY_LENGTH');
     }
 
-    await this.sendTwitchMessage(`Working on it, @${fromUsername}! Give me a moment to download that song.`);
+    let hasResponded = false;
+    setTimeout(async () => {
+      if (!hasResponded) {
+        await this.sendTwitchMessage(`Working on it, @${fromUsername}! Give me a moment to download that song.`);
+      }
+    }, 500);
 
     const songRequestId = await this.songRequestHandler.execute(
       userInput,
@@ -873,7 +888,7 @@ export default class StreamerbotWebSocketClient {
         priority,
         noShenanigans,
         maxDuration,
-        minViews: this.isUserAdmin(fromUsername) ? undefined : 1000,
+        minViews: this.songRequestMinViewsForUser(fromUsername),
         requesterName: fromUsername,
         twitchRewardId,
         twitchRedemptionId,
@@ -896,18 +911,20 @@ export default class StreamerbotWebSocketClient {
         const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
         const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
         await this.sendTwitchMessage(`@${fromUsername} ${songTitle} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
+        hasResponded = true;
       },
-      async (errorType) => {
+      async (errorMessage) => {
         let message = 'There was an error adding your song request!';
-        if (errorType === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
-        if (errorType === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
-        if (errorType === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
-        if (errorType === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-        if (errorType === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)} (for songs up to ${formatTime(LONG_SONG_REQUEST_MAX_DURATION)}, redeem a Long Song Request!)`;
-        if (errorType === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
-        if (errorType === 'MINIMUM_VIEWS') message = 'Videos with under 1000 views are not allowed.'
-        if (errorType === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.'
+        if (errorMessage === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
+        if (errorMessage === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
+        if (errorMessage === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
+        if (errorMessage === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
+        if (errorMessage === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)} (for songs up to ${formatTime(LONG_SONG_REQUEST_MAX_DURATION)}, redeem a Long Song Request!)`;
+        if (errorMessage === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
+        if (errorMessage === 'MINIMUM_VIEWS') message = `Videos with under ${this.songRequestMinViewsForUser(fromUsername)} views are not allowed.`;
+        if (errorMessage === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.';
         await this.sendTwitchMessage(`@${fromUsername} ${message}`);
+        hasResponded = true;
         // TODO: rethrow to allow to catch for refund
         // throw e;
       }

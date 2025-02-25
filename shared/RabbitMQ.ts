@@ -34,7 +34,7 @@ export type Payloads = {
   },
   'song_request_error': {
     id: number,
-    error: Error,
+    errorMessage: string,
   },
 };
 
@@ -65,12 +65,12 @@ export class JobInterface {
 
   async listen<Q extends keyof Payloads>(queueName: Q, callback: (result: Payloads[Q]) => void) {
     if (!this.channel) await this.connect();
-    await this.channel!.consume(queueName, (msg) => {
+    await this.channel!.consume(queueName, async (msg) => {
       if (!msg) return;
       console.info(`Handling message on queue "${queueName}"`);
       const result: Payloads[Q] = JSON.parse(msg.content.toString());
       try {
-        callback(result);
+        await callback(result);
       } catch (error) {
         if (queueName === Queues.SONG_REQUEST_ERROR) {
           // don't end up in a loop if we error while handling an error message!
@@ -78,7 +78,7 @@ export class JobInterface {
         }
         this.channel?.sendToQueue(Queues.SONG_REQUEST_ERROR, Buffer.from(JSON.stringify({
           id: result.id,
-          error
+          errorMessage: (error as Error).message,
         })), { persistent: true });
       }
       this.channel?.ack(msg);

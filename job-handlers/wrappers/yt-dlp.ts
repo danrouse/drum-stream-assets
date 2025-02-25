@@ -29,7 +29,6 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
       ],
       { shell: true }
     );
-    let downloadedSong: string | undefined;
     cmd.stderr.on('data', msg => {
       const unavailableMatch = msg.toString().match(/\[youtube\] (.+): Video unavailable(.*)/);
       if (unavailableMatch) {
@@ -43,22 +42,23 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
         console.warn('yt-dlp.exe stderr:', msg.toString());
       }
     });
+    let buf = '';
     cmd.stdout.on('data', msg => {
       if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration\)/)) {
         return reject(new Error('TOO_LONG'));
       } else if (msg.toString().match('because it has not reached minimum view count')) {
         return reject(new Error('MINIMUM_VIEWS'));
       }
-      const downloadMatch = msg.toString().match(/^\[download\] Destination: (.+)/);
-      const dupeMatch = msg.toString().match(/^\[download\] (.+) has already been downloaded/);
-      const mergeMatch = msg.toString().match(/^\[Merger\] Merging formats into "(.+)"/);
-      const match = downloadMatch || dupeMatch || mergeMatch;
-      if (match) {
-        downloadedSong = match[1];
-      }
+      buf += msg.toString();
     });
     cmd.on('close', () => {
-      if (downloadedSong) return resolve(downloadedSong);
+      const dupeMatch = buf.match(/\[download\] (.+) has already been downloaded/);
+      const mergeMatch = buf.match(/\[Merger\] Merging formats into "(.+)"/);
+      const downloadMatch = buf.match(/\[download\] Destination: (.+)/);
+      const match = dupeMatch || mergeMatch || downloadMatch;
+      if (match) {
+        return resolve(match[1]);
+      }
       console.log('yt-dlp closed without a downloadedSong');
       reject(new Error('DOWNLOAD_FAILED'));
     });

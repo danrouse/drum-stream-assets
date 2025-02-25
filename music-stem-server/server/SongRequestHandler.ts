@@ -84,6 +84,7 @@ export default class SongRequestHandler {
       url.searchParams.delete('feature');
       url.searchParams.delete('ab_channel');
       url.searchParams.delete('list');
+      url.searchParams.delete('pp');
       url.search = url.searchParams.toString();
       query = url.toString();
     }
@@ -133,6 +134,8 @@ export default class SongRequestHandler {
       this.jobs.publish(Queues.SONG_REQUEST_CREATED, {
         id: songRequest.id,
         query,
+        maxDuration: options.maxDuration,
+        minViews: options.minViews,
       });
     }
     return songRequest.id;
@@ -196,7 +199,7 @@ export default class SongRequestHandler {
       this.successCallbacks[payload.id]?.([payload.artist, payload.title].filter(s => s).join(' - '));
     } catch (e) {
       return this.handleSongRequestError({
-        error: e instanceof Error ? e : new Error(e as string),
+        errorMessage: e instanceof Error ? e.message : (e as string),
         id: payload.id,
       });
     }
@@ -207,6 +210,6 @@ export default class SongRequestHandler {
       .set({ status: 'cancelled' })
       .where('id', '=', payload.id)
       .execute();
-    this.failureCallbacks[payload.id]?.(payload.error.message);
+    this.failureCallbacks[payload.id]?.(payload.errorMessage);
   }
 }

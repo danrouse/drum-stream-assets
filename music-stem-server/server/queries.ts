@@ -26,7 +26,7 @@ export const nextSongByUser = (user: string) => db.selectFrom('songRequests')
 export const numRequestsByUser = (user: string) => db.selectFrom('songRequests')
   .select(db.fn.countAll().as('count'))
   .where('requester', '=', user)
-  .where('status', '=', 'ready')
+  .where('status', 'in', ['processing', 'ready'])
   .execute();
 
 export const lastRequestTimeByUser = (user: string) => db.selectFrom('songRequests')

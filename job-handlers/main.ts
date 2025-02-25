@@ -37,20 +37,21 @@ await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
 await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
   console.log('SONG_REQUEST_DOWNLOADED', msg);
 
-  console.log('Running ffmpeg-normalize', msg.path);
-  execSync(`ffmpeg-normalize "${msg.path}" -o "${msg.path}" -c:a aac -nt rms -t -16 -f`);
-  console.log('Running demucs', msg.path);
-  const stemsPath = await demucs(msg.path, Paths.DEMUCS_OUTPUT_PATH, msg.ignoreDuplicates);
+  const dstPath = msg.path.endsWith('.webm') ? msg.path.replace(/\.webm$/, '.mp4') : msg.path;
+  console.log('Running ffmpeg-normalize', msg.path, dstPath);
+  execSync(`ffmpeg-normalize "${msg.path}" -o "${dstPath}" -c:a aac -nt rms -t -16 -f`);
+  console.log('Running demucs', dstPath);
+  const stemsPath = await demucs(dstPath, Paths.DEMUCS_OUTPUT_PATH, msg.ignoreDuplicates);
 
-  let lyricsPath: string | undefined = msg.path.substring(0, msg.path.lastIndexOf('.')) + '.lrc';
+  let lyricsPath: string | undefined = dstPath.substring(0, dstPath.lastIndexOf('.')) + '.lrc';
   if (!existsSync(lyricsPath)) lyricsPath = undefined;
 
-  const extension = msg.path.substring(msg.path.lastIndexOf('.'));
+  const extension = dstPath.substring(dstPath.lastIndexOf('.'));
   const isVideo = ['mkv', 'mp4', 'webm'].includes(extension.toLowerCase());
 
   await i.publish(Queues.SONG_REQUEST_COMPLETE, {
     ...msg,
-    downloadPath: msg.path.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
+    downloadPath: dstPath.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
     lyricsPath: lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
     stemsPath: stemsPath.replace(Paths.STEMS_PATH, '').replace(/^[/\\]+/, ''),
     isVideo,
