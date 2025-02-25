@@ -36,24 +36,29 @@ export default function Downloader({ onDownloadComplete, onInputChanged, socket,
     const handleMessage = (e: MessageEvent) => {
       const message: WebSocketServerMessage = JSON.parse(e.data.toString());
       if (!message) return;
-      if (message.type === 'download_start') {
-        setProcessingState(`Attempting to download "${message.query}"`);
-      } else if (message.type === 'download_complete') {
-        setProcessingState(`Downloaded "${message.name}"`);
-      } else if (message.type === 'demucs_start') {
-        setProcessingState(`Calling demucs on ${message.name}`);
-      } else if (message.type === 'demucs_progress') {
-        if (message.progress < 1) {
-          setProcessingState(`Demucs progress on ${message.name}: ${Math.round(message.progress * 10000) / 100}%`);
-        } else {
-          setProcessingState(`Demucs doing final processing and cleanup on ${message.name}`);
-        }
-      } else if (message.type === 'demucs_complete') {
-        setProcessingState(undefined);
+      if (message.type === 'song_request_added') {
         onDownloadComplete();
-      } else if (message.type === 'demucs_error') {
-        setProcessingState(`Demucs error: ${message.message}`);
       }
+      // Current setup doesn't broadcast progress updates! Keeping this for now for posterity
+      //
+      // if (message.type === 'download_start') {
+      //   setProcessingState(`Attempting to download "${message.query}"`);
+      // } else if (message.type === 'download_complete') {
+      //   setProcessingState(`Downloaded "${message.name}"`);
+      // } else if (message.type === 'demucs_start') {
+      //   setProcessingState(`Calling demucs on ${message.name}`);
+      // } else if (message.type === 'demucs_progress') {
+      //   if (message.progress < 1) {
+      //     setProcessingState(`Demucs progress on ${message.name}: ${Math.round(message.progress * 10000) / 100}%`);
+      //   } else {
+      //     setProcessingState(`Demucs doing final processing and cleanup on ${message.name}`);
+      //   }
+      // } else if (message.type === 'demucs_complete') {
+      //   setProcessingState(undefined);
+      //   onDownloadComplete();
+      // } else if (message.type === 'demucs_error') {
+      //   setProcessingState(`Demucs error: ${message.message}`);
+      // }
     };
     socket.addEventListener('message', handleMessage);
     return () => socket.removeEventListener('message', handleMessage);
