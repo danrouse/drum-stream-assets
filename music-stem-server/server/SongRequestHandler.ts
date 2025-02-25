@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import { db } from './database';
 import { Queues, Payloads, JobInterface } from '../../shared/RabbitMQ';
-import { createLogger } from '../../shared/util';
+import { createLogger, isURL } from '../../shared/util';
 import { WebSocketBroadcaster, WebSocketMessage } from '../../shared/messages';
 
 interface SongRequestOptions {
@@ -74,20 +74,32 @@ export default class SongRequestHandler {
     onSuccess?: (songTitle: string) => void,
     onFailure?: (errorType: string) => void,
   ) {
-    // TODO: Preprocess query to remove URL args
-    // TODO: Check for exact match of song request.
+    // remove unnecessary query params from URLs to help with duplicate detection
+    if (isURL(query)) {
+      const url = new URL(query);
+      url.searchParams.delete('si');
+      url.searchParams.delete('index');
+      url.searchParams.delete('playlist');
+      url.searchParams.delete('context');
+      url.searchParams.delete('feature');
+      url.searchParams.delete('ab_channel');
+      url.searchParams.delete('list');
+      url.search = url.searchParams.toString();
+      query = url.toString();
+    }
     let existingSongId: number | undefined | null;
-    const priorSongRequest = await db.selectFrom('songRequests')
+    const priorSongRequest = (await db.selectFrom('songRequests')
       .leftJoin('songs', 'songId', 'songs.id')
-      .select(['songId', 'songs.stemsPath'])
+      .leftJoin('downloads', 'downloadId', 'downloads.id')
+      .select(['songId', 'stemsPath', 'artist', 'title', 'album', 'track', 'downloads.path as downloadPath', 'lyricsPath', 'isVideo'])
       .selectAll('songs')
       .where('query', '=', query)
-      .execute();
-    if (priorSongRequest.length) {
-      existingSongId = priorSongRequest[0].songId;
+      .execute())[0];
+    if (priorSongRequest) {
+      existingSongId = priorSongRequest.songId;
     }
-    //       If it exists, create a new record but tie it to the existing records.
-    const songRequest = await db.insertInto('songRequests').values({
+
+    const songRequest = (await db.insertInto('songRequests').values({
       songId: existingSongId,
       query,
       priority: options?.priority || 0,
@@ -97,33 +109,33 @@ export default class SongRequestHandler {
       requester: options?.requesterName,
       twitchRewardId: options?.twitchRewardId,
       twitchRedemptionId: options?.twitchRedemptionId,
-    }).returning('id as id').execute();
+    }).returning('id as id').execute())[0];
 
-    if (onSuccess) this.successCallbacks[songRequest[0].id] = onSuccess;
-    if (onFailure) this.failureCallbacks[songRequest[0].id] = onFailure;
+    if (onSuccess) this.successCallbacks[songRequest.id] = onSuccess;
+    if (onFailure) this.failureCallbacks[songRequest.id] = onFailure;
 
     if (existingSongId) {
       setImmediate(async () => {
         this.handleSongRequestComplete({
-          id: songRequest[0].id,
-          downloadPath: '',
-          stemsPath: priorSongRequest[0].stemsPath!,
-          lyricsPath: '',
-          isVideo: false,
-          artist: '',
-          title: '',
-          album: '',
-          track: 0,
-          duration: 0,
+          id: songRequest.id,
+          stemsPath: priorSongRequest.stemsPath!,
+          downloadPath: priorSongRequest.downloadPath!,
+          lyricsPath: priorSongRequest.lyricsPath!,
+          isVideo: Boolean(priorSongRequest.isVideo),
+          artist: priorSongRequest.artist!,
+          title: priorSongRequest.title!,
+          album: priorSongRequest.album!,
+          track: priorSongRequest.track!,
+          duration: priorSongRequest.duration!,
         });
       });
     } else {
       this.jobs.publish(Queues.SONG_REQUEST_CREATED, {
-        id: songRequest[0].id,
+        id: songRequest.id,
         query,
       });
     }
-    return songRequest[0].id;
+    return songRequest.id;
   }
 
   private async handleSongRequestComplete(payload: Payloads[typeof Queues.SONG_REQUEST_COMPLETE]) {
@@ -137,7 +149,7 @@ export default class SongRequestHandler {
       if (song) {
         const existingSongRequest = await db.selectFrom('songRequests')
           .select('id')
-          .where('songId', '=', song.id!)
+          .where('songId', '=', song.id)
           .where('status', '=', 'ready')
           .execute();
         if (existingSongRequest.length) {
