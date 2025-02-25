@@ -4,7 +4,6 @@ dist-electron
 
 assets
 streamer.bot
-bin
 
 *cookies.txt
 .env
