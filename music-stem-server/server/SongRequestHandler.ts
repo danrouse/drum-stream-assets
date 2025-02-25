@@ -1,61 +1,35 @@
-import { execSync } from 'child_process';
-import { basename } from 'path';
 import { sql } from 'kysely';
-import Demucs from './wrappers/demucs';
-import downloadSong from './downloadSong';
-import getSongTags from './getSongTags';
-import * as Paths from './paths';
-import { db, Song } from './database';
-import SongDownloadError from './SongDownloadError';
+import { db } from './database';
+import { Queues, Payloads, JobInterface } from '../../shared/RabbitMQ';
 import { createLogger } from '../../shared/util';
-import { SongRequestSource, ProcessedSong, DownloadedSong, WebSocketBroadcaster, WebSocketMessage } from '../../shared/messages';
-
-interface DemucsCallback {
-  song: DownloadedSong;
-  callback: (song?: ProcessedSong, isDuplicate?: boolean) => void;
-}
+import { WebSocketBroadcaster, WebSocketMessage } from '../../shared/messages';
 
 interface SongRequestOptions {
   priority: number,
   noShenanigans: boolean,
   maxDuration: number,
   minViews: number,
+  requesterName: string,
+  twitchRewardId?: string,
+  twitchRedemptionId?: string,
 }
 
 export default class SongRequestHandler {
-  private demucs: Demucs;
-  private demucsCallbacks: DemucsCallback[] = [];
   private broadcast: WebSocketBroadcaster;
+  private jobs: JobInterface;
+  private successCallbacks: { [id: number]: (songTitle: string) => void } = {};
+  private failureCallbacks: { [id: number]: (errorType: string) => void } = {};
 
   constructor(broadcast: WebSocketBroadcaster) {
-    this.demucs = new Demucs(Paths.DEMUCS_OUTPUT_PATH);
-    this.demucs.onProcessingStart = (song) => broadcast({ type: 'demucs_start', name: song.basename });
-    this.demucs.onProcessingProgress = (song, progress) => broadcast({ type: 'demucs_progress', progress, name: song.basename });
-    this.demucs.onProcessingComplete = async (song, isDuplicate) => {      
-      for (let callback of this.demucsCallbacks.filter(s => s.song.basename === song.basename)) {
-        await callback.callback(song, isDuplicate);
-      }
-      this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
-      broadcast({ type: 'demucs_complete', stems: `/stems/${song.basename}` });
-    };
-    this.demucs.onProcessingError = async (song, errorMessage) => {
-      for (let callback of this.demucsCallbacks.filter(s => s.song.basename === song.basename)) {
-        await callback.callback();
-      }
-      this.demucsCallbacks = this.demucsCallbacks.filter(s => s.song.basename !== song.basename);
-      broadcast({ type: 'demucs_error', message: errorMessage });
-    };
-
     this.broadcast = broadcast;
+    this.jobs = new JobInterface();
+    this.jobs.listen(Queues.SONG_REQUEST_COMPLETE, this.handleSongRequestComplete.bind(this));
+    this.jobs.listen(Queues.SONG_REQUEST_ERROR, this.handleSongRequestError.bind(this));
   }
 
   public messageHandler = async (payload: WebSocketMessage) => {
     if (payload.type === 'song_request') {
-      try {
-        await this.execute(payload.query, { maxDuration: 12000 });
-      } catch (e) {
-        this.broadcast({ type: 'download_error', query: payload.query });
-      }
+      await this.execute(payload.query, { maxDuration: 12000 });
     } else if (
       (payload.type === 'song_playback_completed' || payload.type === 'song_request_removed') &&
       payload.songRequestId
@@ -71,55 +45,6 @@ export default class SongRequestHandler {
   };
 
   private log = createLogger('SongRequestHandler');
-
-  private processDownloadedSong(
-    song: DownloadedSong,
-    callback?: (song?: ProcessedSong, isDuplicate?: boolean) => void,
-    ignoreDuplicates: boolean = true
-  ) {
-    this.log(`Running ffmpeg-normalize on ${song.basename}`);
-    try {
-      execSync(`ffmpeg-normalize "${song.path}" -o "${song.path}" -c:a aac -nt rms -t -16 -f`);
-    } catch (e) {
-      // Let any errors pass, no big deal
-    }
-    this.demucs.queue(song, ignoreDuplicates);
-    if (callback) {
-      this.demucsCallbacks.push({ song, callback });
-    }
-  }
-
-  public async reprocessSong(songId: number) {
-    const song = await db.selectFrom('songs')
-      .innerJoin('downloads', 'songs.downloadId', 'downloads.id')
-      .select(['downloads.path', 'downloads.isVideo', 'songs.stemsPath'])
-      .where('songs.id', '=', songId)
-      .execute();
-    return new Promise<ProcessedSong | undefined>((resolve) => {
-      this.processDownloadedSong({
-        basename: basename(song[0].path).substring(0, basename(song[0].path).lastIndexOf('.')),
-        isVideo: Boolean(song[0].isVideo),
-        path: song[0].path,
-      }, (processedSong, isDuplicate) => {
-        resolve(processedSong);
-      }, false);
-    });
-  }
-
-  private async downloadSong(query: string, options: Partial<SongRequestOptions> = {}) {
-    this.log('Attempting to download:', query);
-    this.broadcast({ type: 'download_start', query });
-    const downloadedSong = await downloadSong(query, Paths.DOWNLOADS_PATH, options);
-  
-    if (downloadedSong) {
-      this.broadcast({ type: 'download_complete', name: downloadedSong.basename });
-      this.log('Downloaded:', downloadedSong.basename);
-    } else {
-      this.broadcast({ type: 'download_error', query });
-      this.log('Received no basename from spotdl');
-    }
-    return downloadedSong;
-  }
 
   public async getExistingSongRequest(query: string, requesterName: string) {
     const sameQuery = await db.selectFrom('songRequests')
@@ -143,101 +68,133 @@ export default class SongRequestHandler {
     }
   }
   
-  public execute(query: string, options: Partial<SongRequestOptions> = {}, request?: SongRequestSource) {
-    return new Promise<[ProcessedSong, number]>(async (resolve, reject) => {
-      try {
-        const downloadedSong = await this.downloadSong(query, options);
-  
-        if (downloadedSong) {
-          const tags = await getSongTags(downloadedSong.path);
-          if (options.maxDuration && tags.format?.duration > options.maxDuration) {
-            reject(new SongDownloadError('TOO_LONG'));
-            this.broadcast({ type: 'download_error', query });
-            return;
-          }
+  public async execute(
+    query: string,
+    options: Partial<SongRequestOptions> = {},
+    onSuccess?: (songTitle: string) => void,
+    onFailure?: (errorType: string) => void,
+  ) {
+    // TODO: Preprocess query to remove URL args
+    // TODO: Check for exact match of song request.
+    let existingSongId: number | undefined | null;
+    const priorSongRequest = await db.selectFrom('songRequests')
+      .leftJoin('songs', 'songId', 'songs.id')
+      .select(['songId', 'songs.stemsPath'])
+      .selectAll('songs')
+      .where('query', '=', query)
+      .execute();
+    if (priorSongRequest.length) {
+      existingSongId = priorSongRequest[0].songId;
+    }
+    //       If it exists, create a new record but tie it to the existing records.
+    const songRequest = await db.insertInto('songRequests').values({
+      songId: existingSongId,
+      query,
+      priority: options?.priority || 0,
+      noShenanigans: Number(options?.noShenanigans || 0),
+      order: 0,
+      status: 'processing',
+      requester: options?.requesterName,
+      twitchRewardId: options?.twitchRewardId,
+      twitchRedemptionId: options?.twitchRedemptionId,
+    }).returning('id as id').execute();
 
-          const songRequest = await db.insertInto('songRequests').values({
-            query,
-            priority: options?.priority || 0,
-            noShenanigans: Number(options?.noShenanigans || 0),
-            order: 0,
-            status: 'processing',
-            requester: request?.requesterName,
-            twitchRewardId: request?.twitchRewardId,
-            twitchRedemptionId: request?.twitchRedemptionId,
-          }).returning('id as id').execute();
-          const download = await db.insertInto('downloads').values({
-            path: downloadedSong.path.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
-            lyricsPath: downloadedSong.lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
-            isVideo: Number(downloadedSong.isVideo),
-            songRequestId: songRequest[0].id,
-          }).returning('id as id').execute();
+    if (onSuccess) this.successCallbacks[songRequest[0].id] = onSuccess;
+    if (onFailure) this.failureCallbacks[songRequest[0].id] = onFailure;
 
-          this.processDownloadedSong(downloadedSong, async (processedSong, isDuplicate) => {
-            if (processedSong) {
-              let song: Partial<Song>[];
-              if (isDuplicate) {
-                song = await db.selectFrom('songs')
-                  .select('id')
-                  .where('stemsPath', '=', processedSong.stemsPath)
-                  .execute();
-                const existingSongRequest = await db.selectFrom('songRequests')
-                  .select('id')
-                  .where('songId', '=', song[0].id!)
-                  .where('status', '=', 'ready')
-                  .execute();
-                if (existingSongRequest.length) {
-                  // Cancel the new song request because one already exists
-                  await db.updateTable('songRequests')
-                    .set({ status: 'cancelled' })
-                    .where('id', '=', songRequest[0].id)
-                    .execute();
-                  return reject(new SongDownloadError('REQUEST_ALREADY_EXISTS'));
-                }
-              } else {
-                song = await db.insertInto('songs').values({
-                  artist: String(tags.common?.artist) || '',
-                  title: String(tags.common?.title) || '',
-                  album: String(tags.common?.album) || '',
-                  track: Number(tags.common?.track.no),
-                  duration: Number(tags.format!.duration),
-                  stemsPath: processedSong.stemsPath,
-                  downloadId: download[0].id,
-                }).returning('id as id').execute();
-              }
-              await db.updateTable('songRequests')
-                .set({ status: 'ready', songId: song[0].id })
-                .where('id', '=', songRequest[0].id)
-                .execute();
-              
-              // Recalculate song ordering: bump priority of requests that are more than half an hour old
-              const minutesOldToBump = 40;
-              await db.updateTable('songRequests')
-                .set({ priority: 2 })
-                .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - (minutesOldToBump * 60 * 1000)).toISOString()})`)
-                .where('priority', '<', 2)
-                .where('status', '=', 'ready')
-                .execute();
-              
-              this.log(`Song request added from request "${downloadedSong.basename}", broadcasting message...`);
-              this.broadcast({ type: 'song_request_added', songRequestId: songRequest[0].id });
-              resolve([processedSong, songRequest[0].id]);
-            } else {
-              await db.updateTable('songRequests')
-                .set({ status: 'cancelled' })
-                .where('id', '=', songRequest[0].id)
-                .execute();
-              reject(new SongDownloadError('DEMUCS_FAILURE'));
-            }
-          });
-        } else {
-          reject();
-          this.broadcast({ type: 'download_error', query });
+    if (existingSongId) {
+      setImmediate(async () => {
+        this.handleSongRequestComplete({
+          id: songRequest[0].id,
+          downloadPath: '',
+          stemsPath: priorSongRequest[0].stemsPath!,
+          lyricsPath: '',
+          isVideo: false,
+          artist: '',
+          title: '',
+          album: '',
+          track: 0,
+          duration: 0,
+        });
+      });
+    } else {
+      this.jobs.publish(Queues.SONG_REQUEST_CREATED, {
+        id: songRequest[0].id,
+        query,
+      });
+    }
+    return songRequest[0].id;
+  }
+
+  private async handleSongRequestComplete(payload: Payloads[typeof Queues.SONG_REQUEST_COMPLETE]) {
+    this.log('handleSongRequestComplete', payload);
+
+    try {
+      let song = (await db.selectFrom('songs')
+        .select('id')
+        .where('stemsPath', '=', payload.stemsPath)
+        .execute())[0];
+      if (song) {
+        const existingSongRequest = await db.selectFrom('songRequests')
+          .select('id')
+          .where('songId', '=', song.id!)
+          .where('status', '=', 'ready')
+          .execute();
+        if (existingSongRequest.length) {
+          // Cancel the new song request because one already exists
+          await db.updateTable('songRequests')
+            .set({ status: 'cancelled' })
+            .where('id', '=', payload.id)
+            .execute();
+          throw new Error('REQUEST_ALREADY_EXISTS');
         }
-      } catch (e) {
-        reject(e);
-        this.broadcast({ type: 'download_error', query });
+      } else {
+        const download = await db.insertInto('downloads').values({
+          path: payload.downloadPath,
+          lyricsPath: payload.lyricsPath,
+          isVideo: Number(payload.isVideo),
+          songRequestId: payload.id,
+        }).returning('id as id').execute();
+        song = (await db.insertInto('songs').values({
+          artist: payload.artist,
+          title: payload.title,
+          album: payload.album,
+          track: payload.track,
+          duration: payload.duration,
+          stemsPath: payload.stemsPath,
+          downloadId: download[0].id,
+        }).returning('id as id').execute())[0];
       }
-    });
+      await db.updateTable('songRequests')
+        .set({ status: 'ready', songId: song.id })
+        .where('id', '=', payload.id)
+        .execute();
+      
+      // Recalculate song ordering: bump priority of requests that are more than half an hour old
+      const minutesOldToBump = 40;
+      await db.updateTable('songRequests')
+        .set({ priority: 2 })
+        .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - (minutesOldToBump * 60 * 1000)).toISOString()})`)
+        .where('priority', '<', 2)
+        .where('status', '=', 'ready')
+        .execute();
+      
+      this.broadcast({ type: 'song_request_added', songRequestId: payload.id });
+
+      this.successCallbacks[payload.id]?.([payload.artist, payload.title].filter(s => s).join(' - '));
+    } catch (e) {
+      return this.handleSongRequestError({
+        error: e instanceof Error ? e : new Error(e as string),
+        id: payload.id,
+      });
+    }
+  }
+
+  private async handleSongRequestError(payload: Payloads[typeof Queues.SONG_REQUEST_ERROR]) {
+    await db.updateTable('songRequests')
+      .set({ status: 'cancelled' })
+      .where('id', '=', payload.id)
+      .execute();
+    this.failureCallbacks[payload.id]?.(payload.error.message);
   }
 }

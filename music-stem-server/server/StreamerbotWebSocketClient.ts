@@ -3,7 +3,6 @@ import { sql } from 'kysely';
 import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import { db } from './database';
-import SongDownloadError from './SongDownloadError';
 import * as queries from './queries';
 import { createLogger, formatTime } from '../../shared/util';
 import { get7tvEmotes } from '../../shared/twitchEmotes';
@@ -835,7 +834,7 @@ export default class StreamerbotWebSocketClient {
         `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
         `please wait until one of your songs plays before requesting another!`
       );
-      throw new SongDownloadError('TOO_MANY_REQUESTS');
+      throw new Error('TOO_MANY_REQUESTS');
     }
 
     // Check if the user is on cooldown for their next song request
@@ -847,7 +846,7 @@ export default class StreamerbotWebSocketClient {
         const now = new Date().getTime();
         if (availableAt > now) {
           await this.sendTwitchMessage(`@${fromUsername} Your next song request will be available in ${formatTime((availableAt - now) / 1000)}! (wait at least the length of your last requested song for your next one)`);
-          throw new SongDownloadError('COOLDOWN');
+          throw new Error('COOLDOWN');
         }
       }
     }
@@ -867,49 +866,55 @@ export default class StreamerbotWebSocketClient {
     const MINIMUM_REQUEST_LENGTH = 4;
     if (userInput.length <= MINIMUM_REQUEST_LENGTH) {
       await this.doAction('!how');
-      throw new SongDownloadError('MINIMUM_QUERY_LENGTH');
+      throw new Error('MINIMUM_QUERY_LENGTH');
     }
 
     await this.sendTwitchMessage(`Working on it, @${fromUsername}! Give me a moment to download that song.`);
 
-    try {
-      const [song, songRequestId] = await this.songRequestHandler.execute(
-        userInput,
-        { priority, noShenanigans, maxDuration, minViews: this.isUserAdmin(fromUsername) ? undefined : 1000 },
-        { requesterName: fromUsername, twitchRewardId, twitchRedemptionId },
-      );
-      // If it's a sub's first song request of the stream, set it to priority 1
-      // Waiting until the song request is added to ensure it doesn't get set erroneously
-      const viewer = this.viewers.find(v => v.login.toLowerCase() === fromUsername.toLowerCase());
-      if (viewer?.subscribed) {
-        const requestsFromUserToday = await queries.requestsByUserToday(fromUsername);
-        if (requestsFromUserToday.length === 1 && requestsFromUserToday[0].priority === 0) {
-          await db.updateTable('songRequests')
-            .set({ priority: 1 })
-            .where('id', '=', songRequestId)
-            .execute();
-          await this.sendTwitchMessage(`@${fromUsername} Your first song request of the day has been bumped up!`);
+    const songRequestId = await this.songRequestHandler.execute(
+      userInput,
+      {
+        priority,
+        noShenanigans,
+        maxDuration,
+        minViews: this.isUserAdmin(fromUsername) ? undefined : 1000,
+        requesterName: fromUsername,
+        twitchRewardId,
+        twitchRedemptionId,
+      },
+      async (songTitle: string) => {
+        // If it's a sub's first song request of the stream, set it to priority 1
+        // Waiting until the song request is added to ensure it doesn't get set erroneously
+        const viewer = this.viewers.find(v => v.login.toLowerCase() === fromUsername.toLowerCase());
+        if (viewer?.subscribed) {
+          const requestsFromUserToday = await queries.requestsByUserToday(fromUsername);
+          if (requestsFromUserToday.length === 1 && requestsFromUserToday[0].priority === 0) {
+            await db.updateTable('songRequests')
+              .set({ priority: 1 })
+              .where('id', '=', songRequestId)
+              .execute();
+            await this.sendTwitchMessage(`@${fromUsername} Your first song request of the day has been bumped up!`);
+          }
         }
-      }
 
-      const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
-      const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
-      await this.sendTwitchMessage(`@${fromUsername} ${song.basename} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
-    } catch (e: any) {
-      let message = 'There was an error adding your song request!';
-      if (e instanceof SongDownloadError) {
-        if (e.type === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
-        if (e.type === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
-        if (e.type === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
-        if (e.type === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-        if (e.type === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)} (for songs up to ${formatTime(LONG_SONG_REQUEST_MAX_DURATION)}, redeem a Long Song Request!)`;
-        if (e.type === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
-        if (e.type === 'MINIMUM_VIEWS') message = 'Videos with under 1000 views are not allowed.'
-        if (e.type === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.'
+        const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
+        const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
+        await this.sendTwitchMessage(`@${fromUsername} ${songTitle} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
+      },
+      async (errorType) => {
+        let message = 'There was an error adding your song request!';
+        if (errorType === 'VIDEO_UNAVAILABLE') message = 'That video is not available.';
+        if (errorType === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
+        if (errorType === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
+        if (errorType === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
+        if (errorType === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)} (for songs up to ${formatTime(LONG_SONG_REQUEST_MAX_DURATION)}, redeem a Long Song Request!)`;
+        if (errorType === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
+        if (errorType === 'MINIMUM_VIEWS') message = 'Videos with under 1000 views are not allowed.'
+        if (errorType === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.'
+        await this.sendTwitchMessage(`@${fromUsername} ${message}`);
+        // TODO: rethrow to allow to catch for refund
+        // throw e;
       }
-      await this.sendTwitchMessage(`@${fromUsername} ${message}`);
-      // rethrow to allow to catch for refund
-      throw e;
-    }
+    );
   }
 }

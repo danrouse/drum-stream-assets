@@ -12,7 +12,7 @@ import SongRequestHandler from './SongRequestHandler';
 import MIDIIOController from './MIDIIOController';
 import DiscordIntegration from './DiscordIntegration';
 import * as Queries from './queries';
-import * as Paths from './paths';
+import * as Paths from '../../shared/paths';
 import { SongData } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
 
@@ -129,16 +129,6 @@ app.get('/test-twitch-chat-command', async (req, res) => {
     }
   })
   res.send('ok');
-});
-
-app.get('/reprocess', async (req, res) => {
-  if (!req.query.id) {
-    return res.status(400).send('need id query param');
-  }
-  log(`Reprocessing song with ID ${req.query.id}`);
-  await songRequestHandler.reprocessSong(Number(req.query.id));
-  log(`Done reprocessing song with ID ${req.query.id}`);
-  res.status(200).send('OK');
 });
 
 if (process.env.NODE_ENV === 'production') {

@@ -11,28 +11,6 @@ export type StreamerbotViewer = {
 };
 
 export type WebSocketServerMessage = {
-  type: 'download_start',
-  query: string,
-} | {
-  type: 'download_complete',
-  name: string,
-} | {
-  type: 'download_error',
-  query: string,
-} | {
-  type: 'demucs_start',
-  name: string,
-} | {
-  type: 'demucs_progress',
-  progress: number,
-  name: string,
-} | {
-  type: 'demucs_complete',
-  stems: string,
-} | {
-  type: 'demucs_error',
-  message: string,
-} | {
   type: 'song_request_added',
   songRequestId: number,
 } | {
@@ -163,23 +141,4 @@ export interface LegacySongData {
 
   requesterName?: string;
   requestTime?: Date;
-}
-
-export interface DownloadedSong {
-  basename: string;
-  path: string;
-
-  isVideo: boolean;
-  lyricsPath?: string;
-}
-
-export interface ProcessedSong {
-  basename: string;
-  stemsPath: string;
-}
-
-export interface SongRequestSource {
-  requesterName: string;
-  twitchRewardId?: string;
-  twitchRedemptionId?: string;
 }

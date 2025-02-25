@@ -11,7 +11,7 @@ import {
 import SQLite from 'better-sqlite3';
 import { join } from 'path';
 import { readdirSync, readFileSync } from 'fs';
-import * as Paths from './paths';
+import * as Paths from '../../shared/paths';
 import { LegacySongData } from '../../shared/messages';
 
 type CreatedAtType = ColumnType<string, string | undefined, string>;
