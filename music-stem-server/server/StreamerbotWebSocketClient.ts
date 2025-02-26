@@ -142,6 +142,10 @@ export default class StreamerbotWebSocketClient {
       this.handleSongChanged(payload.song);
     } else if (payload.type === 'guess_the_song_round_complete') {
       this.handleGuessTheSongRoundComplete(payload.winner, payload.time, payload.otherWinners);
+    } else if (payload.type === 'song_played') {
+      await this.doAction('Queue: Pause', { queueName: 'TTS' });
+    } else if (payload.type === 'song_playpack_paused') {
+      await this.doAction('Queue: Unpause', { queueName: 'TTS' });
     } else if (payload.type === 'song_playback_started') {
       this.handleSongStarted(payload.id, payload.songRequestId);
     } else if (payload.type === 'song_playback_completed') {
