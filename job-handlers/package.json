@@ -4,7 +4,7 @@
   "type": "module",
   "main": "main.ts",
   "scripts": {
-    "start": "tsx main.ts",
+    "start": "tsx main.ts 2>&1 | tee --append logs/log.txt",
     "dev": "tsx watch main.ts"
   },
   "dependencies": {
