@@ -5,6 +5,7 @@ html, body, #app {
   flex-direction: column;
   justify-content: flex-end;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
