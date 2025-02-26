@@ -46,7 +46,7 @@ await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
   let lyricsPath: string | undefined = dstPath.substring(0, dstPath.lastIndexOf('.')) + '.lrc';
   if (!existsSync(lyricsPath)) lyricsPath = undefined;
 
-  const extension = dstPath.substring(dstPath.lastIndexOf('.'));
+  const extension = dstPath.substring(dstPath.lastIndexOf('.') + 1);
   const isVideo = ['mkv', 'mp4', 'webm'].includes(extension.toLowerCase());
 
   await i.publish(Queues.SONG_REQUEST_COMPLETE, {
