@@ -130,6 +130,29 @@ function createAudioDisplayWindow() {
   return win;
 }
 
+function createHeartRateWindow() {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'Heart Rate',
+    width: 300,
+    height: 100,
+  });
+  win.setIgnoreMouseEvents(true);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/HeartRateWindow/index.html');
+  win.webContents.on('select-bluetooth-device', (event, deviceList, callback) => {
+    event.preventDefault();
+    const device = deviceList.find((dev) => dev.deviceName.startsWith('H6M'));
+    if (device) {
+      callback(device.deviceId);
+    }
+  });
+  win.webContents.on('dom-ready', () => {
+    win.webContents.executeJavaScript('_initialize()', true);
+  });
+
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 let windows: BrowserWindow[] = [];
@@ -182,6 +205,7 @@ function createWindows() {
     createSongHistoryWindow(),
     createGuessTheSongWindow(),
     createAudioDisplayWindow(),
+    createHeartRateWindow(),
   ];
 }
 

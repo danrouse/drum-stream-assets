@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/web-bluetooth": "^0.0.20",
     "@types/ws": "^8.5.12",
     "electron": "^30.0.1",
     "electron-builder": "^24.13.3",
