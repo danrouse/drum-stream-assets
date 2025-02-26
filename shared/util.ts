@@ -1,6 +1,6 @@
 export const isURL = (s: string) => {
   try {
-    return Boolean(new URL(s));
+    return Boolean(s.match(/^\s*https?:/) && new URL(s));
   } catch (err) {
     return false;
   }
