@@ -82,7 +82,7 @@ export default class StreamerbotWebSocketClient {
 
   private isConnected = false;
   private isTestMode = false;
-  
+
   private isShenanigansEnabled = true;
   private lastSongWasNoShens = false;
   private pinNextEmoteForUser?: string;
@@ -154,7 +154,7 @@ export default class StreamerbotWebSocketClient {
       // Refund reward redemption SRs if removed
       // REFUND DISABLED: priority song requests were getting refunded if
       // not going directly (like "my song in queue" and then doing it manually)
-      
+
       // const row = await db.selectFrom('songRequests')
       //   .select(['twitchRewardId', 'twitchRedemptionId'])
       //   .where('id', '=', payload.songRequestId)
@@ -193,7 +193,7 @@ export default class StreamerbotWebSocketClient {
       },
       args
     }, undefined, 30000);
-    
+
     if (result.status === 'error') {
       this.streamerbotActionQueue.push([actionName, args]);
       this.log('doAction error, queueing retry...');
@@ -227,7 +227,7 @@ export default class StreamerbotWebSocketClient {
         endedAt: new Date().toISOString(),
       }])
       .execute();
-    
+
     // Notify chat of any votes that happened during playback
     const votes = await queries.songVotesSinceTime(songId, this.currentSongSelectedAtTime!);
     if (Number(votes[0].voteCount) > 0) {
@@ -319,7 +319,7 @@ export default class StreamerbotWebSocketClient {
         await this.sendTwitchMessage(`${winner} is on a ${streak[0].streak} round win streak!`);
       }
     }
-    
+
     // Update scores in leaderboard
     const dailyScores = await queries.nameThatTuneScores()
       .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
@@ -371,14 +371,14 @@ export default class StreamerbotWebSocketClient {
           });
         });
       }
-      
+
       // if two people sent the same emote-only message twice in a row, echo it
       if (payload.data.message.message === this.previousMessage && payload.data.message.username !== this.previousMessageUser && !this.messageRepeatTimer) {
         const wholeMessageIsTwitchEmote = payload.data.message.emotes[0]?.startIndex === 0 &&
           payload.data.message.emotes[0]?.endIndex === payload.data.message.message.length - 1;
         const isOwnTwitchEmote = payload.data.message.emotes[0]?.name.startsWith('dannyt75');
         const wholeMessage7tvEmote = await get7tvEmotes([payload.data.message.message]);
-        
+
         if ((wholeMessageIsTwitchEmote && isOwnTwitchEmote) || wholeMessage7tvEmote.length) {
           await this.sendTwitchMessage(payload.data.message.message);
           this.messageRepeatTimer = setTimeout(() => { delete this.messageRepeatTimer; }, 30000);
@@ -682,7 +682,7 @@ export default class StreamerbotWebSocketClient {
       duration: TwitchRewardDurations[rewardName],
       amount: TwitchRewardAmounts[rewardName],
     });
-    
+
     // For mutually-exclusive rewards, pause everything in the category
     // until this redemption expires
     const mutuallyExclusiveGroup = TwitchRewardGroups.find(rewardNames => rewardNames.includes(rewardName));
@@ -697,7 +697,7 @@ export default class StreamerbotWebSocketClient {
     const message = payload.data.message.trim();
     const userName = payload.data.user.display; // user.display vs user.name?
     const commandName = Streamerbot.CommandAliases[payload.data.command];
-    
+
     // Unregistered command triggered
     if (!commandName) return;
 

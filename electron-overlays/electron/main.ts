@@ -166,7 +166,7 @@ const createWebSocket = () => {
       console.error('Error parsing received WebSocket message:', data.toString());
       return;
     }
-    
+
     let { type, ...payload } = message;
 
     // Load lyrics from filesystem and add to song_changed payloads
@@ -178,7 +178,7 @@ const createWebSocket = () => {
       };
       prevSongChangedPayload = payload;
     }
-    
+
     windows.forEach(win => win.webContents.send(type, payload));
   });
   ws.on('error', () => {});
