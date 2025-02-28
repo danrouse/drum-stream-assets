@@ -479,8 +479,18 @@ export default class StreamerbotWebSocketClient {
     }
   }
 
-  private songRequestMaxDurationForUser(userName: string) {
-    const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
+  private async getViewer(userName: string) {
+    let viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
+    if (!viewer) {
+      // Try one time to update the viewer list to find them
+      await this.updateActiveViewers();
+      viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
+    }
+    return viewer;
+  }
+
+  private async songRequestMaxDurationForUser(userName: string) {
+    const viewer = await this.getViewer(userName);
     let maxDuration = SONG_REQUEST_MAX_DURATION; // 7 mins default max
     if (viewer?.role === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
     if (viewer?.role === 'Moderator') maxDuration = 60 * 20; // 20 mins for mod
@@ -488,8 +498,8 @@ export default class StreamerbotWebSocketClient {
     return maxDuration;
   }
 
-  private songRequestMaxCountForUser(userName: string) {
-    const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
+  private async songRequestMaxCountForUser(userName: string) {
+    const viewer = await this.getViewer(userName);
     let limit = 1;
     if (viewer?.subscribed) limit = 2;
     if (viewer?.role === 'VIP') limit = 2;
@@ -498,8 +508,8 @@ export default class StreamerbotWebSocketClient {
     return limit;
   }
 
-  private songRequestMinViewsForUser(userName: string) {
-    const viewer = this.viewers.find(v => v.login.toLowerCase() === userName.toLowerCase());
+  private async songRequestMinViewsForUser(userName: string) {
+    const viewer = await this.getViewer(userName);
     let minViews: number | undefined = 1000;
     if (viewer?.subscribed) minViews = 100;
     if (viewer?.role === 'VIP') minViews = undefined;
@@ -508,8 +518,8 @@ export default class StreamerbotWebSocketClient {
     return minViews;
   }
 
-  private isUserAdmin(userName: string) {
-    const viewer = this.viewers.find(v =>  v.login.toLowerCase() === userName.toLowerCase());
+  private async isUserAdmin(userName: string) {
+    const viewer = await this.getViewer(userName);
     return viewer?.role === 'Broadcaster' || viewer?.role === 'Moderator';
   }
 
@@ -548,7 +558,7 @@ export default class StreamerbotWebSocketClient {
     }, duration);
   }
 
-  private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {  
+  private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
     if (!Object.values(Streamerbot.TwitchRewardIds).includes(payload.data.reward.id)) {
       // A reward was redeemed that is not defined here, nothing to do!
       return;
@@ -587,7 +597,7 @@ export default class StreamerbotWebSocketClient {
           payload.data.user_input,
           payload.data.user_name,
           LONG_SONG_REQUEST_MAX_DURATION,
-          this.songRequestMaxCountForUser(payload.data.user_name),
+          await this.songRequestMaxCountForUser(payload.data.user_name),
           0,
           false,
           payload.data.reward.id,
@@ -614,7 +624,7 @@ export default class StreamerbotWebSocketClient {
           await this.handleSongRequest(
             payload.data.user_input,
             payload.data.user_name,
-            this.songRequestMaxDurationForUser(payload.data.user_name),
+            await this.songRequestMaxDurationForUser(payload.data.user_name),
             0,
             5,
             false,
@@ -642,8 +652,8 @@ export default class StreamerbotWebSocketClient {
           await this.handleSongRequest(
             payload.data.user_input,
             payload.data.user_name,
-            this.songRequestMaxDurationForUser(payload.data.user_name),
-            this.songRequestMaxCountForUser(payload.data.user_name),
+            await this.songRequestMaxDurationForUser(payload.data.user_name),
+            await this.songRequestMaxCountForUser(payload.data.user_name),
             0,
             true,
             payload.data.reward.id,
@@ -699,7 +709,12 @@ export default class StreamerbotWebSocketClient {
 
     if (commandName === 'song request') {
       try {
-        await this.handleSongRequest(message, userName, this.songRequestMaxDurationForUser(userName), this.songRequestMaxCountForUser(userName));
+        await this.handleSongRequest(
+          message,
+          userName,
+          await this.songRequestMaxDurationForUser(userName),
+          await this.songRequestMaxCountForUser(userName)
+        );
       } catch (e) {
         this.log('Song reward redemption failed with error', e);
       }
@@ -848,7 +863,7 @@ export default class StreamerbotWebSocketClient {
     }
 
     // Check if the user is on cooldown for their next song request
-    if (!priority && !this.isUserAdmin(fromUsername)) {
+    if (!priority && !(await this.isUserAdmin(fromUsername))) {
       const lastRequestTime = await queries.lastRequestTimeByUser(fromUsername);
       if (lastRequestTime[0]) {
         const createdAt = new Date(lastRequestTime[0].createdAt + 'Z');
@@ -886,13 +901,14 @@ export default class StreamerbotWebSocketClient {
       }
     }, 500);
 
+    const minViews = await this.songRequestMinViewsForUser(fromUsername);
     const songRequestId = await this.songRequestHandler.execute(
       userInput,
       {
         priority,
         noShenanigans,
         maxDuration,
-        minViews: this.songRequestMinViewsForUser(fromUsername),
+        minViews,
         requesterName: fromUsername,
         twitchRewardId,
         twitchRedemptionId,
@@ -925,7 +941,7 @@ export default class StreamerbotWebSocketClient {
         if (errorMessage === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
         if (errorMessage === 'TOO_LONG') message = `That song is too long! Keep song requests under ${formatTime(maxDuration)} (for songs up to ${formatTime(LONG_SONG_REQUEST_MAX_DURATION)}, redeem a Long Song Request!)`;
         if (errorMessage === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
-        if (errorMessage === 'MINIMUM_VIEWS') message = `Videos with under ${this.songRequestMinViewsForUser(fromUsername)} views are not allowed.`;
+        if (errorMessage === 'MINIMUM_VIEWS') message = `Videos with under ${minViews} views are not allowed.`;
         if (errorMessage === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.';
         await this.sendTwitchMessage(`@${fromUsername} ${message}`);
         hasResponded = true;
