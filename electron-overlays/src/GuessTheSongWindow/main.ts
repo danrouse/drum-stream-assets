@@ -142,11 +142,19 @@ function renderGuessingView(songPool: SongData[], correctSong: SongData) {
   songListElem.classList.remove('results');
   timerElem.classList.remove('results');
 
+  const fadeOuts = [0,1,2,3].toSorted(() => Math.random() - 0.5).reduce((a, i) => {
+    if (songPool[i] !== correctSong && a.length < 2) {
+      a.push(i);
+    }
+    return a;
+  }, []);
   songPool.forEach((song, i) => {
     const elem = document.createElement('li');
     elem.innerHTML = `<span class="marker-number">${i + 1}</span> ${[truncate(song.artist), truncate(song.title, 48)].filter(s => s).join(' - ')}`;
     if (song === correctSong) {
       elem.classList.add('correct');
+    } else if (fadeOuts.includes(i)) {
+      elem.classList.add('fade');
     }
     songListElem.appendChild(elem);
   });
@@ -175,7 +183,7 @@ function renderGuessingView(songPool: SongData[], correctSong: SongData) {
 
 function renderResultsView(songPool: SongData[], song: SongData) {
   songListElem.classList.add('results');
-  
+
   // if no winner, say so
   // else show winner's name and how long it took them
   // play the actual song with all stems (or base download instead maybe)
