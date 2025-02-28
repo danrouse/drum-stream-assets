@@ -5,6 +5,7 @@ import soundfile as sf
 import sounddevice as sd
 import random
 import sys
+import re
 
 MAX_LEN = 300
 
@@ -71,4 +72,6 @@ async def text_to_speech(text, voice=voices[random.randint(0, len(voices) - 1)])
     sd.wait()
 
 if __name__ == "__main__":
-    asyncio.run(text_to_speech(sys.argv[1][0:MAX_LEN]))
+    NON_BMP_RE = re.compile(u"[^\U00000000-\U0000d7ff\U0000e000-\U0000ffff]", flags=re.UNICODE)
+    stripped_text = NON_BMP_RE.sub(u'', sys.argv[1])
+    asyncio.run(text_to_speech(stripped_text[0:MAX_LEN]))
