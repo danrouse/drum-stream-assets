@@ -492,7 +492,7 @@ export default class StreamerbotWebSocketClient {
   private async songRequestMaxDurationForUser(userName: string) {
     const viewer = await this.getViewer(userName);
     let maxDuration = SONG_REQUEST_MAX_DURATION; // 7 mins default max
-    if (viewer?.role === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
+    if (viewer?.role.toUpperCase() === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
     if (viewer?.role === 'Moderator') maxDuration = 60 * 20; // 20 mins for mod
     if (viewer?.role === 'Broadcaster') maxDuration = 12000;
     return maxDuration;
@@ -502,7 +502,7 @@ export default class StreamerbotWebSocketClient {
     const viewer = await this.getViewer(userName);
     let limit = 1;
     if (viewer?.subscribed) limit = 2;
-    if (viewer?.role === 'VIP') limit = 2;
+    if (viewer?.role.toUpperCase() === 'VIP') limit = 2;
     if (viewer?.role === 'Moderator') limit = 0;
     if (viewer?.role === 'Broadcaster') limit = 0;
     return limit;
@@ -512,7 +512,7 @@ export default class StreamerbotWebSocketClient {
     const viewer = await this.getViewer(userName);
     let minViews: number | undefined = 1000;
     if (viewer?.subscribed) minViews = 100;
-    if (viewer?.role === 'VIP') minViews = undefined;
+    if (viewer?.role.toUpperCase() === 'VIP') minViews = undefined;
     if (viewer?.role === 'Moderator') minViews = undefined;
     if (viewer?.role === 'Broadcaster') minViews = undefined;
     return minViews;
