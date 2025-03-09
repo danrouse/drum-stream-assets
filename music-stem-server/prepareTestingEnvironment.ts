@@ -1,13 +1,13 @@
 import { renameSync, mkdirSync } from 'fs';
 console.log('renaming existing data assets');
 renameSync('./db.sqlite', './db.sqlite.bak');
-renameSync('./downloads', './_downloads');
-renameSync('./separated', './_separated');
+renameSync('./library', './_library');
 
 console.log('creating empty data dirs');
-mkdirSync('./downloads');
-mkdirSync('./separated');
-mkdirSync('./separated/htdemucs');
+mkdirSync('./library');
+mkdirSync('./library/downloads');
+mkdirSync('./library/separated');
+mkdirSync('./library/separated/htdemucs');
 
 import { initializeDatabase } from './server/database';
 console.log('initializing empty database');
