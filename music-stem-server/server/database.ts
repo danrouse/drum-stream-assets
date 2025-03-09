@@ -1,3 +1,9 @@
+/**
+ * Database definitions using Kysely
+ * Interfaces and types are exported here,
+ * as well as an `initializeDatabase` function which can be used to
+ * handle initial DB setup (used to set up a manual testing env, at least)
+ */
 import {
   Kysely,
   ColumnType,
@@ -9,10 +15,6 @@ import {
   sql,
 } from 'kysely';
 import SQLite from 'better-sqlite3';
-import { join } from 'path';
-import { readdirSync, readFileSync } from 'fs';
-import * as Paths from '../../shared/paths';
-import { LegacySongData } from '../../shared/messages';
 
 type CreatedAtType = ColumnType<string, string | undefined, string>;
 
@@ -61,7 +63,7 @@ interface SongsTable {
 interface SongTagsTable {
   id: Generated<number>;
   createdAt: CreatedAtType;
-  
+
   tag: string; // NB: Not enum?
 
   songId: number;
@@ -198,7 +200,7 @@ export async function initializeDatabase() {
     .addColumn('tag', 'varchar(255)', (cb) => cb.notNull())
     .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
     .execute();
-  
+
   await db.schema.createTable('songVotes')
     .ifNotExists()
     .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
@@ -207,7 +209,7 @@ export async function initializeDatabase() {
     .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
     .addColumn('voterName', 'varchar(255)', (cb) => cb.notNull())
     .execute();
-  
+
   await db.schema.createTable('songHistory')
     .ifNotExists()
     .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())

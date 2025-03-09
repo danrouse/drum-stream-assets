@@ -1,3 +1,9 @@
+/**
+ * HTTP (express) server
+ * The frontend client is served here, either using Vite in dev,
+ * or by building and serving the static built assets in prod.
+ * There are also a few JSON data endpoints used by the client.
+ */
 import { join } from 'path';
 import { readdirSync, existsSync, unlinkSync } from 'fs';
 import express from 'express';

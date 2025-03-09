@@ -1,3 +1,8 @@
+/**
+ * Shenanigans submodule
+ *
+ * Handles all of the redemptions that screw with the music and drums
+ */
 import { StreamerbotEventPayload } from '@streamerbot/client';
 import MIDIModule from '../MIDIModule';
 import StreamerbotWebSocketClient, { TwitchRewardDurations } from '../../StreamerbotWebSocketClient';

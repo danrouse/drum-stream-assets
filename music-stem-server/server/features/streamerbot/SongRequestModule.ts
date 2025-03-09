@@ -1,3 +1,12 @@
+/**
+ * Song Request submodule
+ *
+ * Sends song requests to RabbitMQ for job-handlers to process
+ * Handles song request data in the db
+ * Handles the channel point redemption for special song requests
+ * Gives chatters helpful info about their song requests
+ *   via progress messages and some ! commands
+ */
 import { sql } from 'kysely';
 import { StreamerbotEventPayload } from '@streamerbot/client';
 import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';

@@ -139,9 +139,12 @@ export default class StreamerbotWebSocketClient {
     this.log('doAction', actionName, actionId, args);
     if (this.isTestMode) return;
 
-    // const result = await this.client.doAction(actionId, args);
+    // call StreamerbotClient request method manually
+    // so as to replace the third (timeout) parameter,
+    // rather than use client.doAction directly
+    // (timeout is not overwriteable in that impl)
     const result = await this.client.request({
-      request: "DoAction",
+      request: 'DoAction',
       action: {
         id: actionId,
         name: undefined,

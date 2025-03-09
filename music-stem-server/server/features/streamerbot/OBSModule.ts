@@ -1,3 +1,10 @@
+/**
+ * OBS submodule
+ *
+ * - handles Fullscreen Video redemption
+ * - creates stream markers to split/tag VODs
+ * - saves stream start/end times in database
+ */
 import { StreamerbotEventPayload } from '@streamerbot/client';
 import { sql } from 'kysely';
 import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';

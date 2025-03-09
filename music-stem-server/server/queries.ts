@@ -1,3 +1,9 @@
+/**
+ * Most of the Kysely queries are defined and exported here;
+ * There turned out to be a few queries doing nearly the same thing,
+ * but also with slightly different (in a bad way) logic, so
+ * they have been colocated here to make it easier to keep track.
+ */
 import { sql } from 'kysely';
 import { db } from './database';
 

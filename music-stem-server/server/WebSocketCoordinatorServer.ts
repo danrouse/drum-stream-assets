@@ -1,6 +1,12 @@
+/**
+ * WebSocket message rebroadcasting server
+ *
+ * Handles rebroadcasting all messages received to all connected clients,
+ * and for triggering any registered message handlers.
+ */
 import { WebSocketServer } from 'ws';
 import { Server } from 'http';
-import { WebSocketMessage, WebSocketPlayerMessage, WebSocketMessageHandler } from '../../shared/messages';
+import { WebSocketMessage, WebSocketMessageHandler } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
 
 export default class WebSocketCoordinatorServer {

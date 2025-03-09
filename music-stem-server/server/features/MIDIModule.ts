@@ -1,3 +1,19 @@
+/**
+ * MIDI module
+ *
+ * Broadcasts messages when MIDI notes are triggered
+ * Handles the frontend of some of the drum kit shenanigans:
+ * - Fart mode switches to a kit with silenced toms and sends messages
+ *   to DrumTriggersWindow to trigger sounds
+ * - Randomized drums switches to a fully silenced kit, and then -
+ *   since the TD-30 cannot actually change sound samples (!!) -
+ *   handles MIDI notes by switching to a real kit, playing a random note,
+ *   and then switching back to the silenced kit
+ *
+ * TODO: change the MIDI handling node module to one that is a bit easier to handle
+ *       The current module outputs some stuff unconditionally to stdout,
+ *       and doesn't offer a graceful way of handling disconnects/reconnecting.
+ */
 import midi, { MidiMessage } from 'midi';
 import { WebSocketBroadcaster } from '../../../shared/messages';
 import { midiNoteDefinitions } from '../../../shared/midiNoteDefinitions';
