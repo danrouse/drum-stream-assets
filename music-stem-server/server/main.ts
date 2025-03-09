@@ -2,7 +2,7 @@ import 'dotenv/config';
 import createHttpServer from './http';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
-import SongRequestModule from './features/SongRequestModule';
+import SongRequestModule from './features/streamerbot/SongRequestModule';
 import MIDIModule from './features/MIDIModule';
 import DiscordModule from './features/DiscordModule';
 import ShenanigansModule from './features/streamerbot/ShenanigansModule';
@@ -22,15 +22,17 @@ const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 
 const midiModule = new MIDIModule(webSocketCoordinatorServer.broadcast);
 
-const songRequestModule = new SongRequestModule(webSocketCoordinatorServer.broadcast);
-webSocketCoordinatorServer.handlers.push(songRequestModule.messageHandler);
-
 const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
   webSocketCoordinatorServer.broadcast,
-  songRequestModule,
   IS_TEST_MODE
 );
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
+
+const songRequestModule = new SongRequestModule(
+  streamerbotWebSocketClient,
+  webSocketCoordinatorServer.broadcast
+);
+webSocketCoordinatorServer.handlers.push(songRequestModule.messageHandler);
 
 const shenanigansModule = new ShenanigansModule(
   streamerbotWebSocketClient,
