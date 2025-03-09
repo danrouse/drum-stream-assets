@@ -1,3 +1,9 @@
+/**
+ * Convert Streamer.bot JSON files to TypeScript types
+ * This is run automatically on build and watches the json files for changes,
+ * ensuring that types that reference Streamer.bot actions and commands are
+ * in sync with the Streamer.bot project.
+ */
 import { readdirSync, readFileSync, writeFileSync } from 'fs';
 
 // import the json files so tsx watch will watch them
