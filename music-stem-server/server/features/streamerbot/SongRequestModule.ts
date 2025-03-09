@@ -459,8 +459,8 @@ export default class SongRequestModule {
     const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
     if (!rewardName) return;
 
-    if (rewardName === 'Long Song Request') {
-      try {
+    try {
+      if (rewardName === 'Long Song Request') {
         await this.handleUserSongRequest(
           payload.data.user_input,
           payload.data.user_name,
@@ -471,23 +471,18 @@ export default class SongRequestModule {
           payload.data.reward.id,
           payload.data.id
         );
-      } catch (err) {
-        await this.client.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-        await this.client.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
-      }
-    } else if (rewardName === 'Priority Song Request') {
-      const existingRequest = await this.getExistingSongRequest(
-        payload.data.user_input.trim().toLowerCase(),
-        payload.data.user_name
-      );
-      if (existingRequest) {
-        await db.updateTable('songRequests')
-          .set({ priority: 5 })
-          .where('id', '=', existingRequest.id)
-          .execute();
-        await this.client.sendTwitchMessage(`@${payload.data.user_name} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
-      } else {
-        try {
+      } else if (rewardName === 'Priority Song Request') {
+        const existingRequest = await this.getExistingSongRequest(
+          payload.data.user_input.trim().toLowerCase(),
+          payload.data.user_name
+        );
+        if (existingRequest) {
+          await db.updateTable('songRequests')
+            .set({ priority: 5 })
+            .where('id', '=', existingRequest.id)
+            .execute();
+          await this.client.sendTwitchMessage(`@${payload.data.user_name} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
+        } else {
           await this.handleUserSongRequest(
             payload.data.user_input,
             payload.data.user_name,
@@ -498,23 +493,18 @@ export default class SongRequestModule {
             payload.data.reward.id,
             payload.data.id
           );
-        } catch (err) {
-          await this.client.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-          await this.client.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
         }
-      }
-    } else if (rewardName === 'No Shens Song Request') {
-      const existingRequest = await this.getExistingSongRequest(
-        payload.data.user_input.trim().toLowerCase(),
-        payload.data.user_name
-      );
-      if (existingRequest) {
-        await db.updateTable('songRequests')
-          .set({ noShenanigans: 1 })
-          .where('id', '=', existingRequest.id)
-          .execute();
-      } else {
-        try {
+      } else if (rewardName === 'No Shens Song Request') {
+        const existingRequest = await this.getExistingSongRequest(
+          payload.data.user_input.trim().toLowerCase(),
+          payload.data.user_name
+        );
+        if (existingRequest) {
+          await db.updateTable('songRequests')
+            .set({ noShenanigans: 1 })
+            .where('id', '=', existingRequest.id)
+            .execute();
+        } else {
           await this.handleUserSongRequest(
             payload.data.user_input,
             payload.data.user_name,
@@ -525,11 +515,11 @@ export default class SongRequestModule {
             payload.data.reward.id,
             payload.data.id
           );
-        } catch (err) {
-          await this.client.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-          await this.client.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
         }
       }
+    } catch (err) {
+      await this.client.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
+      await this.client.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
     }
-  };
+  }
 }
