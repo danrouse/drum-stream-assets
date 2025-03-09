@@ -1,3 +1,11 @@
+/**
+ * Upload a full VOD to YouTube with a description including timestamps for
+ * individual songs, and update the Discord song request posts with deep links
+ * to the YouTube video.
+ *
+ * Run with `tsx generateVODDescription.ts <filename>`, where <filename> is the
+ * path to the VOD file.
+ */
 import 'dotenv/config';
 import { execSync } from 'child_process';
 import {
@@ -12,7 +20,7 @@ import { basename } from 'path';
 import { createInterface as createReadlineInterface } from 'readline';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import DiscordIntegration from './server/DiscordIntegration';
+import DiscordModule from './server/features/DiscordModule';
 import { formatTime } from '../shared/util';
 import { db } from './server/database';
 
@@ -138,7 +146,7 @@ async function uploadYouTubeVideo(filename: string) {
 function parseOBSVideoTimestamp(filename: string) {
   const partsMatch = basename(filename).match(/([\d-\s]+)?/);
   if (!partsMatch) throw new Error(`Filename doesn\'t match OBS output date pattern! ${filename}`);
-  
+
   const streamTime = new Date(partsMatch[1].replace(/\-$/, '').replace(/(\d+)\-(\d+)\-(\d+)$/, '$1:$2:$3'));
   return streamTime;
 }
@@ -147,19 +155,19 @@ async function updateDiscordSongRequestPosts(filename: string, youtubeVideoId: s
   const youtubeUrlBase = `https://www.youtube.com/watch?v=${youtubeVideoId}`;
   const songRequests = (await getVideoChapters(filename)).filter(s => s.songRequestId);
   const streamTime = parseOBSVideoTimestamp(filename);
-  const discordIntegration = new DiscordIntegration();
+  const discordModule = new DiscordModule();
   return new Promise<void>((resolve) => {
-    discordIntegration.on('ready', async (client) => {
+    discordModule.on('ready', async (client) => {
       // preload song request posts
       let lastMessageTime = new Date();
       while (!lastMessageTime || (streamTime < lastMessageTime)) {
         console.log('Preloading Discord messages...');
-        await discordIntegration.songRequestsChannel?.messages.fetch({ limit: 100, before: discordIntegration.songRequestsChannel?.messages.cache.last()?.id });
-        lastMessageTime = new Date(discordIntegration.songRequestsChannel?.messages.cache.last()?.createdTimestamp!);
+        await discordModule.songRequestsChannel?.messages.fetch({ limit: 100, before: discordModule.songRequestsChannel?.messages.cache.last()?.id });
+        lastMessageTime = new Date(discordModule.songRequestsChannel?.messages.cache.last()?.createdTimestamp!);
       }
 
       for (let chapter of songRequests) {
-        await discordIntegration.updateCompletedSongRequest(
+        await discordModule.updateCompletedSongRequest(
           Number(chapter.songRequestId),
           undefined,
           `${youtubeUrlBase}#t=${formatTime(chapter.timestamp).replace(':', 'm')}`

@@ -1,7 +1,7 @@
 import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer } from '@streamerbot/client';
 import { sql } from 'kysely';
-import SongRequestHandler from './SongRequestHandler';
-import MIDIIOController from './MIDIIOController';
+import SongRequestModule from './features/SongRequestModule';
+import MIDIModule from './features/MIDIModule';
 import { db } from './database';
 import * as queries from './queries';
 import { createLogger, formatTime } from '../../shared/util';
@@ -63,9 +63,9 @@ enum StreamerbotUserRole {
 
 export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
-  private midiController: MIDIIOController;
+  private midiController: MIDIModule;
   private broadcast: WebSocketBroadcaster;
-  private songRequestHandler: SongRequestHandler;
+  private songRequestHandler: SongRequestModule;
 
   private twitchMessageIdsByUser: { [userName: string]: string } = {};
   private twitchUnpauseTimers: { [rewardName in Streamerbot.TwitchRewardName]?: NodeJS.Timeout } = {};
@@ -91,8 +91,8 @@ export default class StreamerbotWebSocketClient {
 
   constructor(
     broadcast: WebSocketBroadcaster,
-    songRequestHandler: SongRequestHandler,
-    midiController: MIDIIOController,
+    songRequestModule: SongRequestModule,
+    midiModule: MIDIModule,
     isTestMode?: boolean,
   ) {
     this.client = new StreamerbotClient({
@@ -127,8 +127,8 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Obs.StreamingStopped', this.handleOBSStreamingStopped.bind(this));
 
     this.broadcast = broadcast;
-    this.songRequestHandler = songRequestHandler;
-    this.midiController = midiController;
+    this.songRequestHandler = songRequestModule;
+    this.midiController = midiModule;
     this.isTestMode = Boolean(isTestMode);
     if (isTestMode) {
       this.log('Starting in test mode');
