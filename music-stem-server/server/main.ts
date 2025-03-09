@@ -2,10 +2,11 @@ import 'dotenv/config';
 import createHttpServer from './http';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
-import SongRequestModule from './features/streamerbot/SongRequestModule';
 import MIDIModule from './features/MIDIModule';
 import DiscordModule from './features/DiscordModule';
+import SongRequestModule from './features/streamerbot/SongRequestModule';
 import ShenanigansModule from './features/streamerbot/ShenanigansModule';
+import OBSModule from './features/streamerbot/OBSModule';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
@@ -40,6 +41,12 @@ const shenanigansModule = new ShenanigansModule(
   midiModule,
 );
 webSocketCoordinatorServer.handlers.push(shenanigansModule.messageHandler);
+
+const obsModule = new OBSModule(
+  streamerbotWebSocketClient,
+  webSocketCoordinatorServer.broadcast
+);
+webSocketCoordinatorServer.handlers.push(obsModule.messageHandler);
 
 const discordModule = new DiscordModule(IS_TEST_MODE);
 webSocketCoordinatorServer.handlers.push(discordModule.messageHandler);

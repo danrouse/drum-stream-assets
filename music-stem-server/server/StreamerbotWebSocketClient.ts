@@ -40,7 +40,6 @@ export default class StreamerbotWebSocketClient {
   private twitchDebounceQueue: { [key: string]: number } = {};
   private streamerbotActionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private updateViewersTimer?: NodeJS.Timeout;
-  private currentScene?: string;
   private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
   private previousMessage: string = '';
   private previousMessageUser: string = '';
@@ -50,7 +49,7 @@ export default class StreamerbotWebSocketClient {
   private isTestMode = false;
 
   private pinNextEmoteForUser?: string;
-  private currentSong?: SongData;
+  public currentSong?: SongData;
   private currentSongSelectedAtTime?: string;
 
   public on: typeof StreamerbotClient.prototype.on;
@@ -85,9 +84,7 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
-    this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged.bind(this));
-    this.client.on('Obs.StreamingStarted', this.handleOBSStreamingStarted.bind(this));
-    this.client.on('Obs.StreamingStopped', this.handleOBSStreamingStopped.bind(this));
+
     this.on = this.client.on;
 
     this.broadcast = broadcast;
@@ -106,8 +103,6 @@ export default class StreamerbotWebSocketClient {
       await this.doAction('Queue: Pause', { queueName: 'TTS' });
     } else if (payload.type === 'song_playpack_paused') {
       await this.doAction('Queue: Unpause', { queueName: 'TTS' });
-    } else if (payload.type === 'song_playback_started') {
-      this.handleSongStarted(payload.id, payload.songRequestId);
     } else if (payload.type === 'song_playback_completed') {
       this.handleSongEnded(payload.id, payload.songRequestId);
     } else if (payload.type === 'song_request_removed') {
@@ -161,23 +156,7 @@ export default class StreamerbotWebSocketClient {
     return result;
   }
 
-  private async handleSongStarted(songId: number, songRequestId?: number | null) {
-    // Create stream marker for song request start
-    let markerName = `Song Start: Song #${songId}`;
-    if (songRequestId) {
-      markerName += ` SR #${songRequestId}`;
-    }
-    await this.doAction('Create Stream Marker', { description: markerName });
-  }
-
   private async handleSongEnded(songId: number, songRequestId?: number | null) {
-    // Create stream marker for song request end
-    let markerName = `Song End: Song #${songId}`;
-    if (songRequestId) {
-      markerName += ` SR #${songRequestId}`;
-    }
-    await this.doAction('Create Stream Marker', { description: markerName });
-
     // Add playback to history
     await db.insertInto('songHistory')
       .values([{
@@ -203,14 +182,6 @@ export default class StreamerbotWebSocketClient {
 
     this.currentSong = song;
     this.currentSongSelectedAtTime = new Date().toISOString();
-    this.updateFullscreenVideoEnabled();
-
-    // Leave fullscreen video if we switch to a song that isn't a video
-    if (this.currentScene === 'Fullscreen Video' && !this.currentSong?.isVideo) {
-      await this.doAction('Set OBS Scene', {
-        sceneName: 'Drums main'
-      });
-    }
   }
 
   private async handleGuessTheSongRoundComplete(winner?: string, time?: number, otherWinners: string[] = []) {
@@ -381,30 +352,13 @@ export default class StreamerbotWebSocketClient {
     return viewer;
   }
 
-  private updateFullscreenVideoEnabled() {
-    if (this.currentScene?.startsWith('Drums') && this.currentSong?.isVideo) {
-      this.doAction(
-        'Reward: Unpause',
-        { rewardId: Streamerbot.TwitchRewardIds['Fullscreen Video'] }
-      );
-    } else {
-      this.pauseTwitchRedemption('Fullscreen Video');
-    }
-  }
-
   private async handleTwitchRewardRedemption(payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) {
     const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
     if (!rewardName) return;
 
     this.log(`Channel point redemption by ${payload.data.user_name}: ${rewardName}`);
 
-    if (rewardName === 'Fullscreen Video') {
-      if (this.currentSong?.isVideo) {
-        await this.doAction('Set OBS Scene', {
-          sceneName: 'Fullscreen Video'
-        });
-      }
-    } else if (rewardName === 'Pin an Emote') {
+    if (rewardName === 'Pin an Emote') {
       this.pinNextEmoteForUser = payload.data.user_name;
     }
 
@@ -455,29 +409,5 @@ export default class StreamerbotWebSocketClient {
       const res = await queries.songsPlayedTodayCount();
       await this.sendTwitchMessage(`${res[0].count} songs have been played today. ${'🥁'.repeat(res[0].count)}`);
     }
-  }
-
-  private handleOBSSceneChanged(payload: StreamerbotEventPayload<"Obs.SceneChanged">) {
-    this.currentScene = payload.data.scene.sceneName;
-    this.updateFullscreenVideoEnabled();
-    this.broadcast({
-      type: 'obs_scene_changed',
-      oldScene: payload.data.oldScene.sceneName,
-      scene: payload.data.scene.sceneName,
-    });
-  }
-
-  private async handleOBSStreamingStarted(payload: StreamerbotEventPayload<"Obs.StreamingStarted">) {
-    await db.insertInto('streamHistory')
-      .defaultValues()
-      .execute();
-  }
-
-  private async handleOBSStreamingStopped(payload: StreamerbotEventPayload<"Obs.StreamingStopped">) {
-    const record = await queries.currentStreamHistory();
-    await db.updateTable('streamHistory')
-      .set('endedAt', sql`current_timestamp`)
-      .where('id', '=', record[0].id)
-      .execute();
   }
 }
