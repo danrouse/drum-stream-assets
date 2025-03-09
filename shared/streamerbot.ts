@@ -10,6 +10,7 @@ export {
 export type ActionName = typeof Actions.actions[number]['name'];
 export type CommandName = typeof Commands.commands[number]['name'];
 export type TwitchRewardName = typeof TwitchRewards.rewards[number]['name'];
+export type TwitchRewardMeta<T> = { [name in TwitchRewardName]?: T };
 
 export const CommandAliases = Commands.commands.reduce((acc, command) => {
   // if (!command.enabled) return acc;
@@ -23,3 +24,8 @@ export const TwitchRewardIds = TwitchRewards.rewards.reduce((acc, reward) => {
   acc[reward.name] = reward.id;
   return acc;
 }, {} as { [name in TwitchRewardName]: string });
+
+export const rewardNameById = (id: string) => {
+  const reward = Object.entries(TwitchRewardIds).find(([name, id]) => id === id)
+  if (reward) return reward[0] as TwitchRewardName;
+};

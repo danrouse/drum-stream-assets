@@ -5,6 +5,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import SongRequestModule from './features/SongRequestModule';
 import MIDIModule from './features/MIDIModule';
 import DiscordModule from './features/DiscordModule';
+import ShenanigansModule from './features/streamerbot/ShenanigansModule';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
@@ -27,10 +28,16 @@ webSocketCoordinatorServer.handlers.push(songRequestModule.messageHandler);
 const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
   webSocketCoordinatorServer.broadcast,
   songRequestModule,
-  midiModule,
   IS_TEST_MODE
 );
 webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
+
+const shenanigansModule = new ShenanigansModule(
+  streamerbotWebSocketClient,
+  webSocketCoordinatorServer.broadcast,
+  midiModule,
+);
+webSocketCoordinatorServer.handlers.push(shenanigansModule.messageHandler);
 
 const discordModule = new DiscordModule(IS_TEST_MODE);
 webSocketCoordinatorServer.handlers.push(discordModule.messageHandler);
