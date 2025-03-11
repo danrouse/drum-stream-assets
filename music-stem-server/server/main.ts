@@ -9,6 +9,7 @@ import ShenanigansModule from './features/streamerbot/ShenanigansModule';
 import OBSModule from './features/streamerbot/OBSModule';
 import SongVotingModule from './features/streamerbot/SongVotingModule';
 import EmotesModule from './features/streamerbot/EmotesModule';
+import NameThatTuneModule from './features/streamerbot/NameThatTuneModule';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
@@ -62,3 +63,9 @@ const emotesModule = new EmotesModule(
   streamerbotWebSocketClient,
   webSocketCoordinatorServer.broadcast
 );
+
+const nameThatTuneModule = new NameThatTuneModule(
+  streamerbotWebSocketClient,
+  webSocketCoordinatorServer.broadcast
+);
+webSocketCoordinatorServer.handlers.push(nameThatTuneModule.messageHandler);

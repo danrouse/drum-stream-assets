@@ -117,8 +117,6 @@ export default class StreamerbotWebSocketClient {
   public messageHandler = async (payload: WebSocketMessage) => {
     if (payload.type === 'song_changed') {
       this.handleSongChanged(payload.song);
-    } else if (payload.type === 'guess_the_song_round_complete') {
-      this.handleGuessTheSongRoundComplete(payload.winner, payload.time, payload.otherWinners);
     } else if (payload.type === 'song_played') {
       await this.doAction('Queue: Pause', { queueName: 'TTS' });
     } else if (payload.type === 'song_playpack_paused') {
@@ -199,41 +197,6 @@ export default class StreamerbotWebSocketClient {
 
     this.currentSong = song;
     this.currentSongSelectedAtTime = new Date().toISOString();
-  }
-
-  private async handleGuessTheSongRoundComplete(winner?: string, time?: number, otherWinners: string[] = []) {
-    if (winner && time) {
-      // Record this round's winner
-      const roundedTime = Math.round(time * 10) / 10;
-      let message = `${winner} got the right answer quickest in ${roundedTime} seconds!`;
-      if (otherWinners.length) message += ` (${otherWinners.join(', ')} also got it right!)`
-      await this.sendTwitchMessage(message);
-
-      db.insertInto('nameThatTuneScores').values([{
-        name: winner,
-        placement: 1,
-      }].concat(otherWinners.map((name, i) => ({
-        name,
-        placement: i + 2,
-      })))).execute();
-
-      // Report win streaks
-      const streak = await queries.nameThatTuneWinStreak();
-      if (streak[0].streak > 1) {
-        await this.sendTwitchMessage(`${winner} is on a ${streak[0].streak} round win streak!`);
-      }
-    }
-
-    // Update scores in leaderboard
-    const dailyScores = await queries.nameThatTuneScores()
-      .where(sql<any>`datetime(createdAt) > (select datetime(createdAt) from streamHistory order by id desc limit 1)`)
-      .execute();
-    const weeklyScores = await queries.nameThatTuneScores()
-      .where('createdAt', '>', sql<any>`datetime(\'now\', \'-7 day\')`)
-      .execute();
-    const lifetimeScores = await queries.nameThatTuneScores()
-      .execute();
-    this.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
   }
 
   public sendTwitchMessage(message: string, replyTo?: string, debounceKey?: string, debounceTime?: number) {
