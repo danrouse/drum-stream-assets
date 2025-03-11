@@ -7,8 +7,9 @@ import { StreamerbotEventPayload } from '@streamerbot/client';
 import MIDIModule from '../MIDIModule';
 import StreamerbotWebSocketClient, { TwitchRewardDurations } from '../../StreamerbotWebSocketClient';
 import * as Streamerbot from '../../../../shared/streamerbot';
-import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../../../shared/messages';
+import { WebSocketMessage } from '../../../../shared/messages';
 import { getKitDefinition, td30KitsPastebin } from '../../../../shared/td30Kits';
+import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 const SPEED_CHANGE_BASE_PRICE = 150;
 const SPEED_CHANGE_AMOUNT = 0.15;
@@ -24,7 +25,7 @@ const SHENANIGANS_REWARD_NAMES: Streamerbot.TwitchRewardName[] = [
 
 export default class ShenanigansModule {
   private client: StreamerbotWebSocketClient;
-  private broadcast: WebSocketBroadcaster;
+  private wss: WebSocketCoordinatorServer;
   private midiModule: MIDIModule;
 
   private isEnabled = true;
@@ -33,24 +34,19 @@ export default class ShenanigansModule {
 
   constructor(
     client: StreamerbotWebSocketClient,
-    broadcast: WebSocketBroadcaster,
+    wss: WebSocketCoordinatorServer,
     midiModule: MIDIModule,
   ) {
     this.client = client;
-    this.broadcast = broadcast;
+    this.wss = wss;
     this.midiModule = midiModule;
 
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
     this.client.on('General.Custom', this.handleCustom);
-  }
 
-  public messageHandler = async (payload: WebSocketMessage) => {
-    if (payload.type === 'song_speed') {
-      this.handleSongSpeedChanged(payload.speed);
-    } else if (payload.type === 'song_changed') {
-      this.handleSongChanged(payload.song);
-    }
-  };
+    this.wss.registerHandler('song_speed', this.handleSongSpeedChanged);
+    this.wss.registerHandler('song_changed', this.handleSongChanged);
+  }
 
   private async enable() {
     this.isEnabled = true;
@@ -65,7 +61,7 @@ export default class ShenanigansModule {
   private reset() {
     this.midiModule.resetKit();
     this.client.destroyUnpauseTimers();
-    this.broadcast({
+    this.wss.broadcast({
       type: 'client_remote_control',
       action: 'Reset All Shenanigans',
     });
@@ -83,9 +79,9 @@ export default class ShenanigansModule {
     });
   }
 
-  private async handleSongChanged(song: SongData) {
+  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
     // Allow for "no-shenanigans" SRs
-    if (song.noShenanigans) {
+    if (payload.song.noShenanigans) {
       await this.disable();
       this.lastSongWasNoShens = true;
     } else if (this.lastSongWasNoShens) {
@@ -94,10 +90,10 @@ export default class ShenanigansModule {
     }
   }
 
-  private async handleSongSpeedChanged(playbackRate: number) {
+  private async handleSongSpeedChanged(payload: WebSocketMessage<'song_speed'>) {
     // Scale the price of speed up/slow down song redemptions based on current speed
-    const speedDiffSteps = Math.abs(1 - playbackRate) / SPEED_CHANGE_AMOUNT;
-    const isFaster = playbackRate > 1;
+    const speedDiffSteps = Math.abs(1 - payload.speed) / SPEED_CHANGE_AMOUNT;
+    const isFaster = payload.speed > 1;
     const nextSlowDownPrice = Math.round(isFaster ?
       SPEED_CHANGE_BASE_PRICE - (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)) :
       SPEED_CHANGE_BASE_PRICE + (speedDiffSteps * (SPEED_CHANGE_BASE_PRICE / 2)));
@@ -117,9 +113,9 @@ export default class ShenanigansModule {
     // Limit min/max speed within the realm of reason
     const MIN_PLAYBACK_SPEED = 0.4;
     const MAX_PLAYBACK_SPEED = 1.9;
-    const slowDownRewardAction = playbackRate <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
+    const slowDownRewardAction = payload.speed <= MIN_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
     await this.client.doAction(slowDownRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Slow Down Music'] });
-    const speedUpRewardAction = playbackRate >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
+    const speedUpRewardAction = payload.speed >= MAX_PLAYBACK_SPEED ? 'Reward: Pause' : 'Reward: Unpause';
     await this.client.doAction(speedUpRewardAction, { rewardId: Streamerbot.TwitchRewardIds['Speed Up Music'] });
 
     // Re-disable the rewards if shenanigans are off

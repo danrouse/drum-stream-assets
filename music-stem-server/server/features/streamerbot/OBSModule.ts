@@ -11,36 +11,31 @@ import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';
 import { db } from '../../database';
 import * as queries from '../../queries';
 import * as Streamerbot from '../../../../shared/streamerbot';
-import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../../../shared/messages';
+import { WebSocketMessage } from '../../../../shared/messages';
+import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 export default class OBSModule {
   private client: StreamerbotWebSocketClient;
-  private broadcast: WebSocketBroadcaster;
+  private wss: WebSocketCoordinatorServer;
 
   private currentScene?: string;
 
   constructor(
     client: StreamerbotWebSocketClient,
-    broadcast: WebSocketBroadcaster,
+    wss: WebSocketCoordinatorServer
   ) {
     this.client = client;
-    this.broadcast = broadcast;
+    this.wss = wss;
 
     this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged);
     this.client.on('Obs.StreamingStarted', this.handleOBSStreamingStarted);
     this.client.on('Obs.StreamingStopped', this.handleOBSStreamingStopped);
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
-  }
 
-  public messageHandler = async (payload: WebSocketMessage) => {
-    if (payload.type === 'song_changed') {
-      this.handleSongChanged(payload.song);
-    } else if (payload.type === 'song_playback_started') {
-      this.handleSongStarted(payload.id, payload.songRequestId);
-    } else if (payload.type === 'song_playback_completed') {
-      this.handleSongEnded(payload.id, payload.songRequestId);
-    }
-  };
+    this.wss.registerHandler('song_changed', this.handleSongChanged);
+    this.wss.registerHandler('song_playback_started', this.handleSongStarted);
+    this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
+  }
 
   private updateFullscreenVideoEnabled() {
     if (this.currentScene?.startsWith('Drums') && this.client.currentSong?.isVideo) {
@@ -53,29 +48,29 @@ export default class OBSModule {
     }
   }
 
-  private async handleSongStarted(songId: number, songRequestId?: number | null) {
+  private async handleSongStarted(payload: WebSocketMessage<'song_playback_started'>) {
     // Create stream marker for song request start
-    let markerName = `Song Start: Song #${songId}`;
-    if (songRequestId) {
-      markerName += ` SR #${songRequestId}`;
+    let markerName = `Song Start: Song #${payload.id}`;
+    if (payload.songRequestId) {
+      markerName += ` SR #${payload.songRequestId}`;
     }
     await this.client.doAction('Create Stream Marker', { description: markerName });
   }
 
-  private async handleSongEnded(songId: number, songRequestId?: number | null) {
+  private async handleSongEnded(payload: WebSocketMessage<'song_playback_completed'>) {
     // Create stream marker for song request end
-    let markerName = `Song End: Song #${songId}`;
-    if (songRequestId) {
-      markerName += ` SR #${songRequestId}`;
+    let markerName = `Song End: Song #${payload.id}`;
+    if (payload.songRequestId) {
+      markerName += ` SR #${payload.songRequestId}`;
     }
     await this.client.doAction('Create Stream Marker', { description: markerName });
   }
 
-  private async handleSongChanged(song: SongData) {
+  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
     this.updateFullscreenVideoEnabled();
 
     // Leave fullscreen video if we switch to a song that isn't a video
-    if (this.currentScene === 'Fullscreen Video' && !song.isVideo) {
+    if (this.currentScene === 'Fullscreen Video' && !payload.song.isVideo) {
       await this.client.doAction('Set OBS Scene', {
         sceneName: 'Drums main'
       });
@@ -85,7 +80,7 @@ export default class OBSModule {
   private handleOBSSceneChanged = async (payload: StreamerbotEventPayload<"Obs.SceneChanged">) => {
     this.currentScene = payload.data.scene.sceneName;
     this.updateFullscreenVideoEnabled();
-    this.broadcast({
+    this.wss.broadcast({
       type: 'obs_scene_changed',
       oldScene: payload.data.oldScene.sceneName,
       scene: payload.data.scene.sceneName,

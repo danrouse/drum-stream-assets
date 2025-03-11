@@ -8,22 +8,19 @@
 import { StreamerbotEventPayload } from '@streamerbot/client';
 import StreamerbotWebSocketClient, { TwitchRewardDurations} from '../../StreamerbotWebSocketClient';
 import { get7tvEmotes } from '../../../../shared/twitchEmotes';
-import { WebSocketBroadcaster } from '../../../../shared/messages';
 import * as Streamerbot from '../../../../shared/streamerbot';
+import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 export default class EmotesModule {
-  private client: StreamerbotWebSocketClient;
-  private broadcast: WebSocketBroadcaster;
-
   private previousMessage: string = '';
   private previousMessageUser: string = '';
   private messageRepeatTimer?: NodeJS.Timeout;
   private pinNextEmoteForUser?: string;
 
-  constructor(client: StreamerbotWebSocketClient, broadcast: WebSocketBroadcaster) {
-    this.client = client;
-    this.broadcast = broadcast;
-
+  constructor(
+    private client: StreamerbotWebSocketClient,
+    private wss: WebSocketCoordinatorServer
+  ) {
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage);
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
   }
@@ -36,16 +33,16 @@ export default class EmotesModule {
       ...(await get7tvEmotes(payload.data.message.message.split(' '))),
     ];
     if (emotes.length) {
-      this.broadcast({ type: 'emote_used', emoteURLs: emotes });
+      this.wss.broadcast({ type: 'emote_used', emoteURLs: emotes });
 
       // if someone redeemed Pin an Emote, take the first emote and pin it
       if (this.pinNextEmoteForUser?.toLowerCase() === payload.data.message.username.toLowerCase()) {
-        this.broadcast({
+        this.wss.broadcast({
           type: 'emote_pinned',
           emoteURL: emotes[0],
         });
         this.client.pauseTwitchRedemption('Pin an Emote', TwitchRewardDurations['Pin an Emote'], () => {
-          this.broadcast({
+          this.wss.broadcast({
             type: 'emote_pinned',
             emoteURL: null,
           });

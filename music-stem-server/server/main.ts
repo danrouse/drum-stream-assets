@@ -24,48 +24,40 @@ log('Starting with test mode =', IS_TEST_MODE);
 const httpServer = createHttpServer(Number(process.env.PORT) || 3000);
 const webSocketCoordinatorServer = new WebSocketCoordinatorServer(httpServer);
 
-const midiModule = new MIDIModule(webSocketCoordinatorServer.broadcast);
+const midiModule = new MIDIModule(webSocketCoordinatorServer);
 
 const streamerbotWebSocketClient = new StreamerbotWebSocketClient(
-  webSocketCoordinatorServer.broadcast,
+  webSocketCoordinatorServer,
   IS_TEST_MODE
 );
-webSocketCoordinatorServer.handlers.push(streamerbotWebSocketClient.messageHandler);
 
 const songRequestModule = new SongRequestModule(
   streamerbotWebSocketClient,
-  webSocketCoordinatorServer.broadcast
+  webSocketCoordinatorServer
 );
-webSocketCoordinatorServer.handlers.push(songRequestModule.messageHandler);
 
 const shenanigansModule = new ShenanigansModule(
   streamerbotWebSocketClient,
-  webSocketCoordinatorServer.broadcast,
-  midiModule,
+  webSocketCoordinatorServer,
+  midiModule
 );
-webSocketCoordinatorServer.handlers.push(shenanigansModule.messageHandler);
 
 const obsModule = new OBSModule(
   streamerbotWebSocketClient,
-  webSocketCoordinatorServer.broadcast
+  webSocketCoordinatorServer
 );
-webSocketCoordinatorServer.handlers.push(obsModule.messageHandler);
-
-const discordModule = new DiscordModule(IS_TEST_MODE);
-webSocketCoordinatorServer.handlers.push(discordModule.messageHandler);
 
 const songVotingModule = new SongVotingModule(
   streamerbotWebSocketClient,
+  webSocketCoordinatorServer
 );
-webSocketCoordinatorServer.handlers.push(songVotingModule.messageHandler);
 
 const emotesModule = new EmotesModule(
   streamerbotWebSocketClient,
-  webSocketCoordinatorServer.broadcast
+  webSocketCoordinatorServer
 );
 
 const nameThatTuneModule = new NameThatTuneModule(
   streamerbotWebSocketClient,
-  webSocketCoordinatorServer.broadcast
+  webSocketCoordinatorServer
 );
-webSocketCoordinatorServer.handlers.push(nameThatTuneModule.messageHandler);

@@ -10,7 +10,9 @@ import { WebSocketMessage, WebSocketMessageHandler } from '../../shared/messages
 import { createLogger } from '../../shared/util';
 
 export default class WebSocketCoordinatorServer {
-  public handlers: WebSocketMessageHandler[] = [];
+  private handlers: {
+    [T in WebSocketMessage['type']]?: Array<(payload: Extract<WebSocketMessage, { type: T }>) => void>
+  } = {};
   private wss: WebSocketServer;
 
   constructor(httpServer: Server) {
@@ -38,6 +40,14 @@ export default class WebSocketCoordinatorServer {
     });
   }
 
+  public registerHandler<T extends WebSocketMessage['type']>(
+    type: T,
+    handler: (payload: Extract<WebSocketMessage, { type: T }>) => void
+  ) {
+    this.handlers[type] ||= [];
+    this.handlers[type].push(handler);
+  }
+
   private log = createLogger('WSS');
 
   private static unloggedMessageTypes: WebSocketMessage["type"][] = [
@@ -53,6 +63,7 @@ export default class WebSocketCoordinatorServer {
     }
     this.wss.clients.forEach(ws =>
       ws.send(JSON.stringify(payload)));
-    this.handlers.forEach(handler => handler(payload));
-  }
+
+    this.handlers[payload.type]?.forEach(handler => (handler as (p: typeof payload) => void)(payload));
+  };
 }

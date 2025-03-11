@@ -5,37 +5,31 @@
  */
 import { sql } from 'kysely';
 import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';
-import { WebSocketBroadcaster, WebSocketMessage } from '../../../../shared/messages';
+import { WebSocketMessage } from '../../../../shared/messages';
 import { db } from '../../database';
 import * as queries from '../../queries';
+import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 export default class NameThatTuneModule {
-  private client: StreamerbotWebSocketClient;
-  private broadcast: WebSocketBroadcaster;
-
-  constructor(client: StreamerbotWebSocketClient, broadcast: WebSocketBroadcaster) {
-    this.client = client;
-    this.broadcast = broadcast;
+  constructor(
+    private client: StreamerbotWebSocketClient,
+    private wss: WebSocketCoordinatorServer
+  ) {
+    this.wss.registerHandler('guess_the_song_round_complete', this.handleGuessTheSongRoundComplete);
   }
 
-  public messageHandler = async (payload: WebSocketMessage) => {
-    if (payload.type === 'guess_the_song_round_complete') {
-      this.handleGuessTheSongRoundComplete(payload.winner, payload.time, payload.otherWinners);
-    }
-  }
-
-  private async handleGuessTheSongRoundComplete(winner?: string, time?: number, otherWinners: string[] = []) {
-    if (winner && time) {
+  private async handleGuessTheSongRoundComplete(payload: WebSocketMessage<'guess_the_song_round_complete'>) {
+    if (payload.winner && payload.time) {
       // Record this round's winner
-      const roundedTime = Math.round(time * 10) / 10;
-      let message = `${winner} got the right answer quickest in ${roundedTime} seconds!`;
-      if (otherWinners.length) message += ` (${otherWinners.join(', ')} also got it right!)`
+      const roundedTime = Math.round(payload.time * 10) / 10;
+      let message = `${payload.winner} got the right answer quickest in ${roundedTime} seconds!`;
+      if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
       await this.client.sendTwitchMessage(message);
 
       db.insertInto('nameThatTuneScores').values([{
-        name: winner,
+        name: payload.winner,
         placement: 1,
-      }].concat(otherWinners.map((name, i) => ({
+      }].concat(payload.otherWinners.map((name, i) => ({
         name,
         placement: i + 2,
       })))).execute();
@@ -43,7 +37,7 @@ export default class NameThatTuneModule {
       // Report win streaks
       const streak = await queries.nameThatTuneWinStreak();
       if (streak[0].streak > 1) {
-        await this.client.sendTwitchMessage(`${winner} is on a ${streak[0].streak} round win streak!`);
+        await this.client.sendTwitchMessage(`${payload.winner} is on a ${streak[0].streak} round win streak!`);
       }
     }
 
@@ -56,6 +50,6 @@ export default class NameThatTuneModule {
       .execute();
     const lifetimeScores = await queries.nameThatTuneScores()
       .execute();
-    this.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
+    this.wss.broadcast({ type: 'guess_the_song_scores', daily: dailyScores, weekly: weeklyScores, lifetime: lifetimeScores });
   }
 }

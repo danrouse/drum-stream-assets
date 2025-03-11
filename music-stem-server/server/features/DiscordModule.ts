@@ -7,25 +7,26 @@
  * such as links to song request VODs or timestamps within a larger VOD.
  */
 import { Client, Events, GatewayIntentBits, TextChannel, ChannelType } from 'discord.js';
+import WebSocketCoordinatorServer from '../WebSocketCoordinatorServer';
 import { db } from '../database';
 import { WebSocketMessage } from '../../../shared/messages';
 import { formatTime, isURL, createLogger } from '../../../shared/util';
-
 type DiscordEvent = 'ready';
 
 export default class DiscordModule {
-  private client: Client;
+  private discordClient: Client;
   public songRequestsChannel?: TextChannel;
   private eventHandlers: { [key: string]: Array<(client: Client) => void> } = {};
 
   constructor(
+    wss?: WebSocketCoordinatorServer,
     isTestMode: boolean = false,
     songRequestsChannelName: string = '🤖song-request-queue',
   ) {
-    this.client = new Client({
+    this.discordClient = new Client({
       intents: [GatewayIntentBits.Guilds]
     });
-    this.client.once(Events.ClientReady, async (client) => {
+    this.discordClient.once(Events.ClientReady, async (client) => {
       for (let cache of client.channels.cache) {
         if (
           cache[1].type === ChannelType.GuildText &&
@@ -39,7 +40,11 @@ export default class DiscordModule {
       }
       this.eventHandlers.ready?.forEach(handler => handler(client));
     });
-    this.client.login(process.env.DISCORD_TOKEN);
+    this.discordClient.login(process.env.DISCORD_TOKEN);
+
+    wss?.registerHandler('song_request_added', this.handleSongRequestAdded);
+    wss?.registerHandler('song_request_removed', this.handleSongRequestRemoved);
+    wss?.registerHandler('song_playback_completed', this.handleSongRequestRemoved);
   }
 
   public on(event: DiscordEvent, handler: (client: Client) => void) {
@@ -135,16 +140,16 @@ export default class DiscordModule {
     // await msg.react(isCompleted ? '✅' : '❎');
   }
 
-  public messageHandler = async (payload: WebSocketMessage) => {
+  private handleSongRequestAdded = async (payload: WebSocketMessage<'song_request_added'>) => {
     if (!this.songRequestsChannel) return;
-
-    if (payload.type === 'song_request_added') {
-      const requester = await db.selectFrom('songRequests').select('requester').where('id', '=', payload.songRequestId).execute();
-      if (requester[0].requester !== 'danny_the_liar') {
-        await this.announceNewSongRequest(payload.songRequestId);
-      }
-    } else if (payload.type === 'song_request_removed' || (payload.type === 'song_playback_completed' && payload.songRequestId)) {
-      await this.updateCompletedSongRequest(payload.songRequestId!, Math.floor(Date.now() / 1000));
+    const requester = await db.selectFrom('songRequests').select('requester').where('id', '=', payload.songRequestId).execute();
+    if (requester[0].requester !== 'danny_the_liar') {
+      await this.announceNewSongRequest(payload.songRequestId);
     }
+  };
+
+  private handleSongRequestRemoved = async (payload: WebSocketMessage<'song_request_removed' | 'song_playback_completed'>) => {
+    if (!this.songRequestsChannel || !payload.songRequestId) return;
+    await this.updateCompletedSongRequest(payload.songRequestId, Math.floor(Date.now() / 1000));
   };
 }

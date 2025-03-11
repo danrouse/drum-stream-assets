@@ -95,7 +95,7 @@ export type WebSocketPlayerMessage = {
   otherWinners: string[],
 };
 
-export type WebSocketMessage = WebSocketServerMessage | WebSocketPlayerMessage;
+export type WebSocketMessage<T = WebSocketServerMessage['type'] | WebSocketPlayerMessage['type']> = Extract<WebSocketServerMessage | WebSocketPlayerMessage, { type: T }>;
 export type WebSocketBroadcaster = (payload: WebSocketServerMessage) => void;
 export type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
 

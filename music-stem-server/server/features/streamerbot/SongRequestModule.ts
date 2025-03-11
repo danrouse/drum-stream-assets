@@ -14,8 +14,9 @@ import { db } from '../../database';
 import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
 import { createLogger, isURL, formatTime } from '../../../../shared/util';
-import { SongData, WebSocketBroadcaster, WebSocketMessage } from '../../../../shared/messages';
+import { WebSocketMessage } from '../../../../shared/messages';
 import * as Streamerbot from '../../../../shared/streamerbot';
+import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 interface SongRequestOptions {
   priority: number,
@@ -32,43 +33,41 @@ const LONG_SONG_REQUEST_MAX_DURATION = 15 * 60;
 
 export default class SongRequestModule {
   private client: StreamerbotWebSocketClient;
-  private broadcast: WebSocketBroadcaster;
+  private wss: WebSocketCoordinatorServer;
   private jobs: JobInterface;
   private successCallbacks: { [id: number]: (songTitle: string) => void } = {};
   private failureCallbacks: { [id: number]: (errorType: string) => void } = {};
   private userCommandHistory: { [username: string]: [string, number][] } = {};
 
-  constructor(client: StreamerbotWebSocketClient, broadcast: WebSocketBroadcaster) {
+  constructor(
+    client: StreamerbotWebSocketClient,
+    wss: WebSocketCoordinatorServer
+  ) {
     this.client = client;
-    this.broadcast = broadcast;
+    this.wss = wss;
 
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
     this.client.on('Command.Triggered', this.handleCommandTriggered);
+
+    this.wss.registerHandler('song_request', payload => this.execute(payload.query, { maxDuration: 12000 }));
+    this.wss.registerHandler('song_playback_completed', this.handleSongPlaybackCompleted);
+    this.wss.registerHandler('song_request_removed', this.handleSongPlaybackCompleted);
+    this.wss.registerHandler('song_changed', this.handleSongChanged);
 
     this.jobs = new JobInterface();
     this.jobs.listen(Queues.SONG_REQUEST_COMPLETE, this.handleSongRequestComplete.bind(this));
     this.jobs.listen(Queues.SONG_REQUEST_ERROR, this.handleSongRequestError.bind(this));
   }
 
-  public messageHandler = async (payload: WebSocketMessage) => {
-    if (payload.type === 'song_request') {
-      // these messages are transmitted only by the player UI
-      // for internal handling of SRs (not for chat users)
-      await this.execute(payload.query, { maxDuration: 12000 });
-    } else if (
-      (payload.type === 'song_playback_completed' || payload.type === 'song_request_removed') &&
-      payload.songRequestId
-    ) {
-      const nextStatus = payload.type === 'song_playback_completed' ? 'fulfilled' : 'cancelled';
-      this.log('Set song request', payload.songRequestId, nextStatus);
-      // Update song request in the database
-      await db.updateTable('songRequests')
-        .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
-        .where('id', '=', payload.songRequestId)
-        .execute();
-    } else if (payload.type === 'song_changed') {
-      this.handleSongChanged(payload.song);
-    }
+  private handleSongPlaybackCompleted = async (payload: WebSocketMessage<'song_playback_completed' | 'song_request_removed'>) => {
+    if (!payload.songRequestId) return;
+    const nextStatus = payload.type === 'song_playback_completed' ? 'fulfilled' : 'cancelled';
+    this.log('Set song request', payload.songRequestId, nextStatus);
+    // Update song request in the database
+    await db.updateTable('songRequests')
+      .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
+      .where('id', '=', payload.songRequestId)
+      .execute();
   };
 
   private log = createLogger('SongRequestHandler');
@@ -255,7 +254,7 @@ export default class SongRequestModule {
         .where('status', '=', 'ready')
         .execute();
 
-      this.broadcast({ type: 'song_request_added', songRequestId: payload.id });
+      this.wss.broadcast({ type: 'song_request_added', songRequestId: payload.id });
 
       this.successCallbacks[payload.id]?.([payload.artist, payload.title].filter(s => s).join(' - '));
     } catch (e) {
@@ -383,10 +382,10 @@ export default class SongRequestModule {
     );
   }
 
-  private async handleSongChanged(song: SongData) {
+  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
     // Notify user when their song request is starting
-    if (song.requester && song.status === 'ready') {
-      await this.client.sendTwitchMessage(`@${song.requester} ${song.artist} - ${song.title} is starting!`);
+    if (payload.song.requester && payload.song.status === 'ready') {
+      await this.client.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
     }
   }
 
@@ -443,7 +442,7 @@ export default class SongRequestModule {
           .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
           .where('id', '=', res[0].id)
           .execute();
-        this.broadcast({
+        this.wss.broadcast({
           type: 'song_request_removed',
           songRequestId: res[0].id,
         });

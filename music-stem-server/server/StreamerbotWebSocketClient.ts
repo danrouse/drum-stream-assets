@@ -1,5 +1,5 @@
 import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer, StreamerbotEventName } from '@streamerbot/client';
-import { sql } from 'kysely';
+import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import { db } from './database';
 import * as queries from './queries';
 import { createLogger } from '../../shared/util';
@@ -35,7 +35,7 @@ type DeepPartial<T> = {
 
 export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
-  private broadcast: WebSocketBroadcaster;
+  private wss: WebSocketCoordinatorServer;
 
   private twitchUnpauseTimers: { [rewardName in Streamerbot.TwitchRewardName]?: NodeJS.Timeout } = {};
   private twitchDebounceQueue: { [key: string]: number } = {};
@@ -54,7 +54,7 @@ export default class StreamerbotWebSocketClient {
   public static readonly BOT_TWITCH_USER_ID = '1148563762';
 
   constructor(
-    broadcast: WebSocketBroadcaster,
+    wss: WebSocketCoordinatorServer,
     isTestMode?: boolean,
   ) {
     this.client = new StreamerbotClient({
@@ -86,11 +86,17 @@ export default class StreamerbotWebSocketClient {
 
     this.on = this.client.on.bind(this.client);
 
-    this.broadcast = broadcast;
+    this.wss = wss;
+
     this.isTestMode = Boolean(isTestMode);
     if (isTestMode) {
       this.log('Starting in test mode');
     }
+
+    this.wss.registerHandler('song_changed', this.handleSongChanged);
+    this.wss.registerHandler('song_played', () => this.doAction('Queue: Pause', { queueName: 'TTS' }));
+    this.wss.registerHandler('song_playpack_paused', () => this.doAction('Queue: Unpause', { queueName: 'TTS' }));
+    this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
   }
 
   public mockStreamerbotMessage<TEvent>(
@@ -113,30 +119,6 @@ export default class StreamerbotWebSocketClient {
       })
     });
   }
-
-  public messageHandler = async (payload: WebSocketMessage) => {
-    if (payload.type === 'song_changed') {
-      this.handleSongChanged(payload.song);
-    } else if (payload.type === 'song_played') {
-      await this.doAction('Queue: Pause', { queueName: 'TTS' });
-    } else if (payload.type === 'song_playpack_paused') {
-      await this.doAction('Queue: Unpause', { queueName: 'TTS' });
-    } else if (payload.type === 'song_playback_completed') {
-      this.handleSongEnded(payload.id, payload.songRequestId);
-    } else if (payload.type === 'song_request_removed') {
-      // Refund reward redemption SRs if removed
-      // REFUND DISABLED: priority song requests were getting refunded if
-      // not going directly (like "my song in queue" and then doing it manually)
-
-      // const row = await db.selectFrom('songRequests')
-      //   .select(['twitchRewardId', 'twitchRedemptionId'])
-      //   .where('id', '=', payload.songRequestId)
-      //   .execute();
-      // if (row[0].twitchRewardId && row[0].twitchRedemptionId) {
-      //   this.updateTwitchRedemption(row[0].twitchRewardId, row[0].twitchRedemptionId, 'cancel');
-      // }
-    }
-  };
 
   private log = createLogger('StreamerbotWSC');
 
@@ -177,20 +159,20 @@ export default class StreamerbotWebSocketClient {
     return result;
   }
 
-  private async handleSongEnded(songId: number, songRequestId?: number | null) {
+  private async handleSongEnded(payload: WebSocketMessage<'song_playback_completed'>) {
     // Add playback to history
     await db.insertInto('songHistory')
       .values([{
-        songId: songId,
-        songRequestId: songRequestId,
+        songId: payload.id,
+        songRequestId: payload.songRequestId,
         startedAt: this.currentSongSelectedAtTime,
         endedAt: new Date().toISOString(),
       }])
       .execute();
   }
 
-  private async handleSongChanged(song: SongData) {
-    this.currentSong = song;
+  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
+    this.currentSong = payload.song;
     this.currentSongSelectedAtTime = new Date().toISOString();
   }
 
@@ -207,7 +189,7 @@ export default class StreamerbotWebSocketClient {
 
   public async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
     if (payload.data.message.userId === StreamerbotWebSocketClient.BOT_TWITCH_USER_ID) return;
-    this.broadcast({
+    this.wss.broadcast({
       type: 'chat_message',
       user: payload.data.message.displayName,
       message: payload.data.message.message,
@@ -226,7 +208,7 @@ export default class StreamerbotWebSocketClient {
       }
     }
     this.viewers = viewers;
-    this.broadcast({ type: 'viewers_update', viewers });
+    this.wss.broadcast({ type: 'viewers_update', viewers });
   }
 
   public updateTwitchRedemption(rewardId: string, redemptionId: string, action: 'cancel' | 'fulfill') {

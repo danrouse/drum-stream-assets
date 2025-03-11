@@ -14,25 +14,20 @@ import { db } from '../../database';
 import * as queries from '../../queries';
 import * as Streamerbot from '../../../../shared/streamerbot';
 import { WebSocketMessage } from '../../../../shared/messages';
+import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 export default class SongVotingModule {
-  client: StreamerbotWebSocketClient;
-
-  constructor(client: StreamerbotWebSocketClient) {
-    this.client = client;
-
+  constructor(
+    private client: StreamerbotWebSocketClient,
+    private wss: WebSocketCoordinatorServer
+  ) {
     this.client.on('Command.Triggered', this.handleCommandTriggered);
+    this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
   }
 
-  public messageHandler = async (payload: WebSocketMessage) => {
-    if (payload.type === 'song_playback_completed') {
-      this.handleSongEnded(payload.id, payload.songRequestId);
-    }
-  }
-
-  private async handleSongEnded(songId: number, songRequestId?: number | null) {
+  private async handleSongEnded(payload: WebSocketMessage<'song_playback_completed'>) {
     // Notify chat of any votes that happened during playback
-    const votes = await queries.songVotesSinceTime(songId, this.client.currentSongSelectedAtTime!);
+    const votes = await queries.songVotesSinceTime(payload.id, this.client.currentSongSelectedAtTime!);
     if (Number(votes[0].voteCount) > 0) {
       await this.client.sendTwitchMessage(`${this.client.currentSong?.artist} - ${this.client.currentSong?.title} score: ${votes[0].value}`);
     }

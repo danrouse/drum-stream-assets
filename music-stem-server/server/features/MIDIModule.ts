@@ -15,7 +15,7 @@
  *       and doesn't offer a graceful way of handling disconnects/reconnecting.
  */
 import midi, { MidiMessage } from 'midi';
-import { WebSocketBroadcaster } from '../../../shared/messages';
+import WebSocketCoordinatorServer from '../WebSocketCoordinatorServer';
 import { midiNoteDefinitions } from '../../../shared/midiNoteDefinitions';
 
 const allNoteNumbers = Object.values(midiNoteDefinitions).map(s => s.keys).flat();
@@ -32,7 +32,7 @@ const getRandomNoteMapping = () => {
 export default class MIDIModule {
   private input?: midi.Input;
   private output?: midi.Output;
-  private broadcast?: WebSocketBroadcaster;
+  private wss: WebSocketCoordinatorServer;
 
   private static KIT_NUMBER_DEFAULT = 95;
   private static KIT_NUMBER_NO_TOMS = 90;
@@ -53,12 +53,11 @@ export default class MIDIModule {
   private noteMapping?: Record<number, number>;
   private isRandomized: boolean = false;
 
-  constructor(broadcast?: WebSocketBroadcaster, deviceName: string = 'TD-30') {
-    // TODO: handle not finding ports at instantiation time
-    // TODO: reconnect if device disconnects
-
-    this.broadcast = broadcast;
-
+  constructor(
+    wss: WebSocketCoordinatorServer,
+    deviceName: string = 'TD-30'
+  ) {
+    this.wss = wss;
     try {
       this.initializePorts(deviceName);
     } catch (e) {
@@ -162,7 +161,7 @@ export default class MIDIModule {
         this.output?.send([message[0], note, message[2]]);
         this.changeKit(MIDIModule.KIT_NUMBER_ALL_MUTED, false);
       }
-      this.broadcast?.({ type: 'midi_note_on', note: message[1], velocity: message[2] });
+      this.wss.broadcast({ type: 'midi_note_on', note: message[1], velocity: message[2] });
     } else if (message[0] === MIDIModule.MIDI_PROGRAM_SELECT + MIDIModule.MIDI_CHANNEL_DRUM_KIT_CONTROL) {
       this.previousKitNumber = this.selectedKitNumber;
       this.selectedKitNumber = message[1] + 1;
