@@ -7,6 +7,8 @@ import DiscordModule from './features/DiscordModule';
 import SongRequestModule from './features/streamerbot/SongRequestModule';
 import ShenanigansModule from './features/streamerbot/ShenanigansModule';
 import OBSModule from './features/streamerbot/OBSModule';
+import SongVotingModule from './features/streamerbot/SongVotingModule';
+import EmotesModule from './features/streamerbot/EmotesModule';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
@@ -50,3 +52,13 @@ webSocketCoordinatorServer.handlers.push(obsModule.messageHandler);
 
 const discordModule = new DiscordModule(IS_TEST_MODE);
 webSocketCoordinatorServer.handlers.push(discordModule.messageHandler);
+
+const songVotingModule = new SongVotingModule(
+  streamerbotWebSocketClient,
+);
+webSocketCoordinatorServer.handlers.push(songVotingModule.messageHandler);
+
+const emotesModule = new EmotesModule(
+  streamerbotWebSocketClient,
+  webSocketCoordinatorServer.broadcast
+);

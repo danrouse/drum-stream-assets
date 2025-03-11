@@ -3,19 +3,19 @@ import { sql } from 'kysely';
 import { db } from './database';
 import * as queries from './queries';
 import { createLogger } from '../../shared/util';
-import { get7tvEmotes } from '../../shared/twitchEmotes';
 import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
 import * as Streamerbot from '../../shared/streamerbot';
 
 export const TwitchRewardDurations: Streamerbot.TwitchRewardMeta<number> = {
-  'Pin an Emote': 30000,
-
   'Motorcycle Helmet': 300000,
   'Pick ONE Hat': 180000,
   'Pick TWO Hats': 180000,
   'Pick THREE Hats': 180000,
 
-  // TODO: Find a way to relocate these into ShenanigansModule
+  // TODO: Relocate into EmotesModule
+  'Pin an Emote': 30000,
+
+  // TODO: Relocate into ShenanigansModule
   'Slow Down Music': 60000,
   'Speed Up Music': 60000,
   'Fart Mode': 30000,
@@ -29,8 +29,6 @@ const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
   ['Motorcycle Helmet', 'Pick ONE Hat', 'Pick TWO Hats', 'Pick THREE Hats'],
 ];
 
-const BOT_TWITCH_USER_ID = '1148563762';
-
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
@@ -39,24 +37,21 @@ export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
   private broadcast: WebSocketBroadcaster;
 
-  private twitchMessageIdsByUser: { [userName: string]: string } = {};
   private twitchUnpauseTimers: { [rewardName in Streamerbot.TwitchRewardName]?: NodeJS.Timeout } = {};
   private twitchDebounceQueue: { [key: string]: number } = {};
   private streamerbotActionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private updateViewersTimer?: NodeJS.Timeout;
   private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
-  private previousMessage: string = '';
-  private previousMessageUser: string = '';
-  private messageRepeatTimer?: NodeJS.Timeout;
 
   private isConnected = false;
   private isTestMode = false;
 
-  private pinNextEmoteForUser?: string;
   public currentSong?: SongData;
-  private currentSongSelectedAtTime?: string;
+  public currentSongSelectedAtTime?: string;
 
   public on: typeof StreamerbotClient.prototype.on;
+
+  public static readonly BOT_TWITCH_USER_ID = '1148563762';
 
   constructor(
     broadcast: WebSocketBroadcaster,
@@ -194,12 +189,6 @@ export default class StreamerbotWebSocketClient {
         endedAt: new Date().toISOString(),
       }])
       .execute();
-
-    // Notify chat of any votes that happened during playback
-    const votes = await queries.songVotesSinceTime(songId, this.currentSongSelectedAtTime!);
-    if (Number(votes[0].voteCount) > 0) {
-      await this.sendTwitchMessage(`${this.currentSong?.artist} - ${this.currentSong?.title} score: ${votes[0].value}`);
-    }
   }
 
   private async handleSongChanged(song: SongData) {
@@ -259,50 +248,7 @@ export default class StreamerbotWebSocketClient {
   }
 
   public async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
-    if (payload.data.message.userId === BOT_TWITCH_USER_ID) return;
-
-    // Streamerbot Command.Triggered events which were triggered by Twitch messages
-    // don't include the messageId which triggered them, but the Twitch.ChatMessage
-    // event gets triggered first, so store a mapping of userIds to messageIds for replies
-    this.twitchMessageIdsByUser[payload.data.message.userId] = payload.data.message.msgId;
-
-    const emotes = [
-      ...payload.data.message.emotes.map(e => e.imageUrl),
-      ...(await get7tvEmotes(payload.data.message.message.split(' '))),
-    ];
-    if (emotes.length) {
-      this.broadcast({ type: 'emote_used', emoteURLs: emotes });
-
-      // if someone redeemed Pin an Emote, take the first emote and pin it
-      if (this.pinNextEmoteForUser?.toLowerCase() === payload.data.message.username.toLowerCase()) {
-        this.broadcast({
-          type: 'emote_pinned',
-          emoteURL: emotes[0],
-        });
-        this.pauseTwitchRedemption('Pin an Emote', TwitchRewardDurations['Pin an Emote'], () => {
-          this.broadcast({
-            type: 'emote_pinned',
-            emoteURL: null,
-          });
-        });
-      }
-
-      // if two people sent the same emote-only message twice in a row, echo it
-      if (payload.data.message.message === this.previousMessage && payload.data.message.username !== this.previousMessageUser && !this.messageRepeatTimer) {
-        const wholeMessageIsTwitchEmote = payload.data.message.emotes[0]?.startIndex === 0 &&
-          payload.data.message.emotes[0]?.endIndex === payload.data.message.message.length - 1;
-        const isOwnTwitchEmote = payload.data.message.emotes[0]?.name.startsWith('dannyt75');
-        const wholeMessage7tvEmote = await get7tvEmotes([payload.data.message.message]);
-
-        if ((wholeMessageIsTwitchEmote && isOwnTwitchEmote) || wholeMessage7tvEmote.length) {
-          await this.sendTwitchMessage(payload.data.message.message);
-          this.messageRepeatTimer = setTimeout(() => { delete this.messageRepeatTimer; }, 30000);
-        }
-      }
-    }
-
-    this.previousMessage = payload.data.message.message;
-    this.previousMessageUser = payload.data.message.username;
+    if (payload.data.message.userId === StreamerbotWebSocketClient.BOT_TWITCH_USER_ID) return;
     this.broadcast({
       type: 'chat_message',
       user: payload.data.message.displayName,
@@ -386,10 +332,6 @@ export default class StreamerbotWebSocketClient {
 
     this.log(`Channel point redemption by ${payload.data.user_name}: ${rewardName}`);
 
-    if (rewardName === 'Pin an Emote') {
-      this.pinNextEmoteForUser = payload.data.user_name;
-    }
-
     // For mutually-exclusive rewards, pause everything in the category
     // until this redemption expires
     const mutuallyExclusiveGroup = TwitchRewardGroups.find(rewardNames => rewardNames.includes(rewardName));
@@ -409,31 +351,7 @@ export default class StreamerbotWebSocketClient {
 
     this.log('Command triggered', payload.data.command, commandName, userName, payload.data.message);
 
-    if (commandName === 'Vote ++' || commandName === 'Vote --') {
-      if (!this.currentSong) return;
-      let value = 1;
-      if (commandName === 'Vote --') value = -1;
-      const existingVote = await queries.existingSongVoteForUser(this.currentSong.id, userName);
-      if (existingVote.length > 0) {
-        await db.updateTable('songVotes')
-          .set({ value, createdAt: sql`current_timestamp` })
-          .where('id', '=', existingVote[0].id)
-          .execute();
-      } else {
-        await db.insertInto('songVotes').values([{
-          songId: this.currentSong!.id,
-          voterName: userName,
-          value,
-        }]).execute();
-      }
-      const newSongValue = await queries.songVoteScore(this.currentSong.id);
-      await this.sendTwitchMessage(
-        `@${userName} Current score for ${this.currentSong.artist} - ${this.currentSong.title}: ${newSongValue[0].value}`,
-        undefined,
-        'songVoteResponse',
-        5000
-      );
-    } else if (commandName === '!today') {
+    if (commandName === '!today') {
       const res = await queries.songsPlayedTodayCount();
       await this.sendTwitchMessage(`${res[0].count} songs have been played today. ${'🥁'.repeat(res[0].count)}`);
     }
