@@ -14,7 +14,7 @@ import { db } from '../../database';
 import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
 import { createLogger, isURL, formatTime } from '../../../../shared/util';
-import { WebSocketBroadcaster, WebSocketMessage } from '../../../../shared/messages';
+import { SongData, WebSocketBroadcaster, WebSocketMessage } from '../../../../shared/messages';
 import * as Streamerbot from '../../../../shared/streamerbot';
 
 interface SongRequestOptions {
@@ -66,6 +66,8 @@ export default class SongRequestModule {
         .set({ status: nextStatus, fulfilledAt: new Date().toUTCString() })
         .where('id', '=', payload.songRequestId)
         .execute();
+    } else if (payload.type === 'song_changed') {
+      this.handleSongChanged(payload.song);
     }
   };
 
@@ -379,6 +381,13 @@ export default class SongRequestModule {
         // throw e;
       }
     );
+  }
+
+  private async handleSongChanged(song: SongData) {
+    // Notify user when their song request is starting
+    if (song.requester && song.status === 'ready') {
+      await this.client.sendTwitchMessage(`@${song.requester} ${song.artist} - ${song.title} is starting!`);
+    }
   }
 
   private handleCommandTriggered = async (payload: StreamerbotEventPayload<"Command.Triggered">) => {

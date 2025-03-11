@@ -190,11 +190,6 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleSongChanged(song: SongData) {
-    // Notify user when their song request is starting
-    if (song.requester && song.status === 'ready') {
-      await this.sendTwitchMessage(`@${song.requester} ${song.artist} - ${song.title} is starting!`);
-    }
-
     this.currentSong = song;
     this.currentSongSelectedAtTime = new Date().toISOString();
   }
