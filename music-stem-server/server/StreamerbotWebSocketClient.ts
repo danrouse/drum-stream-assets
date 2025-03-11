@@ -1,4 +1,4 @@
-import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer } from '@streamerbot/client';
+import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer, StreamerbotEventName } from '@streamerbot/client';
 import { sql } from 'kysely';
 import { db } from './database';
 import * as queries from './queries';
@@ -30,6 +30,10 @@ const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
 ];
 
 const BOT_TWITCH_USER_ID = '1148563762';
+
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
 
 export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
@@ -85,13 +89,34 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
 
-    this.on = this.client.on;
+    this.on = this.client.on.bind(this.client);
 
     this.broadcast = broadcast;
     this.isTestMode = Boolean(isTestMode);
     if (isTestMode) {
       this.log('Starting in test mode');
     }
+  }
+
+  public mockStreamerbotMessage<TEvent>(
+    event: TEvent extends StreamerbotEventName ? TEvent : StreamerbotEventName,
+    // This uses a DeepPartial so we don't have to mock entire payloads,
+    // but it's dangerous because it's not clear which properties we actually rely on
+    // for any given event. Some of the payloads are quite large and use lots of
+    // fields that are almost never relevant to our uses, but it's still not great.
+    data: DeepPartial<StreamerbotEventPayload<TEvent extends StreamerbotEventName ? TEvent : StreamerbotEventName>['data']>
+  ) {
+    const [source, type] = event.split('.');
+    // We are breaking the rules and calling a protected method
+    // Be ungovernable!
+    // @ts-expect-error
+    this.client.onMessage({
+      data: JSON.stringify({
+        timeStamp: new Date().toISOString(),
+        event: { source, type },
+        data
+      })
+    });
   }
 
   public messageHandler = async (payload: WebSocketMessage) => {
