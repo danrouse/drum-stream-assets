@@ -33,6 +33,17 @@ type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
+export type CommandPayload = {
+  user: string;
+  message: string;
+};
+export type TwitchRedemptionPayload = {
+  user: string;
+  input: string;
+  rewardId: string;
+  redemptionId: string;
+};
+
 export default class StreamerbotWebSocketClient {
   private client: StreamerbotClient;
   private wss: WebSocketCoordinatorServer;
@@ -42,6 +53,8 @@ export default class StreamerbotWebSocketClient {
   private streamerbotActionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private updateViewersTimer?: NodeJS.Timeout;
   private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
+  private commandHandlers: { [command in Streamerbot.CommandName]?: (payload: CommandPayload) => void } = {};
+  private twitchRedemptionHandlers: { [reward in Streamerbot.TwitchRewardName]?: (payload: TwitchRedemptionPayload) => void } = {};
 
   private isConnected = false;
   private isTestMode = false;
@@ -97,6 +110,26 @@ export default class StreamerbotWebSocketClient {
     this.wss.registerHandler('song_played', () => this.doAction('Queue: Pause', { queueName: 'TTS' }));
     this.wss.registerHandler('song_playpack_paused', () => this.doAction('Queue: Unpause', { queueName: 'TTS' }));
     this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
+  }
+
+  public registerCommandHandler(
+    command: Streamerbot.CommandName,
+    handler: (payload: CommandPayload) => void
+  ) {
+    if (this.commandHandlers[command]) {
+      throw new Error(`Duplicate command handler registered for ${command}`);
+    }
+    this.commandHandlers[command] = handler;
+  }
+
+  public registerTwitchRedemptionHandler(
+    reward: Streamerbot.TwitchRewardName,
+    handler: (payload: TwitchRedemptionPayload) => void
+  ) {
+    if (this.twitchRedemptionHandlers[reward]) {
+      throw new Error(`Duplicate twitch redemption handler registered for ${reward}`);
+    }
+    this.twitchRedemptionHandlers[reward] = handler;
   }
 
   public mockStreamerbotMessage<TEvent>(
@@ -272,6 +305,13 @@ export default class StreamerbotWebSocketClient {
 
     this.log(`Channel point redemption by ${payload.data.user_name}: ${rewardName}`);
 
+    this.twitchRedemptionHandlers[rewardName]?.({
+      user: payload.data.user_name,
+      input: payload.data.user_input,
+      rewardId: payload.data.reward.id,
+      redemptionId: payload.data.id,
+    });
+
     // For mutually-exclusive rewards, pause everything in the category
     // until this redemption expires
     const mutuallyExclusiveGroup = TwitchRewardGroups.find(rewardNames => rewardNames.includes(rewardName));
@@ -283,13 +323,15 @@ export default class StreamerbotWebSocketClient {
   }
 
   private async handleCommandTriggered(payload: StreamerbotEventPayload<"Command.Triggered">) {
-    const userName = payload.data.user.display;
     const commandName = Streamerbot.CommandAliases[payload.data.command];
-
-    // Unregistered command triggered
     if (!commandName) return;
 
-    this.log('Command triggered', payload.data.command, commandName, userName, payload.data.message);
+    this.log('Command triggered', payload.data.command, commandName, payload.data.user.display, payload.data.message);
+
+    this.commandHandlers[commandName]?.({
+      user: payload.data.user.display,
+      message: payload.data.message,
+    });
 
     if (commandName === '!today') {
       const res = await queries.songsPlayedTodayCount();

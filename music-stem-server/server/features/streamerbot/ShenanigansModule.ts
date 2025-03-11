@@ -41,8 +41,41 @@ export default class ShenanigansModule {
     this.wss = wss;
     this.midiModule = midiModule;
 
-    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
     this.client.on('General.Custom', this.handleCustom);
+
+    this.client.registerTwitchRedemptionHandler('Disable Shenanigans (Current Song)', (payload) => {
+      this.disable();
+    });
+    this.client.registerTwitchRedemptionHandler('Reset All Shenanigans', (payload) => {
+      this.reset();
+    });
+    this.client.registerTwitchRedemptionHandler('Fart Mode', (payload) => {
+      this.enableFartMode(TwitchRewardDurations['Fart Mode']!);
+    });
+    this.client.registerTwitchRedemptionHandler('Randomize Drums', (payload) => {
+      this.enableRandomizedDrums(TwitchRewardDurations['Randomize Drums']!, false);
+    });
+    this.client.registerTwitchRedemptionHandler('Randomize EVERY HIT', (payload) => {
+      this.enableRandomizedDrums(TwitchRewardDurations['Randomize EVERY HIT']!, true);
+    });
+    this.client.registerTwitchRedemptionHandler('Change Drum Kit', async (payload) => {
+      const kit = getKitDefinition(payload.input);
+      if (!kit) {
+        await this.client.sendTwitchMessage(`${payload.user}, please include one of the numbers or names of a kit from here: ${td30KitsPastebin} (refunded!)`);
+        await this.client.updateTwitchRedemption(payload.rewardId, payload.redemptionId, 'cancel');
+        return;
+      }
+      this.midiModule.changeKit(kit[0], !this.kitResetTimer);
+      if (this.kitResetTimer) {
+        clearTimeout(this.kitResetTimer);
+        delete this.kitResetTimer;
+      }
+      await this.client.sendTwitchMessage(`Drum kit has been changed to ${kit[1]} for two minutes!`);
+      this.kitResetTimer = setTimeout(() => {
+        this.midiModule.resetKit();
+        delete this.kitResetTimer;
+      }, TwitchRewardDurations['Change Drum Kit']);
+    });
 
     this.wss.registerHandler('song_speed', this.handleSongSpeedChanged);
     this.wss.registerHandler('song_changed', this.handleSongChanged);
@@ -148,36 +181,6 @@ export default class ShenanigansModule {
       delete this.kitResetTimer;
     }, duration);
   }
-
-  private handleTwitchRewardRedemption = async (payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) => {
-    const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
-    if (rewardName === 'Disable Shenanigans (Current Song)') {
-      this.disable();
-    } else if (rewardName === 'Reset All Shenanigans') {
-      this.reset();
-    } else if (rewardName === 'Fart Mode') {
-      this.enableFartMode(TwitchRewardDurations[rewardName]!);
-    } else if (rewardName === 'Randomize Drums' || rewardName === 'Randomize EVERY HIT') {
-      this.enableRandomizedDrums(TwitchRewardDurations[rewardName]!, rewardName === 'Randomize Drums');
-    } else if (rewardName === 'Change Drum Kit') {
-      const kit = getKitDefinition(payload.data.user_input);
-      if (!kit) {
-        await this.client.sendTwitchMessage(`${payload.data.user_name}, please include one of the numbers or names of a kit from here: ${td30KitsPastebin} (refunded!)`);
-        await this.client.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-        return;
-      }
-      this.midiModule.changeKit(kit[0], !this.kitResetTimer);
-      if (this.kitResetTimer) {
-        clearTimeout(this.kitResetTimer);
-        delete this.kitResetTimer;
-      }
-      await this.client.sendTwitchMessage(`Drum kit has been changed to ${kit[1]} for two minutes!`);
-      this.kitResetTimer = setTimeout(() => {
-        this.midiModule.resetKit();
-        delete this.kitResetTimer;
-      }, TwitchRewardDurations[rewardName]);
-    }
-  };
 
   private handleCustom = (payload: StreamerbotEventPayload<"General.Custom">) => {
     if (payload.data.data === 'NoShenanigans') {

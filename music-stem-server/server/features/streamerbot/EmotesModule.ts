@@ -22,7 +22,9 @@ export default class EmotesModule {
     private wss: WebSocketCoordinatorServer
   ) {
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage);
-    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
+    this.client.registerTwitchRedemptionHandler('Pin an Emote', (payload) => {
+      this.pinNextEmoteForUser = payload.user;
+    });
   }
 
   private handleTwitchChatMessage = async (payload: StreamerbotEventPayload<"Twitch.ChatMessage">) => {
@@ -65,14 +67,5 @@ export default class EmotesModule {
 
     this.previousMessage = payload.data.message.message;
     this.previousMessageUser = payload.data.message.username;
-  };
-
-  private handleTwitchRewardRedemption = async (payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) => {
-    const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
-    if (!rewardName) return;
-
-    if (rewardName === 'Pin an Emote') {
-      this.pinNextEmoteForUser = payload.data.user_name;
-    }
   };
 }

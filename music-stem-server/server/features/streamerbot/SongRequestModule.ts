@@ -46,8 +46,154 @@ export default class SongRequestModule {
     this.client = client;
     this.wss = wss;
 
-    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
-    this.client.on('Command.Triggered', this.handleCommandTriggered);
+    this.client.registerCommandHandler('song request', async (payload) => {
+      await this.handleUserSongRequest(
+        payload.message,
+        payload.user,
+        await this.songRequestMaxDurationForUser(payload.user),
+        await this.songRequestMaxCountForUser(payload.user)
+      );
+    });
+    this.client.registerCommandHandler('!when', async (payload) => {
+      const songRequest = await queries.nextSongByUser(payload.user);
+      if (!songRequest) {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs in the request queue!`);
+      } else {
+        const [_, lastUsage] = this.userCommandHistory[payload.user].findLast(([command, time]) => command === '!when') || [];
+        const FIVE_MINUTES = 5 * 60 * 1000;
+        this.userCommandHistory[payload.user] ||= [];
+        const now = Date.now();
+        if (lastUsage && now - lastUsage < FIVE_MINUTES) {
+          // const pastUsageCount = this.commandHistory[payload.user].filter(([command, time]) => command === commandName && now - time < FIVE_MINUTES).length;
+          // if (pastUsageCount > 2) {
+          //   await this.sendTwitchMessage(`@${payload.user} Your song has been removed from the queue, you can go listen to it on Spotify instead.`);
+          // } else {
+            await this.client.sendTwitchMessage(`@${payload.user} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Be patient.`);
+          // }
+        } else {
+          const remaining = await queries.getTimeUntilSongRequest(songRequest[0].id);
+          if (remaining.numSongRequests === 1) {
+            await this.client.sendTwitchMessage(`@${payload.user} Your song (${songRequest[0].artist} - ${songRequest[0].title}) is up next!`);
+          } else {
+            await this.client.sendTwitchMessage(
+              `@${payload.user} Your next song (${songRequest[0].artist} - ${songRequest[0].title}) is in position ` +
+              `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
+            );
+          }
+        }
+        this.userCommandHistory[payload.user].push(['!when', now]);
+      }
+    });
+    this.client.registerCommandHandler('!remove', async (payload) => {
+      // Find a valid song request to cancel
+      const res = await queries.mostRecentlyRequestedSongByUser(payload.user);
+      if (res[0]) {
+        await db.updateTable('songRequests')
+          .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
+          .where('id', '=', res[0].id)
+          .execute();
+        this.wss.broadcast({
+          type: 'song_request_removed',
+          songRequestId: res[0].id,
+        });
+        await this.client.sendTwitchMessage(`@${payload.user} ${res[0].artist} - ${res[0].title} has been removed from the queue.`);
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any queued songs to cancel!`);
+      }
+    });
+    this.client.registerCommandHandler('!songlist', async (payload) => {
+      const MAX_RESPONSE_SONGS = 5;
+      const res = await queries.songRequestQueue();
+      if (res.length === 0) {
+        await this.client.sendTwitchMessage(`@${payload.user} The song request queue is empty.`);
+      } else {
+        await this.client.sendTwitchMessage(
+          `There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
+          res.slice(0, MAX_RESPONSE_SONGS).map(s =>
+            `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
+            ` [${formatTime(s.duration)}]`
+          ).join(', ') +
+          (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
+        );
+        const totalTime = res.reduce((acc, cur) => acc + cur.duration, 0);
+        await this.client.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
+      }
+    });
+
+    this.client.registerTwitchRedemptionHandler('Long Song Request', async (payload) => {
+      try {
+        await this.handleUserSongRequest(
+          payload.input,
+          payload.user,
+          LONG_SONG_REQUEST_MAX_DURATION,
+          await this.songRequestMaxCountForUser(payload.user),
+          0,
+          false,
+          payload.rewardId,
+          payload.redemptionId,
+        );
+      } catch (err) {
+        await this.client.updateTwitchRedemption(payload.rewardId, payload.redemptionId, 'cancel');
+        await this.client.sendTwitchMessage(`@${payload.user} Long Song Request has been refunded`);
+      }
+    });
+    this.client.registerTwitchRedemptionHandler('Priority Song Request', async (payload) => {
+      try {
+        const existingRequest = await this.getExistingSongRequest(
+          payload.input.trim().toLowerCase(),
+          payload.user
+        );
+        if (existingRequest) {
+          await db.updateTable('songRequests')
+            .set({ priority: 5 })
+            .where('id', '=', existingRequest.id)
+            .execute();
+          await this.client.sendTwitchMessage(`@${payload.user} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
+        } else {
+          await this.handleUserSongRequest(
+            payload.input,
+            payload.user,
+            await this.songRequestMaxDurationForUser(payload.user),
+            0,
+            5,
+            false,
+            payload.rewardId,
+            payload.redemptionId,
+          );
+        }
+      } catch (err) {
+        await this.client.updateTwitchRedemption(payload.rewardId, payload.redemptionId, 'cancel');
+        await this.client.sendTwitchMessage(`@${payload.user} Priority Song Request has been refunded`);
+      }
+    });
+    this.client.registerTwitchRedemptionHandler('No Shens Song Request', async (payload) => {
+      try {
+        const existingRequest = await this.getExistingSongRequest(
+          payload.input.trim().toLowerCase(),
+          payload.user
+        );
+        if (existingRequest) {
+          await db.updateTable('songRequests')
+            .set({ noShenanigans: 1 })
+            .where('id', '=', existingRequest.id)
+            .execute();
+        } else {
+          await this.handleUserSongRequest(
+            payload.input,
+            payload.user,
+            await this.songRequestMaxDurationForUser(payload.user),
+            await this.songRequestMaxCountForUser(payload.user),
+            0,
+            true,
+            payload.rewardId,
+            payload.redemptionId,
+          );
+        }
+      } catch (err) {
+        await this.client.updateTwitchRedemption(payload.rewardId, payload.redemptionId, 'cancel');
+        await this.client.sendTwitchMessage(`@${payload.user} No Shens Song Request has been refunded`);
+      }
+    });
 
     this.wss.registerHandler('song_request', payload => this.execute(payload.query, { maxDuration: 12000 }));
     this.wss.registerHandler('song_playback_completed', this.handleSongPlaybackCompleted);
@@ -386,157 +532,6 @@ export default class SongRequestModule {
     // Notify user when their song request is starting
     if (payload.song.requester && payload.song.status === 'ready') {
       await this.client.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
-    }
-  }
-
-  private handleCommandTriggered = async (payload: StreamerbotEventPayload<"Command.Triggered">) => {
-    const message = payload.data.message.trim();
-    const userName = payload.data.user.display;
-    const commandName = Streamerbot.CommandAliases[payload.data.command];
-
-    this.userCommandHistory[userName] ||= [];
-    const [_, lastUsage] = this.userCommandHistory[userName].findLast(([command, time]) => command === commandName) || [];
-    const now = Date.now();
-
-    if (commandName === 'song request') {
-      try {
-        await this.handleUserSongRequest(
-          message,
-          userName,
-          await this.songRequestMaxDurationForUser(userName),
-          await this.songRequestMaxCountForUser(userName)
-        );
-      } catch (e) {
-        this.log('Song reward redemption failed with error', e);
-      }
-    } else if (commandName === '!when') {
-      const songRequest = await queries.nextSongByUser(userName);
-      if (!songRequest) {
-        await this.client.sendTwitchMessage(`@${userName} You don't have any songs in the request queue!`);
-      } else {
-        const FIVE_MINUTES = 5 * 60 * 1000;
-        if (lastUsage && now - lastUsage < FIVE_MINUTES) {
-          // const pastUsageCount = this.commandHistory[userName].filter(([command, time]) => command === commandName && now - time < FIVE_MINUTES).length;
-          // if (pastUsageCount > 2) {
-          //   await this.sendTwitchMessage(`@${userName} Your song has been removed from the queue, you can go listen to it on Spotify instead.`);
-          // } else {
-            await this.client.sendTwitchMessage(`@${userName} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Be patient.`);
-          // }
-        } else {
-          const remaining = await queries.getTimeUntilSongRequest(songRequest[0].id);
-          if (remaining.numSongRequests === 1) {
-            await this.client.sendTwitchMessage(`@${userName} Your song (${songRequest[0].artist} - ${songRequest[0].title}) is up next!`);
-          } else {
-            await this.client.sendTwitchMessage(
-              `@${userName} Your next song (${songRequest[0].artist} - ${songRequest[0].title}) is in position ` +
-              `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
-            );
-          }
-        }
-      }
-    } else if (commandName === '!remove') {
-      // Find a valid song request to cancel
-      const res = await queries.mostRecentlyRequestedSongByUser(userName);
-      if (res[0]) {
-        await db.updateTable('songRequests')
-          .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
-          .where('id', '=', res[0].id)
-          .execute();
-        this.wss.broadcast({
-          type: 'song_request_removed',
-          songRequestId: res[0].id,
-        });
-        await this.client.sendTwitchMessage(`@${userName} ${res[0].artist} - ${res[0].title} has been removed from the queue.`);
-      } else {
-        await this.client.sendTwitchMessage(`@${userName} You don't have any queued songs to cancel!`);
-      }
-    } else if (commandName === '!songlist') {
-      const MAX_RESPONSE_SONGS = 5;
-      const res = await queries.songRequestQueue();
-      if (res.length === 0) {
-        await this.client.sendTwitchMessage(`@${userName} The song request queue is empty.`);
-      } else {
-        await this.client.sendTwitchMessage(
-          `There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
-          res.slice(0, MAX_RESPONSE_SONGS).map(s =>
-            `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
-            ` [${formatTime(s.duration)}]`
-          ).join(', ') +
-          (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
-        );
-        const totalTime = res.reduce((acc, cur) => acc + cur.duration, 0);
-        await this.client.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
-      }
-    }
-
-    this.userCommandHistory[userName].push([commandName, now]);
-  };
-
-  private handleTwitchRewardRedemption = async (payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) => {
-    const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
-    if (!rewardName) return;
-
-    try {
-      if (rewardName === 'Long Song Request') {
-        await this.handleUserSongRequest(
-          payload.data.user_input,
-          payload.data.user_name,
-          LONG_SONG_REQUEST_MAX_DURATION,
-          await this.songRequestMaxCountForUser(payload.data.user_name),
-          0,
-          false,
-          payload.data.reward.id,
-          payload.data.id
-        );
-      } else if (rewardName === 'Priority Song Request') {
-        const existingRequest = await this.getExistingSongRequest(
-          payload.data.user_input.trim().toLowerCase(),
-          payload.data.user_name
-        );
-        if (existingRequest) {
-          await db.updateTable('songRequests')
-            .set({ priority: 5 })
-            .where('id', '=', existingRequest.id)
-            .execute();
-          await this.client.sendTwitchMessage(`@${payload.data.user_name} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
-        } else {
-          await this.handleUserSongRequest(
-            payload.data.user_input,
-            payload.data.user_name,
-            await this.songRequestMaxDurationForUser(payload.data.user_name),
-            0,
-            5,
-            false,
-            payload.data.reward.id,
-            payload.data.id
-          );
-        }
-      } else if (rewardName === 'No Shens Song Request') {
-        const existingRequest = await this.getExistingSongRequest(
-          payload.data.user_input.trim().toLowerCase(),
-          payload.data.user_name
-        );
-        if (existingRequest) {
-          await db.updateTable('songRequests')
-            .set({ noShenanigans: 1 })
-            .where('id', '=', existingRequest.id)
-            .execute();
-        } else {
-          await this.handleUserSongRequest(
-            payload.data.user_input,
-            payload.data.user_name,
-            await this.songRequestMaxDurationForUser(payload.data.user_name),
-            await this.songRequestMaxCountForUser(payload.data.user_name),
-            0,
-            true,
-            payload.data.reward.id,
-            payload.data.id
-          );
-        }
-      }
-    } catch (err) {
-      await this.client.updateTwitchRedemption(payload.data.reward.id, payload.data.id, 'cancel');
-      await this.client.sendTwitchMessage(`@${payload.data.user_name} ${rewardName} has been refunded`);
     }
   }
 }

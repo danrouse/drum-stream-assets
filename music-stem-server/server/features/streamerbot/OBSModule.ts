@@ -30,7 +30,13 @@ export default class OBSModule {
     this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged);
     this.client.on('Obs.StreamingStarted', this.handleOBSStreamingStarted);
     this.client.on('Obs.StreamingStopped', this.handleOBSStreamingStopped);
-    this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption);
+    this.client.registerTwitchRedemptionHandler('Fullscreen Video', (payload) => {
+      if (this.client.currentSong?.isVideo) {
+        this.client.doAction('Set OBS Scene', {
+          sceneName: 'Fullscreen Video'
+        });
+      }
+    });
 
     this.wss.registerHandler('song_changed', this.handleSongChanged);
     this.wss.registerHandler('song_playback_started', this.handleSongStarted);
@@ -99,18 +105,5 @@ export default class OBSModule {
       .set('endedAt', sql`current_timestamp`)
       .where('id', '=', record[0].id)
       .execute();
-  };
-
-  private handleTwitchRewardRedemption = async (payload: StreamerbotEventPayload<"Twitch.RewardRedemption">) => {
-    const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
-    if (!rewardName) return;
-
-    if (rewardName === 'Fullscreen Video') {
-      if (this.client.currentSong?.isVideo) {
-        await this.client.doAction('Set OBS Scene', {
-          sceneName: 'Fullscreen Video'
-        });
-      }
-    }
   };
 }
