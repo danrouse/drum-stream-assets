@@ -15,7 +15,6 @@ import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
 import { createLogger, isURL, formatTime } from '../../../../shared/util';
 import { WebSocketMessage } from '../../../../shared/messages';
-import * as Streamerbot from '../../../../shared/streamerbot';
 import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
 interface SongRequestOptions {
@@ -201,8 +200,8 @@ export default class SongRequestModule {
     this.wss.registerHandler('song_changed', this.handleSongChanged);
 
     this.jobs = new JobInterface();
-    this.jobs.listen(Queues.SONG_REQUEST_COMPLETE, this.handleSongRequestComplete.bind(this));
-    this.jobs.listen(Queues.SONG_REQUEST_ERROR, this.handleSongRequestError.bind(this));
+    this.jobs.listen(Queues.SONG_REQUEST_COMPLETE, this.handleSongRequestComplete);
+    this.jobs.listen(Queues.SONG_REQUEST_ERROR, this.handleSongRequestError);
   }
 
   private handleSongPlaybackCompleted = async (payload: WebSocketMessage<'song_playback_completed' | 'song_request_removed'>) => {
@@ -347,7 +346,7 @@ export default class SongRequestModule {
     return songRequest.id;
   }
 
-  private async handleSongRequestComplete(payload: Payloads[typeof Queues.SONG_REQUEST_COMPLETE]) {
+  private handleSongRequestComplete = async (payload: Payloads[typeof Queues.SONG_REQUEST_COMPLETE]) =>  {
     this.log('handleSongRequestComplete', payload);
 
     try {
@@ -409,15 +408,15 @@ export default class SongRequestModule {
         id: payload.id,
       });
     }
-  }
+  };
 
-  private async handleSongRequestError(payload: Payloads[typeof Queues.SONG_REQUEST_ERROR]) {
+  private handleSongRequestError = async (payload: Payloads[typeof Queues.SONG_REQUEST_ERROR]) => {
     await db.updateTable('songRequests')
       .set({ status: 'cancelled' })
       .where('id', '=', payload.id)
       .execute();
     this.failureCallbacks[payload.id]?.(payload.errorMessage);
-  }
+  };
 
   private async handleUserSongRequest(
     originalMessage: string,
@@ -528,10 +527,10 @@ export default class SongRequestModule {
     );
   }
 
-  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
+  private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
     // Notify user when their song request is starting
     if (payload.song.requester && payload.song.status === 'ready') {
       await this.client.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
     }
-  }
+  };
 }

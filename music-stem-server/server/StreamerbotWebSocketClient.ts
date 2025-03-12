@@ -192,7 +192,7 @@ export default class StreamerbotWebSocketClient {
     return result;
   }
 
-  private async handleSongEnded(payload: WebSocketMessage<'song_playback_completed'>) {
+  private handleSongEnded = async (payload: WebSocketMessage<'song_playback_completed'>) => {
     // Add playback to history
     await db.insertInto('songHistory')
       .values([{
@@ -202,12 +202,12 @@ export default class StreamerbotWebSocketClient {
         endedAt: new Date().toISOString(),
       }])
       .execute();
-  }
+  };
 
-  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
+  private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
     this.currentSong = payload.song;
     this.currentSongSelectedAtTime = new Date().toISOString();
-  }
+  };
 
   public sendTwitchMessage(message: string, replyTo?: string, debounceKey?: string, debounceTime?: number) {
     if (debounceKey) {
@@ -279,7 +279,7 @@ export default class StreamerbotWebSocketClient {
       clearTimeout(this.twitchUnpauseTimers[rewardName]);
       delete this.twitchUnpauseTimers[rewardName];
     }
-    return this.client.doAction(
+    return this.doAction(
       'Reward: Unpause',
       { rewardId: Streamerbot.TwitchRewardIds[rewardName] }
     );

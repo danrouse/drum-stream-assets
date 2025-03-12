@@ -25,7 +25,7 @@ export const TwitchRewardIds = TwitchRewards.rewards.reduce((acc, reward) => {
   return acc;
 }, {} as { [name in TwitchRewardName]: string });
 
-export const rewardNameById = (id: string) => {
-  const reward = Object.entries(TwitchRewardIds).find(([name, id]) => id === id)
+export const rewardNameById = (rewardId: string) => {
+  const reward = Object.entries(TwitchRewardIds).find(([name, id]) => id === rewardId)
   if (reward) return reward[0] as TwitchRewardName;
 };

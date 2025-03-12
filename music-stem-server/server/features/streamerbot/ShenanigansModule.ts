@@ -42,6 +42,7 @@ export default class ShenanigansModule {
     this.midiModule = midiModule;
 
     this.client.on('General.Custom', this.handleCustom);
+    this.client.on('Twitch.RewardRedemption', this.handleRewardRedemption);
 
     this.client.registerTwitchRedemptionHandler('Disable Shenanigans (Current Song)', (payload) => {
       this.disable();
@@ -84,6 +85,7 @@ export default class ShenanigansModule {
   private async enable() {
     this.isEnabled = true;
     for (let rewardName of SHENANIGANS_REWARD_NAMES) {
+      console.log('unpausing', rewardName);
       await this.client.unpauseTwitchRedemption(rewardName);
     }
     await this.client.doAction('OBS Visibility Off', {
@@ -112,7 +114,20 @@ export default class ShenanigansModule {
     });
   }
 
-  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
+  private handleRewardRedemption = async (payload: StreamerbotEventPayload<'Twitch.RewardRedemption'>) => {
+    const rewardName = Streamerbot.rewardNameById(payload.data.reward.id);
+    if (!rewardName) return;
+
+    const amount = rewardName === 'Slow Down Music' || rewardName === 'Speed Up Music' ? SPEED_CHANGE_AMOUNT : undefined;
+    this.wss.broadcast({
+      type: 'client_remote_control',
+      action: rewardName,
+      duration: TwitchRewardDurations[rewardName],
+      amount,
+    });
+  }
+
+  private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
     // Allow for "no-shenanigans" SRs
     if (payload.song.noShenanigans) {
       await this.disable();
@@ -121,9 +136,9 @@ export default class ShenanigansModule {
       await this.enable();
       this.lastSongWasNoShens = false;
     }
-  }
+  };
 
-  private async handleSongSpeedChanged(payload: WebSocketMessage<'song_speed'>) {
+  private handleSongSpeedChanged = async (payload: WebSocketMessage<'song_speed'>) => {
     // Scale the price of speed up/slow down song redemptions based on current speed
     const speedDiffSteps = Math.abs(1 - payload.speed) / SPEED_CHANGE_AMOUNT;
     const isFaster = payload.speed > 1;
@@ -156,7 +171,7 @@ export default class ShenanigansModule {
       await this.client.pauseTwitchRedemption('Slow Down Music', 1000 * 60 * 60 * 24);
       await this.client.pauseTwitchRedemption('Speed Up Music', 1000 * 60 * 60 * 24);
     }
-  }
+  };
 
   private enableFartMode(duration: number) {
     this.midiModule.muteToms(!this.kitResetTimer);
@@ -183,10 +198,13 @@ export default class ShenanigansModule {
   }
 
   private handleCustom = (payload: StreamerbotEventPayload<"General.Custom">) => {
+    console.log('custom', payload);
     if (payload.data.data === 'NoShenanigans') {
       if (this.isEnabled) {
+        console.log('disabling');
         this.disable();
       } else {
+        console.log('enabling');
         this.enable();
       }
     }

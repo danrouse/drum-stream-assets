@@ -54,25 +54,25 @@ export default class OBSModule {
     }
   }
 
-  private async handleSongStarted(payload: WebSocketMessage<'song_playback_started'>) {
+  private handleSongStarted = async (payload: WebSocketMessage<'song_playback_started'>) => {
     // Create stream marker for song request start
     let markerName = `Song Start: Song #${payload.id}`;
     if (payload.songRequestId) {
       markerName += ` SR #${payload.songRequestId}`;
     }
     await this.client.doAction('Create Stream Marker', { description: markerName });
-  }
+  };
 
-  private async handleSongEnded(payload: WebSocketMessage<'song_playback_completed'>) {
+  private handleSongEnded = async (payload: WebSocketMessage<'song_playback_completed'>) => {
     // Create stream marker for song request end
     let markerName = `Song End: Song #${payload.id}`;
     if (payload.songRequestId) {
       markerName += ` SR #${payload.songRequestId}`;
     }
     await this.client.doAction('Create Stream Marker', { description: markerName });
-  }
+  };
 
-  private async handleSongChanged(payload: WebSocketMessage<'song_changed'>) {
+  private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
     this.updateFullscreenVideoEnabled();
 
     // Leave fullscreen video if we switch to a song that isn't a video
@@ -81,7 +81,7 @@ export default class OBSModule {
         sceneName: 'Drums main'
       });
     }
-  }
+  };
 
   private handleOBSSceneChanged = async (payload: StreamerbotEventPayload<"Obs.SceneChanged">) => {
     this.currentScene = payload.data.scene.sceneName;

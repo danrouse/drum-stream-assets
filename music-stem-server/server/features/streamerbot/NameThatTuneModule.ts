@@ -18,7 +18,7 @@ export default class NameThatTuneModule {
     this.wss.registerHandler('guess_the_song_round_complete', this.handleGuessTheSongRoundComplete);
   }
 
-  private async handleGuessTheSongRoundComplete(payload: WebSocketMessage<'guess_the_song_round_complete'>) {
+  private handleGuessTheSongRoundComplete = async (payload: WebSocketMessage<'guess_the_song_round_complete'>) => {
     if (payload.winner && payload.time) {
       // Record this round's winner
       const roundedTime = Math.round(payload.time * 10) / 10;
@@ -39,7 +39,7 @@ export default class NameThatTuneModule {
       if (streak[0].streak > 1) {
         await this.client.sendTwitchMessage(`${payload.winner} is on a ${streak[0].streak} round win streak!`);
       }
-    }
+    };
 
     // Update scores in leaderboard
     const dailyScores = await queries.nameThatTuneScores()

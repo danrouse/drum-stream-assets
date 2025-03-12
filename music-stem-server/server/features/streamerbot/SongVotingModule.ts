@@ -24,13 +24,13 @@ export default class SongVotingModule {
     this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
   }
 
-  private async handleSongEnded(payload: WebSocketMessage<'song_playback_completed'>) {
+  private handleSongEnded = async (payload: WebSocketMessage<'song_playback_completed'>) => {
     // Notify chat of any votes that happened during playback
     const votes = await queries.songVotesSinceTime(payload.id, this.client.currentSongSelectedAtTime!);
     if (Number(votes[0].voteCount) > 0) {
       await this.client.sendTwitchMessage(`${this.client.currentSong?.artist} - ${this.client.currentSong?.title} score: ${votes[0].value}`);
     }
-  }
+  };
 
   private handleVote = async (value: number, payload: CommandPayload) => {
     if (!this.client.currentSong) return;
