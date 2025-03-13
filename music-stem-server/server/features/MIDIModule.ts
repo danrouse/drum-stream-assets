@@ -34,10 +34,10 @@ export default class MIDIModule {
   private output?: midi.Output;
   private wss: WebSocketCoordinatorServer;
 
-  private static KIT_NUMBER_DEFAULT = 95;
-  private static KIT_NUMBER_NO_TOMS = 90;
-  private static KIT_NUMBER_NO_CYMBALS = 91;
-  private static KIT_NUMBER_ALL_MUTED = 96;
+  private static KIT_NUMBER_DEFAULT = 90;
+  private static KIT_NUMBER_NO_TOMS = 92;
+  // private static KIT_NUMBER_NO_CYMBALS = 91;
+  private static KIT_NUMBER_ALL_MUTED = 91;
 
   public selectedKitNumber = MIDIModule.KIT_NUMBER_DEFAULT;
   public previousKitNumber = MIDIModule.KIT_NUMBER_DEFAULT;
@@ -139,9 +139,9 @@ export default class MIDIModule {
     this.changeKit(MIDIModule.KIT_NUMBER_NO_TOMS, changeResetKit);
   }
 
-  muteCymbals(changeResetKit: boolean = true) {
-    this.changeKit(MIDIModule.KIT_NUMBER_NO_CYMBALS, changeResetKit);
-  }
+  // muteCymbals(changeResetKit: boolean = true) {
+  //   this.changeKit(MIDIModule.KIT_NUMBER_NO_CYMBALS, changeResetKit);
+  // }
 
   muteAll(changeResetKit: boolean = true) {
     this.changeKit(MIDIModule.KIT_NUMBER_ALL_MUTED, changeResetKit);

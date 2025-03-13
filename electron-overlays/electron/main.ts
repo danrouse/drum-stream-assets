@@ -197,8 +197,8 @@ setInterval(() => {
 function createWindows() {
   windows = [
     createMIDINotesWindow('08e38f99967d42b3462a9dc8834a123a4b121e7be8b9c5fda8bba82e91f3f17b'), // Overhead
-    createMIDINotesWindow('01d076b9f4019a7e621a175402929fac86247768f90577d84d56d3eff8be3412'), // Extra
-    createMIDINotesWindow('6ae73c9fd2f6b21282fe7175c4e29de252b211de612aff522aeba8a4b3f9858e'), // Ride
+    createMIDINotesWindow('01d076b9f4019a7e621a175402929fac86247768f90577d84d56d3eff8be3412'), // Ride
+    createMIDINotesWindow('43df2cba1af0131db1fe991fce2a812c04ef4691905bb417bdb3109944401f94'), // Extra
     createNowPlayingWindow(),
     createSyncedLyricsWindow(),
     createDrumTriggersWindow(),
