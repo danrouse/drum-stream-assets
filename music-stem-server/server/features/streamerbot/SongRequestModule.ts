@@ -71,7 +71,7 @@ export default class SongRequestModule {
           // if (pastUsageCount > 2) {
           //   await this.sendTwitchMessage(`@${payload.user} Your song has been removed from the queue, you can go listen to it on Spotify instead.`);
           // } else {
-            await this.client.sendTwitchMessage(`@${payload.user} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Be patient.`);
+            await this.client.sendTwitchMessage(`@${payload.user} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Please be patient :)`);
           // }
         } else {
           const remaining = await queries.getTimeUntilSongRequest(songRequest[0].id);
@@ -437,7 +437,7 @@ export default class SongRequestModule {
     if (perUserLimit && Number(existingRequestCount[0].count) >= perUserLimit) {
       await this.client.sendTwitchMessage(
         `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
-        `please wait until one of your songs plays before requesting another!`
+        `please wait until one of your songs has played before requesting another!`
       );
       throw new Error('TOO_MANY_REQUESTS');
     }
