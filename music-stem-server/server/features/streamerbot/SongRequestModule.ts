@@ -58,9 +58,9 @@ export default class SongRequestModule {
       if (!songRequest) {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs in the request queue!`);
       } else {
+        this.userCommandHistory[payload.user] ||= [];
         const [_, lastUsage] = this.userCommandHistory[payload.user].findLast(([command, time]) => command === '!when') || [];
         const FIVE_MINUTES = 5 * 60 * 1000;
-        this.userCommandHistory[payload.user] ||= [];
         const now = Date.now();
         if (lastUsage && now - lastUsage < FIVE_MINUTES) {
           // const pastUsageCount = this.commandHistory[payload.user].filter(([command, time]) => command === commandName && now - time < FIVE_MINUTES).length;
