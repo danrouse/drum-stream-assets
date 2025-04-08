@@ -41,7 +41,7 @@ body {
   border-radius: 12px;
 }
 .GuessTheSong-songs .fade {
-  animation: fadeOut 25s ease-in 1 forwards;
+  animation: fadeOut 18s ease-in 1 forwards;
 }
 @keyframes fadeOut {
   from { opacity: 1; }
