@@ -8,7 +8,7 @@ const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 export async function downloadFromSpotDL(query: string, outputPath: string): Promise<string> {
   return new Promise(async (resolve, reject) => {
     while (existsSync(TMP_OUTPUT_FILENAME)) {
-      try { 
+      try {
         unlinkSync(TMP_OUTPUT_FILENAME);
       } catch (e) {}
       await sleep(1000);
@@ -22,7 +22,7 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
         // result in highest quality output
         '--format', 'm4a',
         '--bitrate', 'disable',
-        '--cookie-file', `"${resolvePath('..', 'music.youtube.com_cookies.txt')}"`,
+        '--cookie-file', `"${resolvePath('..', '..', 'youtube_cookies.txt')}"`,
         'download', `"${query}"`,
       ],
       { shell: true }
