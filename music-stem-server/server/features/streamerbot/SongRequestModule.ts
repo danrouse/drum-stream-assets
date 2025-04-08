@@ -46,12 +46,16 @@ export default class SongRequestModule {
     this.wss = wss;
 
     this.client.registerCommandHandler('song request', async (payload) => {
-      await this.handleUserSongRequest(
-        payload.message,
-        payload.user,
-        await this.songRequestMaxDurationForUser(payload.user),
-        await this.songRequestMaxCountForUser(payload.user)
-      );
+      try {
+        await this.handleUserSongRequest(
+          payload.message,
+          payload.user,
+          await this.songRequestMaxDurationForUser(payload.user),
+          await this.songRequestMaxCountForUser(payload.user)
+        );
+      } catch (e) {
+        this.log('Song request error', e);
+      }
     });
     this.client.registerCommandHandler('!when', async (payload) => {
       const songRequest = await queries.nextSongByUser(payload.user);
