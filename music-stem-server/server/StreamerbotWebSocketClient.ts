@@ -96,6 +96,7 @@ export default class StreamerbotWebSocketClient {
     this.client.on('Twitch.ChatMessage', this.handleTwitchChatMessage.bind(this));
     this.client.on('Twitch.RewardRedemption', this.handleTwitchRewardRedemption.bind(this));
     this.client.on('Command.Triggered', this.handleCommandTriggered.bind(this));
+    this.client.on('Custom.Event', this.handleCustomEvent.bind(this));
 
     this.on = this.client.on.bind(this.client);
 
@@ -333,9 +334,14 @@ export default class StreamerbotWebSocketClient {
       message: payload.data.message,
     });
 
-    if (commandName === '!today') {
+
+  }
+
+  private async handleCustomEvent(payload: StreamerbotEventPayload<"Custom.Event">) {
+    const eventName = payload.data.eventName;
+    if (eventName === '!today') {
       const res = await queries.songsPlayedTodayCount();
-      await this.sendTwitchMessage(`${res[0].count} songs have been played today. ${'🥁'.repeat(res[0].count)}`);
+      await this.sendTwitchMessage(`Danny has played ${res[0].count} songs so far today! 💦 ${'🥁'.repeat(res[0].count)}`);
     }
   }
 }
