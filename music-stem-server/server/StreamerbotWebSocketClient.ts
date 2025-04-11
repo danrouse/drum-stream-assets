@@ -203,6 +203,9 @@ export default class StreamerbotWebSocketClient {
         endedAt: new Date().toISOString(),
       }])
       .execute();
+
+    // Make sure TTS queue is unpaused
+    await this.doAction('Queue: Unpause', { queueName: 'TTS' });
   };
 
   private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
