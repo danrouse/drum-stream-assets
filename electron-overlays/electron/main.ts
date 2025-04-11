@@ -160,7 +160,7 @@ let windows: BrowserWindow[] = [];
 // Send all messages via IPC to individual windows
 const createWebSocket = () => {
   const ws = new WebSocket('http://127.0.0.1:3000');
-  ws.on('message', (data) => {
+  ws.on('message', async (data) => {
     const message = JSON.parse(data.toString()) as WebSocketPlayerMessage;
     if (!message) {
       console.error('Error parsing received WebSocket message:', data.toString());
@@ -172,10 +172,13 @@ const createWebSocket = () => {
     // Load lyrics from filesystem and add to song_changed payloads
     // (renderer processes cannot access filesystem like this)
     if (message.type === 'song_changed') {
-      payload = {
-        ...payload,
-        lyrics: message.song.lyricsPath ? parseLyrics(message.song.lyricsPath, message.song.duration) : null,
-      };
+      let lyrics = null;
+      if (message.song.lyricsPath && message.song.downloadPath) {
+        const pathParts = message.song.downloadPath.split('/');
+        pathParts[pathParts.length - 1] = message.song.lyricsPath;
+        lyrics = await parseLyrics(pathParts.join('/'), message.song.duration)
+      }
+      payload = { ...payload, lyrics };
       prevSongChangedPayload = payload;
     }
 
@@ -216,9 +219,10 @@ const parseLRCTimeToFloat = (lrcTime: string) => {
   return (mins * 60) + secs;
 };
 
-const parseLyrics = (lyricsPath: string, mediaDuration: number = 0) => {
-  if (!existsSync(lyricsPath)) return null;
-  const rawLyrics = readFileSync(lyricsPath).toString('utf8').split('\n');
+const parseLyrics = async (lyricsPath: string, mediaDuration: number = 0) => {
+  // if (!existsSync(lyricsPath)) return null;
+  // const rawLyrics = readFileSync(lyricsPath).toString('utf8').split('\n');
+  const rawLyrics = (await (await fetch(lyricsPath)).text()).split('\n');
   const lyrics: LyricLine[] = [
     // pad start with an empty line before the first real line happens
     // so that we don't start directly on the first line during intros
