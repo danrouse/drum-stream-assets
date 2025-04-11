@@ -16,13 +16,14 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
     const cmd = spawn('spotdl',
       [
         '--output', `"${join(outputPath, '{artist} - {title}.{output-ext}')}"`,
-        '--save-file', TMP_OUTPUT_FILENAME,
         '--skip-album-art',
         // m4a + bitrate disable + YouTube Premium cookies
         // result in highest quality output
         '--format', 'm4a',
         '--bitrate', 'disable',
         '--cookie-file', `"${resolvePath('..', '..', 'youtube_cookies.txt')}"`,
+        '--lyrics', 'synced',
+        '--generate-lrc',
         'download', `"${query}"`,
       ],
       { shell: true }
@@ -52,22 +53,6 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
     });
     cmd.on('close', () => {
       if (resolveTo) {
-        try {
-          // Load spotdl's output for raw spotify URL
-          // to pass to syrics to download synced lyrics from spotify.
-          // spotdl can't download lyrics from spotify itself,
-          // so its lyrics are often unsynced (no timestamps)
-          // and syrics needs a direct URL
-          const t = readFileSync(TMP_OUTPUT_FILENAME).toString('utf8');
-          const song = JSON.parse(t);
-          execSync(`syrics "${song[0].url}"`);
-          unlinkSync(TMP_OUTPUT_FILENAME);
-        } catch (e) {
-          // If syrics failed, oh well, too bad. It's probably just sp_dc, right?
-          // COPIUM
-          // NB: This is not needed to fix since we're (HOPEFULLY) moving off syrics soon
-          console.error('syrics error', e);
-        }
         resolve(resolveTo);
       } else {
         console.debug('spotdl failed as it did not match a valid return string');

@@ -33,16 +33,4 @@ def dump_firefox_cookies():
   with open('youtube_cookies.txt', 'w') as fd:
     fd.write(youtube_cookies)
 
-  # write spotify sp_dc cookie to syrics
-  sp_dc = cookies_by_host['.spotify.com']['sp_dc'][0]
-  syrics_config_path = os.path.join(app_data, 'syrics', 'config.json')
-  with open(syrics_config_path, 'r') as fd:
-    syrics_config = json.load(fd)
-  syrics_config['sp_dc'] = sp_dc
-  with open(syrics_config_path, 'w') as fd:
-    json.dump(syrics_config, fd, indent=4)
-  with open('spotify_sp_dc_cookies.txt', 'w') as fd:
-    fd.write(sp_dc)
-
-
 dump_firefox_cookies()
