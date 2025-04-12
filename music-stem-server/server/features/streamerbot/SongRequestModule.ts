@@ -38,6 +38,9 @@ export default class SongRequestModule {
   private failureCallbacks: { [id: number]: (errorType: string) => void } = {};
   private userCommandHistory: { [username: string]: [string, number][] } = {};
 
+  public static MINIMUM_QUERY_LENGTH = 4;
+  public static PRIORITY_REQUEST_VALUE = 5;
+
   constructor(
     client: StreamerbotWebSocketClient,
     wss: WebSocketCoordinatorServer
@@ -47,26 +50,60 @@ export default class SongRequestModule {
 
     this.client.registerCommandHandler('song request', async (payload) => {
       try {
-        await this.handleUserSongRequest(
+        const query = await this.prepareUserSongRequest(
           payload.message,
           payload.user,
-          await this.songRequestMaxDurationForUser(payload.user),
           await this.songRequestMaxCountForUser(payload.user)
+        );
+        await this.handleUserSongRequest(
+          query,
+          payload.user,
+          await this.songRequestMaxDurationForUser(payload.user)
         );
       } catch (e) {
         this.log('Song request error', e);
       }
     });
-    this.client.registerCommandHandler('!when', async (payload) => {
-      const songRequest = await queries.nextSongByUser(payload.user);
+
+
+    this.client.registerCommandHandler('!replace', async (payload) => {
+      const { songRequest, query: strippedQuery, isAmbiguous } = await this.disambiguate(
+        payload.user, payload.message, 'Use !edit <number> <query> to select which song to replace.'
+      );
+      if (isAmbiguous) return;
       if (!songRequest) {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any active song requests to change!`);
+        return;
+      }
+
+      let query;
+      try {
+        query = this.prepareSongRequestQuery(strippedQuery);
+      } catch (err) {
+        await this.client.doAction('!how');
+        throw err;
+      }
+      await this.handleUserSongRequest(
+        query,
+        payload.user,
+        await this.songRequestMaxDurationForUser(payload.user),
+        songRequest.priority,
+        Boolean(songRequest.noShenanigans),
+        undefined,
+        undefined,
+        songRequest.id,
+      );
+    });
+    this.client.registerCommandHandler('!when', async (payload) => {
+      const songRequests = await queries.songRequestsByUser(payload.user);
+      if (!songRequests.length) {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs in the request queue!`);
       } else {
         this.userCommandHistory[payload.user] ||= [];
         const [_, lastUsage] = this.userCommandHistory[payload.user].findLast(([command, time]) => command === '!when') || [];
         const FIVE_MINUTES = 5 * 60 * 1000;
         const now = Date.now();
-        if (lastUsage && now - lastUsage < FIVE_MINUTES) {
+        if (lastUsage && now - lastUsage < FIVE_MINUTES && !this.isUserAdmin(payload.user)) {
           // const pastUsageCount = this.commandHistory[payload.user].filter(([command, time]) => command === commandName && now - time < FIVE_MINUTES).length;
           // if (pastUsageCount > 2) {
           //   await this.sendTwitchMessage(`@${payload.user} Your song has been removed from the queue, you can go listen to it on Spotify instead.`);
@@ -74,35 +111,42 @@ export default class SongRequestModule {
             await this.client.sendTwitchMessage(`@${payload.user} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Please be patient :)`);
           // }
         } else {
-          const remaining = await queries.getTimeUntilSongRequest(songRequest[0].id);
-          if (remaining.numSongRequests === 1) {
-            await this.client.sendTwitchMessage(`@${payload.user} Your song (${songRequest[0].artist} - ${songRequest[0].title}) is up next!`);
-          } else {
-            await this.client.sendTwitchMessage(
-              `@${payload.user} Your next song (${songRequest[0].artist} - ${songRequest[0].title}) is in position ` +
-              `${remaining.numSongRequests} in the queue, playing in about ${formatTime(remaining.totalDuration)}.`
-            );
+          const messageParts = [`@${payload.user}`];
+          if (songRequests.length > 1) {
+            messageParts.push(`You have ${songRequests.length} song${songRequests.length !== 1 ? 's' : ''} in the queue.`);
           }
+          for (let songRequest of songRequests) {
+            const remaining = await queries.getTimeUntilSongRequest(songRequest.id);
+            if (remaining.numSongRequests === 1) {
+              messageParts.push(`№${remaining.numSongRequests}: ${songRequest.artist} - ${songRequest.title} is up next!`);
+            } else {
+              messageParts.push(`№${remaining.numSongRequests}: ${songRequest.artist} - ${songRequest.title} (in ~${formatTime(remaining.totalDuration)})`);
+            }
+          }
+          await this.client.sendTwitchMessage(messageParts.join(' '));
         }
         this.userCommandHistory[payload.user].push(['!when', now]);
       }
     });
     this.client.registerCommandHandler('!remove', async (payload) => {
-      // Find a valid song request to cancel
-      const res = await queries.mostRecentlyRequestedSongByUser(payload.user);
-      if (res[0]) {
-        await db.updateTable('songRequests')
-          .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
-          .where('id', '=', res[0].id)
-          .execute();
-        this.wss.broadcast({
-          type: 'song_request_removed',
-          songRequestId: res[0].id,
-        });
-        await this.client.sendTwitchMessage(`@${payload.user} ${res[0].artist} - ${res[0].title} has been removed from the queue.`);
-      } else {
-        await this.client.sendTwitchMessage(`@${payload.user} You don't have any queued songs to cancel!`);
+      const { songRequest, isAmbiguous } = await this.disambiguate(
+        payload.user, payload.message, 'Use !remove <number> to select which song to remove.'
+      );
+      if (isAmbiguous) return;
+      if (!songRequest) {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any queued song requests to remove!`);
+        return;
       }
+
+      await db.updateTable('songRequests')
+        .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
+        .where('id', '=', songRequest.id)
+        .execute();
+      this.wss.broadcast({
+        type: 'song_request_removed',
+        songRequestId: songRequest.id,
+      });
+      await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been removed from the queue.`);
     });
     this.client.registerCommandHandler('!songlist', async (payload) => {
       const MAX_RESPONSE_SONGS = 5;
@@ -122,14 +166,64 @@ export default class SongRequestModule {
         await this.client.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
       }
     });
+    this.client.registerCommandHandler('!bump', async (payload) => {
+      const { songRequest, isAmbiguous } = await this.disambiguate(
+        payload.user, payload.message, 'Use !bump <number> to select which song to bump up.'
+      );
+      if (isAmbiguous) return;
+      if (!songRequest) {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any queued song requests to bump!`);
+        return;
+      }
+
+      const viewer = await this.client.getViewer(payload.user);
+      let user = await db.selectFrom('users')
+        .select(['availableBumps', 'lastFreeBumpStreamHistoryId'])
+        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+        .execute();
+      if (!user[0]) {
+        user = await db.insertInto('users').values({
+          name: payload.user
+        }).returningAll().execute();
+      }
+      let availableBumps = user[0].availableBumps;
+      let userUpdate = db.updateTable('users').where('name', '=', payload.user);
+      if (viewer?.subscribed) {
+        // Check to see if subscriber has gotten their free bump of the stream
+        const currentStreamId = (await queries.currentStreamHistory())[0].id;
+        if (user[0].lastFreeBumpStreamHistoryId !== currentStreamId) {
+          availableBumps += 1;
+          await this.client.sendTwitchMessage(`@${payload.user} You've been given a free bump of the day, thanks for subscribing! dannyt75Heart`);
+        }
+        userUpdate = userUpdate.set('lastFreeBumpStreamHistoryId', currentStreamId);
+      }
+
+      if (availableBumps > 0) {
+        // Bump the song
+        userUpdate = userUpdate.set('availableBumps', availableBumps - 1);
+        await db.updateTable('songRequests')
+          .where('id', '=', songRequest.id)
+          .set('effectiveCreatedAt', sql`datetime(songRequests.createdAt, '-30 minutes')`)
+          .execute();
+        const remaining = await queries.getTimeUntilSongRequest(songRequest.id);
+        await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been bumped up to position ${remaining.numSongRequests}!`);
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any bumps available to use!`);
+      }
+      await userUpdate.execute();
+    });
 
     this.client.registerTwitchRedemptionHandler('Long Song Request', async (payload) => {
       try {
-        await this.handleUserSongRequest(
+        const query = await this.prepareUserSongRequest(
           payload.input,
           payload.user,
+          await this.songRequestMaxCountForUser(payload.user)
+        );
+        await this.handleUserSongRequest(
+          query,
+          payload.user,
           LONG_SONG_REQUEST_MAX_DURATION,
-          await this.songRequestMaxCountForUser(payload.user),
           0,
           false,
           payload.rewardId,
@@ -148,17 +242,22 @@ export default class SongRequestModule {
         );
         if (existingRequest) {
           await db.updateTable('songRequests')
-            .set({ priority: 5 })
+            .set({ priority: SongRequestModule.PRIORITY_REQUEST_VALUE })
             .where('id', '=', existingRequest.id)
             .execute();
           await this.client.sendTwitchMessage(`@${payload.user} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
         } else {
-          await this.handleUserSongRequest(
+          const query = await this.prepareUserSongRequest(
             payload.input,
             payload.user,
-            await this.songRequestMaxDurationForUser(payload.user),
             0,
-            5,
+            false,
+          );
+          await this.handleUserSongRequest(
+            query,
+            payload.user,
+            await this.songRequestMaxDurationForUser(payload.user),
+            SongRequestModule.PRIORITY_REQUEST_VALUE,
             false,
             payload.rewardId,
             payload.redemptionId,
@@ -181,11 +280,15 @@ export default class SongRequestModule {
             .where('id', '=', existingRequest.id)
             .execute();
         } else {
-          await this.handleUserSongRequest(
+          const query = await this.prepareUserSongRequest(
             payload.input,
             payload.user,
+            await this.songRequestMaxCountForUser(payload.user)
+          );
+          await this.handleUserSongRequest(
+            query,
+            payload.user,
             await this.songRequestMaxDurationForUser(payload.user),
-            await this.songRequestMaxCountForUser(payload.user),
             0,
             true,
             payload.rewardId,
@@ -220,6 +323,37 @@ export default class SongRequestModule {
   };
 
   private log = createLogger('SongRequestHandler');
+
+  private async disambiguate(
+    user: string,
+    message: string,
+    helpString: string,
+  ) {
+    const songRequests = await queries.songRequestsByUser(user);
+    let songRequest: typeof songRequests[0] | undefined = songRequests[0];
+    let query = message;
+    let isAmbiguous = false;
+    if (songRequests.length > 1) {
+      const reqNumberMatch = query.match(/^\s*#?\s*(\d+)\s*(.*)/);
+      if (!reqNumberMatch || Number.isNaN(Number(reqNumberMatch[1]))) {
+        const requestNames = songRequests
+          .map((sr, i) => `${i + 1}: ${[sr.artist, sr.title].filter(s => s).join(' - ')}`)
+          .join(', ');
+        await this.client.sendTwitchMessage(`@${user} You have multiple songs in the queue! ${helpString}`);
+        await this.client.sendTwitchMessage(`@${user} ${requestNames}`)
+        isAmbiguous = true;
+      } else {
+        songRequest = songRequests[Number(reqNumberMatch[1]) - 1];
+        query = reqNumberMatch[2];
+      }
+    }
+
+    return {
+      songRequest,
+      query,
+      isAmbiguous,
+    };
+  }
 
   private async songRequestMaxDurationForUser(userName: string) {
     const viewer = await this.client.getViewer(userName);
@@ -314,7 +448,6 @@ export default class SongRequestModule {
       query,
       priority: options?.priority || 0,
       noShenanigans: Number(options?.noShenanigans || 0),
-      order: 0,
       status: 'processing',
       requester: options?.requesterName,
       twitchRewardId: options?.twitchRewardId,
@@ -394,15 +527,6 @@ export default class SongRequestModule {
         .where('id', '=', payload.id)
         .execute();
 
-      // Recalculate song ordering: bump priority of requests that are more than half an hour old
-      const minutesOldToBump = 40;
-      await db.updateTable('songRequests')
-        .set({ priority: 2 })
-        .where('createdAt', '<', sql<any>`datetime(${new Date(Date.now() - (minutesOldToBump * 60 * 1000)).toISOString()})`)
-        .where('priority', '<', 2)
-        .where('status', '=', 'ready')
-        .execute();
-
       this.wss.broadcast({ type: 'song_request_added', songRequestId: payload.id });
 
       this.successCallbacks[payload.id]?.([payload.artist, payload.title].filter(s => s).join(' - '));
@@ -422,15 +546,30 @@ export default class SongRequestModule {
     this.failureCallbacks[payload.id]?.(payload.errorMessage);
   };
 
-  private async handleUserSongRequest(
-    originalMessage: string,
+  private prepareSongRequestQuery(query: string) {
+    // If message has a URL, use only the URL
+    const url = query.match(/https?:\/\/\S+/)?.[0];
+
+    // Strip accidental inclusions on the original message if using that
+    let userInput = url || query.trim().replace(/^\!(sr|ssr|request|songrequest|rs)\s+/i, '');
+    // Remove brackets that users included (like !sr <foo bar> instead of !sr foo bar)
+    userInput = userInput.replace(/^</, '').replace(/>$/, '');
+    if (!url && !userInput.includes('-')) {
+      // strip "song by artist" to "song artist" to not confuse spotify search
+      userInput = userInput.replace(/ by /i, ' ');
+    }
+
+    if (userInput.length <= SongRequestModule.MINIMUM_QUERY_LENGTH) {
+      throw new Error('MINIMUM_QUERY_LENGTH');
+    }
+    return userInput;
+  }
+
+  private async prepareUserSongRequest(
+    query: string,
     fromUsername: string,
-    maxDuration: number,
     perUserLimit?: number,
-    priority: number = 0,
-    noShenanigans: boolean = false,
-    twitchRewardId?: string,
-    twitchRedemptionId?: string,
+    hasCooldown: boolean = true,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequestCount = await queries.numRequestsByUser(fromUsername);
@@ -443,7 +582,7 @@ export default class SongRequestModule {
     }
 
     // Check if the user is on cooldown for their next song request
-    if (!priority && !(await this.isUserAdmin(fromUsername))) {
+    if (hasCooldown && !(await this.isUserAdmin(fromUsername))) {
       const lastRequestTime = await queries.lastRequestTimeByUser(fromUsername);
       if (lastRequestTime[0]) {
         const createdAt = new Date(lastRequestTime[0].createdAt + 'Z');
@@ -456,61 +595,63 @@ export default class SongRequestModule {
       }
     }
 
-    // If message has a URL, use only the URL
-    const url = originalMessage.match(/https?:\/\/\S+/)?.[0];
-
-    // Strip accidental inclusions on the original message if using that
-    let userInput = url || originalMessage.trim().replace(/^\!(sr|ssr|request|songrequest|rs)\s+/i, '');
-    // Remove brackets that users included (like !sr <foo bar> instead of !sr foo bar)
-    userInput = userInput.replace(/^</, '').replace(/>$/, '');
-    if (!url && !userInput.includes('-')) {
-      // strip "song by artist" to "song artist" to not confuse spotify search
-      userInput = userInput.replace(/ by /i, ' ');
-    }
-
-    const MINIMUM_REQUEST_LENGTH = 4;
-    if (userInput.length <= MINIMUM_REQUEST_LENGTH) {
+    try {
+      const userInput = this.prepareSongRequestQuery(query);
+      return userInput;
+    } catch (err) {
       await this.client.doAction('!how');
-      throw new Error('MINIMUM_QUERY_LENGTH');
+      throw err;
     }
+  }
 
+  private async handleUserSongRequest(
+    query: string,
+    requesterName: string,
+    maxDuration: number,
+    priority: number = 0,
+    noShenanigans: boolean = false,
+    twitchRewardId?: string,
+    twitchRedemptionId?: string,
+    songRequestToReplaceId?: number,
+  ) {
     let hasResponded = false;
     setTimeout(async () => {
       if (!hasResponded) {
-        await this.client.sendTwitchMessage(`Working on it, @${fromUsername}! Give me a moment to download that song.`);
+        await this.client.sendTwitchMessage(`Working on it, @${requesterName}! Give me a moment to download that song.`);
       }
     }, 500);
 
-    const minViews = await this.songRequestMinViewsForUser(fromUsername);
+    const minViews = await this.songRequestMinViewsForUser(requesterName);
     const songRequestId = await this.execute(
-      userInput,
+      query,
       {
         priority,
         noShenanigans,
         maxDuration,
         minViews,
-        requesterName: fromUsername,
+        requesterName,
         twitchRewardId,
         twitchRedemptionId,
       },
       async (songTitle: string) => {
-        // If it's a sub's first song request of the stream, set it to priority 1
-        // Waiting until the song request is added to ensure it doesn't get set erroneously
-        const viewer = await this.client.getViewer(fromUsername);
-        if (viewer?.subscribed) {
-          const requestsFromUserToday = await queries.requestsByUserToday(fromUsername);
-          if (requestsFromUserToday.length === 1 && requestsFromUserToday[0].priority === 0) {
-            await db.updateTable('songRequests')
-              .set({ priority: 1 })
-              .where('id', '=', songRequestId)
-              .execute();
-            await this.client.sendTwitchMessage(`@${fromUsername} Your first song request of the day has been bumped up!`);
-          }
+        if (songRequestToReplaceId) {
+          const oldSongRequest = await db.updateTable('songRequests')
+            .where('id', '=', songRequestToReplaceId)
+            .set('status', 'cancelled')
+            .returning(['effectiveCreatedAt'])
+            .execute();
+          await db.updateTable('songRequests')
+            .where('id', '=', songRequestId)
+            .set('effectiveCreatedAt', oldSongRequest[0].effectiveCreatedAt)
+            .execute();
+          const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
+          const timeRemaining = waitTime.numSongRequests > 1 ? ` (in ~${formatTime(Number(waitTime.totalDuration))})` : '';
+          await this.client.sendTwitchMessage(`@${requesterName} Your request has been replaced with ${songTitle} (at position ${waitTime.numSongRequests}${timeRemaining})`);
+        } else {
+          const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
+          const timeRemaining = waitTime.numSongRequests > 1 ? ` (in ~${formatTime(Number(waitTime.totalDuration))})` : '';
+          await this.client.sendTwitchMessage(`@${requesterName} ${songTitle} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
         }
-
-        const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
-        const timeRemaining = waitTime.numSongRequests > 1 ? ` (~${formatTime(Number(waitTime.totalDuration))} from now)` : '';
-        await this.client.sendTwitchMessage(`@${fromUsername} ${songTitle} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
         hasResponded = true;
       },
       async (errorMessage) => {
@@ -523,7 +664,7 @@ export default class SongRequestModule {
         if (errorMessage === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
         if (errorMessage === 'MINIMUM_VIEWS') message = `Videos with under ${minViews} views are not allowed.`;
         if (errorMessage === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.';
-        await this.client.sendTwitchMessage(`@${fromUsername} ${message}`);
+        await this.client.sendTwitchMessage(`@${requesterName} ${message}`);
         hasResponded = true;
         // TODO: rethrow to allow to catch for refund
         // throw e;

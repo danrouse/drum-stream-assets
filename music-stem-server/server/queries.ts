@@ -10,23 +10,12 @@ import { db } from './database';
 //
 // song request by user
 //
-export const mostRecentlyRequestedSongByUser = (user: string) => db.selectFrom('songRequests')
+export const songRequestsByUser = (user: string) => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
-  .select(['songRequests.id', 'songs.artist', 'songs.title'])
+  .select(['songRequests.id', 'songs.artist', 'songs.title', 'songRequests.priority', 'songRequests.noShenanigans'])
   .where('status', 'in', ['processing', 'ready'])
   .where('requester', '=', user)
-  .orderBy('songRequests.id desc')
-  .limit(1)
-  .execute();
-
-export const nextSongByUser = (user: string) => db.selectFrom('songRequests')
-  .innerJoin('songs', 'songs.id', 'songRequests.songId')
-  .selectAll('songRequests')
-  .select(['songs.title', 'songs.artist'])
-  .where('songRequests.status', '=', 'ready')
-  .where('songRequests.requester', '=', user)
-  .limit(1)
-  .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
+  .orderBy('songRequests.effectiveCreatedAt asc')
   .execute();
 
 export const numRequestsByUser = (user: string) => db.selectFrom('songRequests')
@@ -55,17 +44,20 @@ export const requestsByUserToday = (user: string) => db.selectFrom('songRequests
 // song requests by id
 //
 export async function getTimeUntilSongRequest(songRequestId: number) {
-  const priority = await db.selectFrom('songRequests').select('priority').where('id', '=', songRequestId).execute();
+  const songRequest = (await db.selectFrom('songRequests')
+    .select(['priority', 'effectiveCreatedAt'])
+    .where('id', '=', songRequestId)
+    .execute())[0];
   const precedingRequests = await db.selectFrom('songRequests')
     .innerJoin('songs', 'songs.id', 'songRequests.songId')
     .select(db.fn.sum<number>('duration').as('totalDuration'))
     .select(eb => eb(db.fn.countAll<number>(), '+', 1).as('numSongRequests'))
     .where('songRequests.status', '=', 'ready')
     .where(q => q.or([
-      q('songRequests.priority', '>', priority[0].priority),
-      q.and([q('songRequests.priority', '=', priority[0].priority), q('songRequests.id', '<', songRequestId)])
+      q('songRequests.priority', '>', songRequest.priority),
+      q.and([q('songRequests.priority', '=', songRequest.priority), q('songRequests.effectiveCreatedAt', '<', songRequest.effectiveCreatedAt)])
     ]))
-    .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
+    .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
     .execute();
   return precedingRequests[0];
 }
@@ -93,14 +85,14 @@ export const allSongRequests = () => db.selectFrom('songRequests')
     'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
     'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
   ])
-  .orderBy(['songRequests.priority desc', 'songRequests.order asc', 'songRequests.id asc'])
+  .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
   .execute();
 
 export const songRequestQueue = () => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
   .where('songRequests.status', '=', 'ready')
   .select(['songs.title', 'songs.artist', 'songs.duration', 'songRequests.id'])
-  .orderBy(['songRequests.priority desc', 'songRequests.id asc'])
+  .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
   .execute();
 
 

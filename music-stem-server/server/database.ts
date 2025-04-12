@@ -21,6 +21,7 @@ type CreatedAtType = ColumnType<string, string | undefined, string>;
 interface SongRequestsTable {
   id: Generated<number>;
   createdAt: CreatedAtType;
+  effectiveCreatedAt: CreatedAtType;
 
   query: string;
   requester: string | null;
@@ -29,7 +30,6 @@ interface SongRequestsTable {
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   priority: number;
   noShenanigans: number | null;
-  order: number;
   songId: number | null;
   fulfilledAt: ColumnType<string, string, string> | null;
 }
@@ -98,6 +98,15 @@ interface NameThatTuneScoresTable {
   placement: number;
 }
 
+interface UsersTable {
+  id: Generated<number>;
+  createdAt: Generated<CreatedAtType>;
+  name: string;
+  nameThatTunePoints: Generated<number>;
+  availableBumps: Generated<number>;
+  lastFreeBumpStreamHistoryId: number | null;
+}
+
 export type SongRequest = Selectable<SongRequestsTable>;
 export type NewSongRequest = Insertable<SongRequestsTable>;
 export type SongRequestUpdate = Updateable<SongRequestsTable>;
@@ -122,6 +131,9 @@ export type StreamHistoryUpdate = Updateable<StreamHistoryTable>;
 export type NameThatTuneScore = Selectable<NameThatTuneScoresTable>;
 export type NewNameThatTuneScore = Insertable<NameThatTuneScoresTable>;
 export type NameThatTuneScoreUpdate = Updateable<NameThatTuneScoresTable>;
+export type User = Selectable<UsersTable>;
+export type NewUser = Insertable<UsersTable>;
+export type UserUpdate = Updateable<UsersTable>;
 
 export interface Database {
   songRequests: SongRequestsTable;
@@ -132,6 +144,7 @@ export interface Database {
   songHistory: SongHistoryTable;
   streamHistory: StreamHistoryTable;
   nameThatTuneScores: NameThatTuneScoresTable;
+  users: UsersTable;
 }
 
 const dialect = new SqliteDialect({
@@ -158,6 +171,7 @@ export async function initializeDatabase() {
     .ifNotExists()
     .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
     .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
+    .addColumn('effectiveCreatedAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
     .addColumn('fulfilledAt', 'timestamp')
     .addColumn('query', 'varchar(255)', (cb) => cb.notNull())
     .addColumn('requester', 'varchar(255)')
@@ -166,7 +180,6 @@ export async function initializeDatabase() {
     .addColumn('status', 'varchar(32)', (cb) => cb.notNull())
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('noShenanigans', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('order', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
     .execute();
 
@@ -232,5 +245,15 @@ export async function initializeDatabase() {
     .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
     .addColumn('name', 'varchar(255)', (cb) => cb.notNull())
     .addColumn('placement', 'integer', (cb) => cb.notNull())
+    .execute();
+
+  await db.schema.createTable('users')
+    .ifNotExists()
+    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
+    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
+    .addColumn('name', 'varchar(255)', (cb) => cb.notNull())
+    .addColumn('nameThatTunePoints', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('availableBumps', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('lastFreeBumpStreamHistoryId', 'integer', (cb) => cb.references('streamHistory.id'))
     .execute();
 }
