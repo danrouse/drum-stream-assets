@@ -67,7 +67,8 @@ window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
 window.ipcRenderer.on('chat_message', (_, payload) => {
   if (!isActive) return;
 
-  const response = Number(payload.message.trim().match(/^(\d+).*/)?.[1]);
+  const message = payload.message.trim().replace(/dannyt75Fourrin/g, '4');
+  const response = Number(message.match(/^(\d+).*/)?.[1]);
   if (!Number.isNaN(response) && response > 0 && response <= NUM_SONG_OPTIONS) {
     responses.push({
       user: payload.user,
