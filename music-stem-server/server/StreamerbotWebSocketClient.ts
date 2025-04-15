@@ -55,6 +55,7 @@ export default class StreamerbotWebSocketClient {
   private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
   private commandHandlers: { [command in Streamerbot.CommandName]?: (payload: CommandPayload) => void } = {};
   private twitchRedemptionHandlers: { [reward in Streamerbot.TwitchRewardName]?: (payload: TwitchRedemptionPayload) => void } = {};
+  private customEventHandlers: { [event: string]: (payload: any) => void } = {};
 
   private isConnected = false;
   private isTestMode = false;
@@ -131,6 +132,17 @@ export default class StreamerbotWebSocketClient {
       throw new Error(`Duplicate twitch redemption handler registered for ${reward}`);
     }
     this.twitchRedemptionHandlers[reward] = handler;
+  }
+
+  // There is no type safety on defining these handlers!
+  public registerCustomEventHandler<TEvent extends StreamerbotEventName>(
+    eventName: string,
+    handler: (payload: StreamerbotEventPayload<TEvent>['data']) => void,
+  ) {
+    if (this.customEventHandlers[eventName]) {
+      throw new Error(`Duplicate custom event handler registered for ${eventName}`);
+    }
+    this.customEventHandlers[eventName] = handler;
   }
 
   public mockStreamerbotMessage<TEvent>(
@@ -336,8 +348,6 @@ export default class StreamerbotWebSocketClient {
       user: payload.data.user.display,
       message: payload.data.message,
     });
-
-
   }
 
   private async handleCustomEvent(payload: StreamerbotEventPayload<"Custom.Event">) {
@@ -346,5 +356,7 @@ export default class StreamerbotWebSocketClient {
       const res = await queries.songsPlayedTodayCount();
       await this.sendTwitchMessage(`Danny has played ${res[0].count} songs so far today! 💦 ${'🥁'.repeat(res[0].count)}`);
     }
+
+    this.customEventHandlers[eventName]?.(payload.data.args);
   }
 }
