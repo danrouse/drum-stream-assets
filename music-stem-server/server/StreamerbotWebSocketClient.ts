@@ -112,6 +112,12 @@ export default class StreamerbotWebSocketClient {
     this.wss.registerHandler('song_played', () => this.doAction('Queue: Pause', { queueName: 'TTS' }));
     this.wss.registerHandler('song_playpack_paused', () => this.doAction('Queue: Unpause', { queueName: 'TTS' }));
     this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
+
+    this.registerCommandHandler('!song', async (payload) => {
+      if (this.currentSong) {
+        await this.sendTwitchMessage(`@${payload.user} The current song is ${this.currentSong.artist} - ${this.currentSong.title}`);
+      }
+    });
   }
 
   public registerCommandHandler(
