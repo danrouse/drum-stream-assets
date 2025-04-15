@@ -153,6 +153,20 @@ function createHeartRateWindow() {
   return win;
 }
 
+function createGambaWindow() {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'GAMBA',
+    width: 260,
+    height: 160,
+    // transparent: false,
+    // frame: true,
+  });
+  win.setIgnoreMouseEvents(false);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/GambaWindow/index.html');
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 let windows: BrowserWindow[] = [];
@@ -209,6 +223,7 @@ function createWindows() {
     createGuessTheSongWindow(),
     createAudioDisplayWindow(),
     createHeartRateWindow(),
+    createGambaWindow(),
   ];
 }
 

@@ -53,6 +53,14 @@ export type WebSocketServerMessage = {
   daily: Array<{ name: string, count: number }>,
   weekly: Array<{ name: string, count: number }>,
   lifetime: Array<{ name: string, count: number }>,
+} | {
+  type: 'gamba_started',
+  drumName: string,
+} | {
+  type: 'gamba_progress',
+  count: number,
+} | {
+  type: 'gamba_complete',
 };
 
 export type WebSocketPlayerMessage = {
