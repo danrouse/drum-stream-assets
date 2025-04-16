@@ -300,7 +300,20 @@ export default class SongRequestModule {
         await this.client.sendTwitchMessage(`@${payload.user} No Shens Song Request has been refunded`);
       }
     });
-    this.client.registerCustomEventHandler<'Twitch.GiftSub'>('add bumps', this.giveDonatorBumps);
+    this.client.registerCustomEventHandler<'Twitch.GiftSub' | 'Twitch.GiftBomb'>('add bumps', async (payload) => {
+      if (payload.triggerName === 'Gift Subscription' || payload.triggerName === 'Gift Bomb') {
+        // @ts-expect-error Twitch.GiftBomb payload definition is incomplete
+        const giftedCount: number = payload.gifts || payload.subBombCount || 1;
+        // NB: is it worth having an upper limit on number of bumps given?
+        if (payload.isTest) return;
+        await db.updateTable('users')
+          .where('name', '=', payload.userName)
+          .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
+          .execute();
+        await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
+          `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
+      }
+    });
 
     this.wss.registerHandler('song_request', payload => this.execute(payload.query, { maxDuration: 12000 }));
     this.wss.registerHandler('song_playback_completed', this.handleSongPlaybackCompleted);
@@ -677,18 +690,6 @@ export default class SongRequestModule {
     // Notify user when their song request is starting
     if (payload.song.requester && payload.song.status === 'ready') {
       await this.client.sendTwitchMessage(`@${payload.song.requester} ${payload.song.artist} - ${payload.song.title} is starting!`);
-    }
-  };
-
-  private giveDonatorBumps = async (payload: any) => {
-    if (payload.triggerName === 'Gift Subscription') {
-      const giftedCount = payload.subBombCount === 0 ? 1 : payload.subBombCount;
-      await db.updateTable('users')
-        .where('name', '=', payload.userName)
-        .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
-        .execute();
-      await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
-        `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
     }
   };
 }

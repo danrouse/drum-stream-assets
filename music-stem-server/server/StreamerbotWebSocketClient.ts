@@ -143,7 +143,7 @@ export default class StreamerbotWebSocketClient {
   // There is no type safety on defining these handlers!
   public registerCustomEventHandler<TEvent extends StreamerbotEventName>(
     eventName: string,
-    handler: (payload: StreamerbotEventPayload<TEvent>['data']) => void,
+    handler: (payload: StreamerbotEventPayload<TEvent>['data'] & { triggerName: string }) => void,
   ) {
     if (this.customEventHandlers[eventName]) {
       throw new Error(`Duplicate custom event handler registered for ${eventName}`);
