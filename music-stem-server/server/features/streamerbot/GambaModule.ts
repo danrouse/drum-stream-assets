@@ -82,7 +82,7 @@ export default class GambaModule {
   private handleMidiNote = (note: number, velocity: number) => {
     if (!this.isTracking) return;
     const normVelocity = velocity / MIDI_TRIGGER_VELOCITY_MAX;
-    if (this.selectedDrum?.keys.includes(note) && normVelocity > 0.2) {
+    if (this.selectedDrum?.keys.includes(note)/* && normVelocity > 0.2*/) {
       this.count += 1;
       this.wss.broadcast({
         type: 'gamba_progress',
