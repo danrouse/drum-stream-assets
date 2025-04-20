@@ -27,8 +27,8 @@ interface SongRequestOptions {
   twitchRedemptionId?: string,
 }
 
-const SONG_REQUEST_MAX_DURATION = 60 * 7;
-const LONG_SONG_REQUEST_MAX_DURATION = 15 * 60;
+const SONG_REQUEST_MAX_DURATION = 60 * 6;
+const LONG_SONG_REQUEST_MAX_DURATION = 60 * 12;
 
 export default class SongRequestModule {
   private client: StreamerbotWebSocketClient;
@@ -212,9 +212,63 @@ export default class SongRequestModule {
       }
       await userUpdate.execute();
     });
+    this.client.registerCommandHandler('!longsr', async (payload) => {
+      let user = await db.selectFrom('users')
+        .select(['availableLongSongs', 'lastLongSongStreamHistoryId'])
+        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+        .execute();
+      if (!user[0]) {
+        user = await db.insertInto('users').values({
+          name: payload.user
+        }).returningAll().execute();
+      }
+      const currentStreamId = (await queries.currentStreamHistory())[0].id;
+      if (user[0].lastLongSongStreamHistoryId === currentStreamId) {
+        await this.client.sendTwitchMessage(`@${payload.user} You can only request one Long Song per stream!`);
+        throw new Error('ONE_LONG_SONG_PER_DAY');
+      }
+
+      let availableLongSongs = user[0].availableLongSongs;
+      if (availableLongSongs > 0) {
+        const query = await this.prepareUserSongRequest(
+          payload.message,
+          payload.user,
+          await this.songRequestMaxCountForUser(payload.user)
+        );
+        await this.handleUserSongRequest(
+          query,
+          payload.user,
+          LONG_SONG_REQUEST_MAX_DURATION,
+        );
+        await db.updateTable('users')
+          .where('name', '=', payload.user)
+          .set({
+            availableLongSongs: availableLongSongs - 1,
+            lastLongSongStreamHistoryId: currentStreamId
+          })
+          .execute();
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any long song requests available to use!`);
+      }
+    });
 
     this.client.registerTwitchRedemptionHandler('Long Song Request', async (payload) => {
       try {
+        let user = await db.selectFrom('users')
+          .select(['lastLongSongStreamHistoryId'])
+          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+          .execute();
+        if (!user[0]) {
+          user = await db.insertInto('users').values({
+            name: payload.user
+          }).returningAll().execute();
+        }
+        const currentStreamId = (await queries.currentStreamHistory())[0].id;
+        if (user[0].lastLongSongStreamHistoryId === currentStreamId) {
+          await this.client.sendTwitchMessage(`@${payload.user} You can only request one Long Song per stream!`);
+          throw new Error('ONE_LONG_SONG_PER_DAY');
+        }
+
         const query = await this.prepareUserSongRequest(
           payload.input,
           payload.user,
@@ -229,6 +283,11 @@ export default class SongRequestModule {
           payload.rewardId,
           payload.redemptionId,
         );
+
+        await db.updateTable('users')
+          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+          .set({ lastLongSongStreamHistoryId: currentStreamId })
+          .execute();
       } catch (err) {
         await this.client.updateTwitchRedemption(payload.rewardId, payload.redemptionId, 'cancel');
         await this.client.sendTwitchMessage(`@${payload.user} Long Song Request has been refunded`);

@@ -105,6 +105,8 @@ interface UsersTable {
   nameThatTunePoints: Generated<number>;
   availableBumps: Generated<number>;
   lastFreeBumpStreamHistoryId: number | null;
+  availableLongSongs: Generated<number>;
+  lastLongSongStreamHistoryId: number | null;
 }
 
 export type SongRequest = Selectable<SongRequestsTable>;
@@ -251,9 +253,11 @@ export async function initializeDatabase() {
     .ifNotExists()
     .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
     .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('name', 'varchar(255)', (cb) => cb.notNull())
+    .addColumn('name', 'varchar(255)', (cb) => cb.notNull().unique())
     .addColumn('nameThatTunePoints', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('availableBumps', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('lastFreeBumpStreamHistoryId', 'integer', (cb) => cb.references('streamHistory.id'))
+    .addColumn('availableLongSongs', 'integer', (cb) => cb.notNull().defaultTo(0))
+    .addColumn('lastLongSongStreamHistoryId', 'integer', (cb) => cb.references('streamHistory.id'))
     .execute();
 }

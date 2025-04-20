@@ -118,6 +118,57 @@ export default class StreamerbotWebSocketClient {
         await this.sendTwitchMessage(`@${payload.user} The current song is ${this.currentSong.artist} - ${this.currentSong.title}`);
       }
     });
+    this.registerCommandHandler('!inventory', async (payload) => {
+      const user = await db.selectFrom('users')
+        .select(['nameThatTunePoints', 'availableBumps', 'availableLongSongs'])
+        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+        .execute();
+      if (!user.length) {
+        await this.sendTwitchMessage(`@${payload.user} You don't have any rewards available to use!`);
+      } else {
+        await this.sendTwitchMessage(`@${payload.user} You have ${user[0].nameThatTunePoints} points, ${user[0].availableLongSongs} long song requests, and ${user[0].availableBumps} bumps available to use`);
+      }
+    });
+    const PRICE_BUMP = 10;
+    const PRICE_LONG_SR = 15;
+    // this.registerCommandHandler('!prices', async (payload) => {
+    //   await this.sendTwitchMessage(`@${payload.user} !bump: ${PRICE_BUMP} | !longsr: ${PRICE_LONG_SR}`);
+    // });
+    this.registerCommandHandler('!buy', async (payload) => {
+      const user = await db.selectFrom('users')
+        .select(['nameThatTunePoints', 'availableBumps', 'availableLongSongs'])
+        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+        .execute();
+
+      const userUpdate = db.updateTable('users').where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase());
+      const message = payload.message.trim().toLowerCase().replace(/^!/, '');
+      if (message === 'bump') {
+        if (!user[0] || user[0].nameThatTunePoints < PRICE_BUMP) {
+          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! A bump costs ${PRICE_BUMP} and you have ${user[0]?.nameThatTunePoints || '0'}`);
+        } else {
+          await userUpdate.set({
+            availableBumps: user[0].availableBumps + 1,
+            nameThatTunePoints: user[0].nameThatTunePoints - PRICE_BUMP,
+          }).execute();
+          await this.sendTwitchMessage(`@${payload.user} Bump acquired! Use it with !bump. You now have ${user[0].availableBumps + 1} bumps and ${user[0].nameThatTunePoints - PRICE_BUMP} points`);
+        }
+      } else if (['longsr', 'longsong', 'long sr', 'long song', 'long song request'].includes(message)) {
+        if (!user[0] || user[0].nameThatTunePoints < PRICE_LONG_SR) {
+          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! A long song request costs ${PRICE_LONG_SR} and you have ${user[0]?.nameThatTunePoints || '0'}`);
+        } else {
+          await userUpdate.set({
+            availableLongSongs: user[0].availableLongSongs + 1,
+            nameThatTunePoints: user[0].nameThatTunePoints - PRICE_LONG_SR,
+          }).execute();
+          await this.sendTwitchMessage(`@${payload.user} Long song request acquired! Use it with !longsr. You now have ${user[0].availableLongSongs + 1} long song requests and ${user[0].nameThatTunePoints - PRICE_LONG_SR} points`);
+        }
+      } else {
+        await this.sendTwitchMessage(`@${payload.user} !buy bump (for ${PRICE_BUMP} pts) | !buy longsr (for ${PRICE_LONG_SR} pts)`);
+      }
+    });
+
+    this.registerCommandHandler('!give', async (payload) => {
+    });
   }
 
   public registerCommandHandler(

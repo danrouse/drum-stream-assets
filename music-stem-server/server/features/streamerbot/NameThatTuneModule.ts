@@ -26,13 +26,24 @@ export default class NameThatTuneModule {
       if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
       await this.client.sendTwitchMessage(message);
 
-      db.insertInto('nameThatTuneScores').values([{
+      await db.insertInto('nameThatTuneScores').values([{
         name: payload.winner,
         placement: 1,
       }].concat(payload.otherWinners.map((name, i) => ({
         name,
         placement: i + 2,
       })))).execute();
+
+      // Give winners points
+      await db.insertInto('users')
+        .values(
+          payload.otherWinners.map(name => ({ name, nameThatTunePoints: 1 }))
+            .concat([{ name: payload.winner, nameThatTunePoints: 2 }])
+        )
+        .onConflict(oc => oc.column('name').doUpdateSet({
+          nameThatTunePoints: eb => eb('nameThatTunePoints', '+', eb.ref('excluded.nameThatTunePoints'))
+        }))
+        .execute();
 
       // Report win streaks
       const streak = await queries.nameThatTuneWinStreak();
