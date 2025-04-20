@@ -1,6 +1,6 @@
 import * as amqp from 'amqplib';
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://drums:drums@localhost';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://drums:drums@192.168.86.63';
 
 export type Payloads = {
   'song_request_created': {
@@ -52,7 +52,7 @@ export class JobInterface {
   async connect() {
     this.connection = await amqp.connect(RABBITMQ_URL);
     this.channel = await this.connection.createChannel();
-    
+
     for (let queueName of Object.values(Queues)) {
       await this.channel.assertQueue(queueName, { durable: true });
     }
