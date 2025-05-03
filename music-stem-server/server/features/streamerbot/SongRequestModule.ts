@@ -203,7 +203,7 @@ export default class SongRequestModule {
         userUpdate = userUpdate.set('availableBumps', availableBumps - 1);
         await db.updateTable('songRequests')
           .where('id', '=', songRequest.id)
-          .set('effectiveCreatedAt', sql`datetime(songRequests.createdAt, '-30 minutes')`)
+          .set('effectiveCreatedAt', sql`datetime(songRequests.effectiveCreatedAt, '-30 minutes')`)
           .execute();
         const remaining = await queries.getTimeUntilSongRequest(songRequest.id);
         await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been bumped up to position ${remaining.numSongRequests}!`);
