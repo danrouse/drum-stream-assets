@@ -48,6 +48,7 @@ export default class SongRequestModule {
     this.client = client;
     this.wss = wss;
 
+    /*
     this.client.registerCommandHandler('song request', async (payload) => {
       try {
         const query = await this.prepareUserSongRequest(
@@ -64,7 +65,28 @@ export default class SongRequestModule {
         this.log('Song request error', e);
       }
     });
+    */
 
+    this.client.registerCustomEventHandler('Song Request', async (payload) => {
+      if (!payload.isFollowing && !payload.isSubscribed && !payload.isModerator) {
+        await this.client.sendTwitchMessage(`@${payload.user} Song requests are available to anyone following the channel!`);
+      } else {
+        try {
+          const query = await this.prepareUserSongRequest(
+            payload.rawInput,
+            payload.user,
+            await this.songRequestMaxCountForUser(payload.user)
+          );
+          await this.handleUserSongRequest(
+            query,
+            payload.user,
+            await this.songRequestMaxDurationForUser(payload.user)
+          );
+        } catch (e) {
+          this.log('Song request error', e);
+        }
+      }
+    });
 
     this.client.registerCommandHandler('!replace', async (payload) => {
       const { songRequest, query: strippedQuery, isAmbiguous } = await this.disambiguate(
