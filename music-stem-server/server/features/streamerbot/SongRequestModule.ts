@@ -428,7 +428,11 @@ export default class SongRequestModule {
     let songRequest: typeof songRequests[0] | undefined = songRequests[0];
     let query = message;
     let isAmbiguous = false;
-    if (songRequests.length > 1) {
+    if (!query.trim()) {
+      // Command was used without arguments, just show help string
+      await this.client.sendTwitchMessage(`@${user} ${helpString}`);
+      isAmbiguous = true;
+    } else if (songRequests.length > 1) {
       const reqNumberMatch = query.match(/^\s*#?\s*(\d+)\s*(.*)/);
       if (!reqNumberMatch || Number.isNaN(Number(reqNumberMatch[1]))) {
         const requestNames = songRequests
