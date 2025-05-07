@@ -179,6 +179,55 @@ export default class StreamerbotWebSocketClient {
     });
 
     this.registerCommandHandler('!give', async (payload) => {
+      // !give <person> <item> <number=1>
+      // allow arguments in any position!
+      const args = payload.message.toLowerCase().split(' ');
+      let count = 1, item, recipient;
+      for (const arg of args) {
+        const itemMatch = arg.match(/<?(bump|longsr)s?>?/);
+        if (itemMatch) {
+          item = itemMatch[1];
+          continue;
+        }
+        const countMatch = arg.match(/^(\d+)$/);
+        if (countMatch) {
+          count = Number(countMatch[1]);
+          continue;
+        }
+        recipient = arg.replace(/@/g, '');
+      }
+      if (!count || !item || !recipient) {
+        await this.sendTwitchMessage(`@${payload.user} Usage: !give @person <longsr|bump> #`);
+        return;
+      }
+      // ensure giver has enough
+      const giver = (await db.selectFrom('users')
+        .select(['availableBumps', 'availableLongSongs'])
+        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+        .execute())[0];
+      if (
+        (item === 'bump' && giver.availableBumps < count) ||
+        (item === 'longsr' && giver.availableLongSongs < count)
+      ) {
+        await this.sendTwitchMessage(`@${payload.user} You don't have enough to give!`);
+      } else {
+        const col = item === 'bump' ? 'availableBumps' : 'availableLongSongs';
+        // update giver
+        await db.updateTable('users')
+          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+          .set(q => ({
+            [col]: q(col, '-', count)
+          }))
+          .execute();
+        // update recipient
+        await db.updateTable('users')
+          .where(q => q.fn<string>('lower', ['name']), '=', recipient.toLowerCase())
+          .set(q => ({
+            [col]: q(col, '+', count)
+          }))
+          .execute();
+        await this.sendTwitchMessage(`@${payload.user} has given @${recipient} ${count === 1 ? `a ${item}` : `${count} ${item}s`}!`);
+      }
     });
   }
 
