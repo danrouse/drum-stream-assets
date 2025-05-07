@@ -131,9 +131,6 @@ export default class StreamerbotWebSocketClient {
     });
     const PRICE_BUMP = 10;
     const PRICE_LONG_SR = 15;
-    // this.registerCommandHandler('!prices', async (payload) => {
-    //   await this.sendTwitchMessage(`@${payload.user} !bump: ${PRICE_BUMP} | !longsr: ${PRICE_LONG_SR}`);
-    // });
     this.registerCommandHandler('!buy', async (payload) => {
       const user = await db.selectFrom('users')
         .select(['nameThatTunePoints', 'availableBumps', 'availableLongSongs'])
@@ -141,29 +138,43 @@ export default class StreamerbotWebSocketClient {
         .execute();
 
       const userUpdate = db.updateTable('users').where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase());
-      const message = payload.message.trim().toLowerCase().replace(/^!/, '');
-      if (message === 'bump') {
-        if (!user[0] || user[0].nameThatTunePoints < PRICE_BUMP) {
-          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! A bump costs ${PRICE_BUMP} and you have ${user[0]?.nameThatTunePoints || '0'}`);
-        } else {
-          await userUpdate.set({
-            availableBumps: user[0].availableBumps + 1,
-            nameThatTunePoints: user[0].nameThatTunePoints - PRICE_BUMP,
-          }).execute();
-          await this.sendTwitchMessage(`@${payload.user} Bump acquired! Use it with !bump. You now have ${user[0].availableBumps + 1} bumps and ${user[0].nameThatTunePoints - PRICE_BUMP} points`);
+      const args = payload.message.trim().toLowerCase().replace(/^!/, '').split(' ');
+      let count = 1, item;
+      for (const arg of args) {
+        const itemMatch = arg.match(/<?(bump|longsr)s?>?/);
+        if (itemMatch) {
+          item = itemMatch[1];
+          continue;
         }
-      } else if (['longsr', 'longsong', 'long sr', 'long song', 'long song request'].includes(message)) {
-        if (!user[0] || user[0].nameThatTunePoints < PRICE_LONG_SR) {
-          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! A long song request costs ${PRICE_LONG_SR} and you have ${user[0]?.nameThatTunePoints || '0'}`);
+        const countMatch = arg.match(/^(\d+)$/);
+        if (countMatch) {
+          count = Number(countMatch[1]);
+          continue;
+        }
+      }
+      if (item === 'bump') {
+        if (!user[0] || user[0].nameThatTunePoints < (PRICE_BUMP * count)) {
+          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A bump' : `${count} bumps`} costs ${PRICE_BUMP * count} and you have ${user[0]?.nameThatTunePoints || '0'}`);
         } else {
           await userUpdate.set({
-            availableLongSongs: user[0].availableLongSongs + 1,
-            nameThatTunePoints: user[0].nameThatTunePoints - PRICE_LONG_SR,
+            availableBumps: user[0].availableBumps + count,
+            nameThatTunePoints: user[0].nameThatTunePoints - (PRICE_BUMP * count),
           }).execute();
-          await this.sendTwitchMessage(`@${payload.user} Long song request acquired! Use it with !longsr. You now have ${user[0].availableLongSongs + 1} long song requests and ${user[0].nameThatTunePoints - PRICE_LONG_SR} points`);
+          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Bump' : `${count} bumps`} acquired! Use ${count === 1 ? 'it' : 'them'} with !bump. You now have ${user[0].availableBumps + count} bumps and ${user[0].nameThatTunePoints - (PRICE_BUMP * count)} points`);
+        }
+      } else if (item === 'longsr') {
+        if (!user[0] || user[0].nameThatTunePoints < (PRICE_LONG_SR * count)) {
+          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A long song request' : `${count} long song requests`} costs ${PRICE_LONG_SR * count} and you have ${user[0]?.nameThatTunePoints || '0'}`);
+        } else {
+          await userUpdate.set({
+            availableLongSongs: user[0].availableLongSongs + count,
+            nameThatTunePoints: user[0].nameThatTunePoints - (PRICE_LONG_SR * count),
+          }).execute();
+          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Long song request' : `${count} Long SRs`} acquired! Use ${count === 1 ? 'it' : 'them'} with !longsr. You now have ${user[0].availableLongSongs + count} long song requests and ${user[0].nameThatTunePoints - (PRICE_LONG_SR * count)} points`);
         }
       } else {
-        await this.sendTwitchMessage(`@${payload.user} !buy bump (for ${PRICE_BUMP} pts) | !buy longsr (for ${PRICE_LONG_SR} pts)`);
+        await this.sendTwitchMessage(`@${payload.user} Usage: !buy bump # (for ${PRICE_BUMP} pts) | !buy longsr # (for ${PRICE_LONG_SR} pts)`);
+        return;
       }
     });
 
