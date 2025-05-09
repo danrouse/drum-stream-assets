@@ -88,6 +88,24 @@ export default class SongRequestModule {
       }
     });
 
+    this.client.registerCommandHandler('!srfor', async (payload) => {
+      // Allow a moderator to request a song for someone else
+      // Bypass most of the checks, since it's a moderator privilege
+      try {
+        const parts = payload.message.split(' ');
+        const forUser = parts[0].replace(/^@/, '');
+        const query = parts.slice(1).join(' ');
+        await this.handleUserSongRequest(
+          query,
+          forUser,
+          // still use moderator's max duration, to respect global limits
+          await this.songRequestMaxDurationForUser(payload.user),
+        );
+      } catch (e) {
+        this.log('Song request !srfor error', e);
+      }
+    });
+
     this.client.registerCommandHandler('!replace', async (payload) => {
       const { songRequest, query: strippedQuery, isAmbiguous } = await this.disambiguate(
         payload.user, payload.message, 'Use !edit <number> <query> to select which song to replace.'
