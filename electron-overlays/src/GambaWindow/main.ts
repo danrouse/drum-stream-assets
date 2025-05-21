@@ -1,5 +1,3 @@
-import { MIDINoteDefinition, MIDI_TRIGGER_VELOCITY_MAX, midiNoteDefinitions } from '../../../shared/midiNoteDefinitions';
-
 const containerElem = document.getElementById('app')!;
 
 const titleContainer = document.createElement('div');
@@ -7,7 +5,7 @@ titleContainer.classList.add('title-container');
 containerElem.appendChild(titleContainer);
 
 const titleElem = document.createElement('h1');
-titleElem.innerText = 'Tom1';
+titleElem.innerText = 'Any Drum';
 titleElem.classList.add('title');
 titleContainer.appendChild(titleElem);
 

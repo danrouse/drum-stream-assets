@@ -31,12 +31,14 @@ export default class GambaModule {
   }
 
   private startGamba = async () => {
-    this.selectedDrum = midiNoteDefinitions[Math.floor(Math.random() * midiNoteDefinitions.length)];
+    // this.selectedDrum = midiNoteDefinitions[Math.floor(Math.random() * midiNoteDefinitions.length)];
+    // const drumName = this.selectedDrum?.name;
+    const drumName = 'Any Drum';
     this.count = 0;
     await this.client.doAction('Create Gamba (Twitch)', {
       // Length must be <= 45 chars
       // This maxes out with longest drum name of "Splash2"!
-      predictionTitle: `How many times will ${this.selectedDrum.name} be hit next song?`,
+      predictionTitle: `How many times will ${drumName} be hit next song?`,
       // Current streamerbot setup only handles two options (as results 0 or 1)
       option1: 'Even',
       option2: 'Odd',
@@ -44,7 +46,7 @@ export default class GambaModule {
     });
     this.wss.broadcast({
       type: 'gamba_started',
-      drumName: this.selectedDrum.name,
+      drumName: drumName,
     });
   };
 
@@ -81,13 +83,13 @@ export default class GambaModule {
 
   private handleMidiNote = (note: number, velocity: number) => {
     if (!this.isTracking) return;
-    const normVelocity = velocity / MIDI_TRIGGER_VELOCITY_MAX;
-    if (this.selectedDrum?.keys.includes(note)/* && normVelocity > 0.2*/) {
+    // const normVelocity = velocity / MIDI_TRIGGER_VELOCITY_MAX;
+    // if (this.selectedDrum?.keys.includes(note)/* && normVelocity > 0.2*/) {
       this.count += 1;
       this.wss.broadcast({
         type: 'gamba_progress',
         count: this.count,
       });
-    }
+    // }
   };
 }
