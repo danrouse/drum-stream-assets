@@ -70,6 +70,7 @@ export default class SongRequestModule {
     this.client.registerCustomEventHandler('Song Request', async (payload) => {
       if (!payload.isFollowing && !payload.isSubscribed && !payload.isModerator) {
         await this.client.sendTwitchMessage(`@${payload.user} Song requests are available to anyone following the channel!`);
+        await this.client.doAction('!srrules');
       } else {
         try {
           const query = await this.prepareUserSongRequest(
