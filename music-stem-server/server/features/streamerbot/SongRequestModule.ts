@@ -482,7 +482,6 @@ export default class SongRequestModule {
     let limit = 1;
     if (viewer?.subscribed) limit = 2;
     if (viewer?.role.toUpperCase() === 'VIP') limit = 2;
-    if (viewer?.role === 'Moderator') limit = 0;
     if (viewer?.role === 'Broadcaster') limit = 0;
     return limit;
   }
