@@ -228,7 +228,7 @@ export default class SongRequestModule {
         }).returningAll().execute();
       }
       let availableBumps = user[0].availableBumps;
-      let userUpdate = db.updateTable('users').where('name', '=', payload.user);
+      let userUpdate = db.updateTable('users').where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase());
       if (viewer?.subscribed) {
         // Check to see if subscriber has gotten their free bump of the stream
         const currentStreamId = (await queries.currentStreamHistory())[0].id;
@@ -282,7 +282,7 @@ export default class SongRequestModule {
           LONG_SONG_REQUEST_MAX_DURATION,
         );
         await db.updateTable('users')
-          .where('name', '=', payload.user)
+          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
           .set({
             availableLongSongs: availableLongSongs - 1,
             lastLongSongStreamHistoryId: currentStreamId
@@ -406,10 +406,17 @@ export default class SongRequestModule {
         const giftedCount: number = payload.gifts || payload.subBombCount || 1;
         // NB: is it worth having an upper limit on number of bumps given?
         if (payload.isTest) return;
-        await db.updateTable('users')
-          .where('name', '=', payload.userName)
+        const updatedUser = await db.updateTable('users')
+          .where(q => q.fn<string>('lower', ['name']), '=', payload.userName.toLowerCase())
           .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
+          .returningAll()
           .execute();
+        if (!updatedUser.length) {
+          await db.insertInto('users').values({
+            name: payload.userName,
+            availableBumps: giftedCount,
+          }).returningAll().execute();
+        }
         await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
           `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
       }

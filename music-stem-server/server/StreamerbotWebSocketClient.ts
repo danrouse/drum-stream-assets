@@ -132,10 +132,15 @@ export default class StreamerbotWebSocketClient {
     const PRICE_BUMP = 10;
     const PRICE_LONG_SR = 15;
     this.registerCommandHandler('!buy', async (payload) => {
-      const user = await db.selectFrom('users')
+      let user = await db.selectFrom('users')
         .select(['nameThatTunePoints', 'availableBumps', 'availableLongSongs'])
         .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
         .execute();
+      if (!user.length) {
+        user = await db.insertInto('users').values({
+          name: payload.user
+        }).returningAll().execute();
+      }
 
       const userUpdate = db.updateTable('users').where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase());
       const args = payload.message.trim().toLowerCase().replace(/^!/, '').split(' ');
@@ -201,10 +206,15 @@ export default class StreamerbotWebSocketClient {
         return;
       }
       // ensure giver has enough
-      const giver = (await db.selectFrom('users')
+      let giver = (await db.selectFrom('users')
         .select(['availableBumps', 'availableLongSongs'])
         .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
         .execute())[0];
+      if (!giver) {
+        giver = (await db.insertInto('users').values({
+          name: payload.user
+        }).returningAll().execute())[0];
+      }
       if (
         (item === 'bump' && giver.availableBumps < count) ||
         (item === 'longsr' && giver.availableLongSongs < count)
@@ -219,13 +229,21 @@ export default class StreamerbotWebSocketClient {
             [col]: q(col, '-', count)
           }))
           .execute();
-        // update recipient
-        await db.updateTable('users')
+        // upsert recipient
+        const updatedRecipient = await db.updateTable('users')
           .where(q => q.fn<string>('lower', ['name']), '=', recipient.toLowerCase())
           .set(q => ({
             [col]: q(col, '+', count)
           }))
+          .returningAll()
           .execute();
+        if (!updatedRecipient.length) {
+          await db.insertInto('users').values({
+            name: recipient,
+            [col]: count,
+          }).execute();
+        }
+
         await this.sendTwitchMessage(`@${payload.user} has given @${recipient} ${count === 1 ? `a ${item}` : `${count} ${item}s`}!`);
       }
     });
