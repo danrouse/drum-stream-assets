@@ -118,31 +118,16 @@ export default class StreamerbotWebSocketClient {
         await this.sendTwitchMessage(`@${payload.user} The current song is ${this.currentSong.artist} - ${this.currentSong.title}`);
       }
     });
+
     this.registerCommandHandler('!inventory', async (payload) => {
-      const user = await db.selectFrom('users')
-        .select(['nameThatTunePoints', 'availableBumps', 'availableLongSongs'])
-        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
-        .execute();
-      if (!user.length) {
-        await this.sendTwitchMessage(`@${payload.user} You don't have any rewards available to use!`);
-      } else {
-        await this.sendTwitchMessage(`@${payload.user} You have ${user[0].nameThatTunePoints} points, ${user[0].availableLongSongs} long song requests, and ${user[0].availableBumps} bumps available to use`);
-      }
+      const user = await this.getUser(payload.user);
+      await this.sendTwitchMessage(`@${payload.user} You have ${user.nameThatTunePoints} points, ${user.availableLongSongs} long song requests, and ${user.availableBumps} bumps available to use`);
     });
     const PRICE_BUMP = 10;
     const PRICE_LONG_SR = 15;
     this.registerCommandHandler('!buy', async (payload) => {
-      let user = await db.selectFrom('users')
-        .select(['nameThatTunePoints', 'availableBumps', 'availableLongSongs'])
-        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
-        .execute();
-      if (!user.length) {
-        user = await db.insertInto('users').values({
-          name: payload.user
-        }).returningAll().execute();
-      }
-
-      const userUpdate = db.updateTable('users').where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase());
+      const user = await this.getUser(payload.user);
+      const userUpdate = db.updateTable('users').where('id', '=', user.id);
       const args = payload.message.trim().toLowerCase().replace(/^!/, '').split(' ');
       let count = 1, item;
       for (const arg of args) {
@@ -158,24 +143,24 @@ export default class StreamerbotWebSocketClient {
         }
       }
       if (item === 'bump') {
-        if (!user[0] || user[0].nameThatTunePoints < (PRICE_BUMP * count)) {
-          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A bump' : `${count} bumps`} costs ${PRICE_BUMP * count} and you have ${user[0]?.nameThatTunePoints || '0'}`);
+        if (user.nameThatTunePoints < (PRICE_BUMP * count)) {
+          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A bump' : `${count} bumps`} costs ${PRICE_BUMP * count} and you have ${user.nameThatTunePoints || '0'}`);
         } else {
           await userUpdate.set({
-            availableBumps: user[0].availableBumps + count,
-            nameThatTunePoints: user[0].nameThatTunePoints - (PRICE_BUMP * count),
+            availableBumps: user.availableBumps + count,
+            nameThatTunePoints: user.nameThatTunePoints - (PRICE_BUMP * count),
           }).execute();
-          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Bump' : `${count} bumps`} acquired! Use ${count === 1 ? 'it' : 'them'} with !bump. You now have ${user[0].availableBumps + count} bumps and ${user[0].nameThatTunePoints - (PRICE_BUMP * count)} points`);
+          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Bump' : `${count} bumps`} acquired! Use ${count === 1 ? 'it' : 'them'} with !bump. You now have ${user.availableBumps + count} bumps and ${user.nameThatTunePoints - (PRICE_BUMP * count)} points`);
         }
       } else if (item === 'longsr') {
-        if (!user[0] || user[0].nameThatTunePoints < (PRICE_LONG_SR * count)) {
-          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A long song request' : `${count} long song requests`} costs ${PRICE_LONG_SR * count} and you have ${user[0]?.nameThatTunePoints || '0'}`);
+        if (user.nameThatTunePoints < (PRICE_LONG_SR * count)) {
+          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A long song request' : `${count} long song requests`} costs ${PRICE_LONG_SR * count} and you have ${user.nameThatTunePoints || '0'}`);
         } else {
           await userUpdate.set({
-            availableLongSongs: user[0].availableLongSongs + count,
-            nameThatTunePoints: user[0].nameThatTunePoints - (PRICE_LONG_SR * count),
+            availableLongSongs: user.availableLongSongs + count,
+            nameThatTunePoints: user.nameThatTunePoints - (PRICE_LONG_SR * count),
           }).execute();
-          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Long song request' : `${count} Long SRs`} acquired! Use ${count === 1 ? 'it' : 'them'} with !longsr. You now have ${user[0].availableLongSongs + count} long song requests and ${user[0].nameThatTunePoints - (PRICE_LONG_SR * count)} points`);
+          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Long song request' : `${count} Long SRs`} acquired! Use ${count === 1 ? 'it' : 'them'} with !longsr. You now have ${user.availableLongSongs + count} long song requests and ${user.nameThatTunePoints - (PRICE_LONG_SR * count)} points`);
         }
       } else {
         await this.sendTwitchMessage(`@${payload.user} Usage: !buy bump # (for ${PRICE_BUMP} pts) | !buy longsr # (for ${PRICE_LONG_SR} pts)`);
@@ -206,43 +191,30 @@ export default class StreamerbotWebSocketClient {
         return;
       }
       // ensure giver has enough
-      let giver = (await db.selectFrom('users')
-        .select(['availableBumps', 'availableLongSongs'])
-        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
-        .execute())[0];
-      if (!giver) {
-        giver = (await db.insertInto('users').values({
-          name: payload.user
-        }).returningAll().execute())[0];
-      }
+      const givingUser = await this.getUser(payload.user);
       if (
-        (item === 'bump' && giver.availableBumps < count) ||
-        (item === 'longsr' && giver.availableLongSongs < count)
+        (item === 'bump' && givingUser.availableBumps < count) ||
+        (item === 'longsr' && givingUser.availableLongSongs < count)
       ) {
         await this.sendTwitchMessage(`@${payload.user} You don't have enough to give!`);
       } else {
         const col = item === 'bump' ? 'availableBumps' : 'availableLongSongs';
         // update giver
         await db.updateTable('users')
-          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+          .where('id', '=', givingUser.id)
           .set(q => ({
             [col]: q(col, '-', count)
           }))
           .execute();
-        // upsert recipient
-        const updatedRecipient = await db.updateTable('users')
-          .where(q => q.fn<string>('lower', ['name']), '=', recipient.toLowerCase())
+
+        // update recipient
+        const receivingUser = await this.getUser(recipient);
+        await db.updateTable('users')
+          .where('id', '=', receivingUser.id)
           .set(q => ({
             [col]: q(col, '+', count)
           }))
-          .returningAll()
           .execute();
-        if (!updatedRecipient.length) {
-          await db.insertInto('users').values({
-            name: recipient,
-            [col]: count,
-          }).execute();
-        }
 
         await this.sendTwitchMessage(`@${payload.user} has given @${recipient} ${count === 1 ? `a ${item}` : `${count} ${item}s`}!`);
       }
@@ -493,5 +465,16 @@ export default class StreamerbotWebSocketClient {
     }
 
     this.customEventHandlers[eventName]?.(payload.data.args);
+  }
+
+  public async getUser(userName: string) {
+    let user = await db.selectFrom('users')
+      .selectAll()
+      .where(q => q.fn<string>('lower', ['name']), '=', userName.toLowerCase())
+      .execute();
+    if (!user.length) {
+      user = await db.insertInto('users').values({ name: userName }).returningAll().execute();
+    }
+    return user[0];
   }
 }

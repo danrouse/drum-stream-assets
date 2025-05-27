@@ -218,21 +218,13 @@ export default class SongRequestModule {
       }
 
       const viewer = await this.client.getViewer(payload.user);
-      let user = await db.selectFrom('users')
-        .select(['availableBumps', 'lastFreeBumpStreamHistoryId'])
-        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
-        .execute();
-      if (!user[0]) {
-        user = await db.insertInto('users').values({
-          name: payload.user
-        }).returningAll().execute();
-      }
-      let availableBumps = user[0].availableBumps;
-      let userUpdate = db.updateTable('users').where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase());
+      const user = await this.client.getUser(payload.user);
+      let availableBumps = user.availableBumps;
+      let userUpdate = db.updateTable('users').where('id', '=', user.id);
       if (viewer?.subscribed) {
         // Check to see if subscriber has gotten their free bump of the stream
         const currentStreamId = (await queries.currentStreamHistory())[0].id;
-        if (user[0].lastFreeBumpStreamHistoryId !== currentStreamId) {
+        if (user.lastFreeBumpStreamHistoryId !== currentStreamId) {
           availableBumps += 1;
           await this.client.sendTwitchMessage(`@${payload.user} You've been given a free bump of the day, thanks for subscribing! dannyt75Heart`);
         }
@@ -253,24 +245,16 @@ export default class SongRequestModule {
       }
       await userUpdate.execute();
     });
+
     this.client.registerCommandHandler('!longsr', async (payload) => {
-      let user = await db.selectFrom('users')
-        .select(['availableLongSongs', 'lastLongSongStreamHistoryId'])
-        .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
-        .execute();
-      if (!user[0]) {
-        user = await db.insertInto('users').values({
-          name: payload.user
-        }).returningAll().execute();
-      }
+      const user = await this.client.getUser(payload.user);
       const currentStreamId = (await queries.currentStreamHistory())[0].id;
-      if (user[0].lastLongSongStreamHistoryId === currentStreamId) {
+      if (user.lastLongSongStreamHistoryId === currentStreamId) {
         await this.client.sendTwitchMessage(`@${payload.user} You can only request one Long Song per stream!`);
         throw new Error('ONE_LONG_SONG_PER_DAY');
       }
 
-      let availableLongSongs = user[0].availableLongSongs;
-      if (availableLongSongs > 0) {
+      if (user.availableLongSongs > 0) {
         const query = await this.prepareUserSongRequest(
           payload.message,
           payload.user,
@@ -282,9 +266,9 @@ export default class SongRequestModule {
           LONG_SONG_REQUEST_MAX_DURATION,
         );
         await db.updateTable('users')
-          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+          .where('id', '=', user.id)
           .set({
-            availableLongSongs: availableLongSongs - 1,
+            availableLongSongs: user.availableLongSongs - 1,
             lastLongSongStreamHistoryId: currentStreamId
           })
           .execute();
@@ -295,17 +279,9 @@ export default class SongRequestModule {
 
     this.client.registerTwitchRedemptionHandler('Long Song Request', async (payload) => {
       try {
-        let user = await db.selectFrom('users')
-          .select(['lastLongSongStreamHistoryId'])
-          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
-          .execute();
-        if (!user[0]) {
-          user = await db.insertInto('users').values({
-            name: payload.user
-          }).returningAll().execute();
-        }
+        const user = await this.client.getUser(payload.user);
         const currentStreamId = (await queries.currentStreamHistory())[0].id;
-        if (user[0].lastLongSongStreamHistoryId === currentStreamId) {
+        if (user.lastLongSongStreamHistoryId === currentStreamId) {
           await this.client.sendTwitchMessage(`@${payload.user} You can only request one Long Song per stream!`);
           throw new Error('ONE_LONG_SONG_PER_DAY');
         }
@@ -326,7 +302,7 @@ export default class SongRequestModule {
         );
 
         await db.updateTable('users')
-          .where(q => q.fn<string>('lower', ['name']), '=', payload.user.toLowerCase())
+          .where('id', '=', user.id)
           .set({ lastLongSongStreamHistoryId: currentStreamId })
           .execute();
       } catch (err) {
@@ -406,17 +382,11 @@ export default class SongRequestModule {
         const giftedCount: number = payload.gifts || payload.subBombCount || 1;
         // NB: is it worth having an upper limit on number of bumps given?
         if (payload.isTest) return;
-        const updatedUser = await db.updateTable('users')
-          .where(q => q.fn<string>('lower', ['name']), '=', payload.userName.toLowerCase())
+        const user = await this.client.getUser(payload.userName);
+        await db.updateTable('users')
+          .where('id', '=', user.id)
           .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
-          .returningAll()
           .execute();
-        if (!updatedUser.length) {
-          await db.insertInto('users').values({
-            name: payload.userName,
-            availableBumps: giftedCount,
-          }).returningAll().execute();
-        }
         await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
           `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
       }
