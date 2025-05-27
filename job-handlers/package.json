@@ -4,7 +4,8 @@
   "type": "module",
   "main": "main.ts",
   "scripts": {
-    "start": "tsx main.ts 2>&1 | tee --append logs/log.txt",
+    "update-yt-dlp": "pip install -U yt-dlp",
+    "start": "npm run update-yt-dlp && tsx main.ts 2>&1 | tee --append logs/log.txt",
     "dev": "tsx watch main.ts"
   },
   "dependencies": {

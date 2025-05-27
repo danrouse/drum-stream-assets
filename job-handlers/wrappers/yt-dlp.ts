@@ -1,6 +1,5 @@
 import { spawn } from 'child_process';
-import { join, basename } from 'path';
-import * as Paths from '../../shared/paths';
+import { join } from 'path';
 
 interface YouTubeDownloadOptions {
   maxDuration: number,
@@ -13,7 +12,7 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
   }
 
   return new Promise<string>((resolve, reject) => {
-    const cmd = spawn(Paths.YT_DLP_PATH,
+    const cmd = spawn('yt-dlp',
       [
         '--no-playlist',
         '--no-overwrites',
@@ -26,7 +25,7 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
         '--write-info-json',
         '-f', '"bv[height<=?720]+ba"',
         '-S', '"filesize:50M"',
-        '--output', `"${join(outputPath, '%(artist|YouTube)s - %(fulltitle)s [%(id)s].%(ext)s')}"`,
+        '--output', `"${join(outputPath, '%%(artist|YouTube)s - %%(fulltitle)s %%(id)s.%%(ext)s')}"`,
         `"${url.toString()}"`
       ],
       { shell: true }

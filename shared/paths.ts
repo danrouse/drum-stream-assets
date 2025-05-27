@@ -9,5 +9,3 @@ export const STEMS_PATH = join(DEMUCS_OUTPUT_PATH, 'htdemucs'); // not using DEF
 
 export const STATIC_ASSETS_PATH = join(__dirname, '..', 'music-stem-server', 'static');
 export const PLAYER_DIST = join(__dirname, '..', 'music-stem-server', 'player', 'dist');
-
-export const YT_DLP_PATH = join(__dirname, '..', 'bin', 'yt-dlp.exe');
