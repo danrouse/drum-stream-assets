@@ -30,13 +30,13 @@ export default class OBSModule {
     this.client.on('Obs.SceneChanged', this.handleOBSSceneChanged);
     this.client.on('Obs.StreamingStarted', this.handleOBSStreamingStarted);
     this.client.on('Obs.StreamingStopped', this.handleOBSStreamingStopped);
-    this.client.registerTwitchRedemptionHandler('Fullscreen Video', (payload) => {
-      if (this.client.currentSong?.isVideo) {
-        this.client.doAction('Set OBS Scene', {
-          sceneName: 'Fullscreen Video'
-        });
-      }
-    });
+    // this.client.registerTwitchRedemptionHandler('Fullscreen Video', (payload) => {
+    //   if (this.client.currentSong?.isVideo) {
+    //     this.client.doAction('Set OBS Scene', {
+    //       sceneName: 'Fullscreen Video'
+    //     });
+    //   }
+    // });
 
     this.wss.registerHandler('song_changed', this.handleSongChanged);
     this.wss.registerHandler('song_playback_started', this.handleSongStarted);
@@ -73,7 +73,7 @@ export default class OBSModule {
   };
 
   private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
-    this.updateFullscreenVideoEnabled();
+    // this.updateFullscreenVideoEnabled();
 
     // Leave fullscreen video if we switch to a song that isn't a video
     if (this.currentScene === 'Fullscreen Video' && !payload.song.isVideo) {
@@ -85,7 +85,7 @@ export default class OBSModule {
 
   private handleOBSSceneChanged = async (payload: StreamerbotEventPayload<"Obs.SceneChanged">) => {
     this.currentScene = payload.data.scene.sceneName;
-    this.updateFullscreenVideoEnabled();
+    // this.updateFullscreenVideoEnabled();
     this.wss.broadcast({
       type: 'obs_scene_changed',
       oldScene: payload.data.oldScene.sceneName,
