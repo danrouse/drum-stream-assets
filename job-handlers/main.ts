@@ -37,8 +37,7 @@ await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
 await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
   console.log('SONG_REQUEST_DOWNLOADED', msg);
 
-  let dstPath = msg.path.endsWith('.webm') ? msg.path.replace(/\.webm$/, '.mp4') : msg.path;
-  dstPath = dstPath.replace(/\.+$/, '');
+  const dstPath = msg.path.endsWith('.webm') ? msg.path.replace(/\.webm$/, '.mp4') : msg.path;
   console.log('Running ffmpeg-normalize', msg.path, dstPath);
   execSync(`ffmpeg-normalize "${msg.path}" -o "${dstPath}" -c:a aac -nt rms -t -16 -f`);
   console.log('Running demucs', dstPath);
