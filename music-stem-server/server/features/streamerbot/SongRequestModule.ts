@@ -240,6 +240,7 @@ export default class SongRequestModule {
           .execute();
         const remaining = await queries.getTimeUntilSongRequest(songRequest.id);
         await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been bumped up to position ${remaining.numSongRequests}!`);
+        this.wss.broadcast({ type: 'song_request_moved', songRequestId: songRequest.id });
       } else {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any bumps available to use!`);
       }
