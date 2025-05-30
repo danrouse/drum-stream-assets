@@ -91,7 +91,8 @@ function loadConfig(): MIDINoteDisplayDefinition[] {
 }
 const config = loadConfig();
 
-const existingNoteByType: { [key: number]: HTMLElement } = {};
+const MAX_ELEMS_PER_NOTE = 5;
+const existingNoteByType: { [key: number]: HTMLElement[] } = {};
 
 const NOTE_ANIMATION_DURATION_MS = 2000;
 const LAST_EMOTE_URLS: { [key: string]: [string, number] } = {};
@@ -102,9 +103,9 @@ function triggerNote(note: number, velocity: number, animated: boolean = true, n
     return;
   }
 
-  if (existingNoteByType[note]) {
-    existingNoteByType[note].remove();
-    delete existingNoteByType[note];
+  if (existingNoteByType[note].length >= MAX_ELEMS_PER_NOTE) {
+    const elem = existingNoteByType[note].shift();
+    elem?.remove();
   }
 
   for (let noteConfig of selectedNoteConfigs) {
@@ -131,17 +132,20 @@ function triggerNote(note: number, velocity: number, animated: boolean = true, n
     if (midiRimNotes.includes(note)) {
       noteElem.classList.add('rim');
     }
-    
+
     const maskContainer = document.createElement('div');
     maskContainer.classList.add('note-container');
     maskContainer.style.maskImage = `url('/masks/mask-${LOCAL_STORAGE_KEY}-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
     maskContainer.appendChild(noteElem);
     notesContainerElem.appendChild(maskContainer);
 
-    existingNoteByType[note] = maskContainer;
+    const poolIndex = existingNoteByType[note].push(maskContainer) - 1;
     if (animated) {
       noteElem.classList.add('animated');
-      setTimeout(() => maskContainer.remove(), NOTE_ANIMATION_DURATION_MS);
+      setTimeout(() => {
+        maskContainer.remove();
+        existingNoteByType[note].splice(poolIndex, 1);
+      }, NOTE_ANIMATION_DURATION_MS);
     }
   }
 }
