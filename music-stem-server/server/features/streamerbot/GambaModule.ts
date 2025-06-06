@@ -38,7 +38,8 @@ export default class GambaModule {
     await this.client.doAction('Create Gamba (Twitch)', {
       // Length must be <= 45 chars
       // This maxes out with longest drum name of "Splash2"!
-      predictionTitle: `How many times will ${drumName} be hit next song?`,
+      predictionTitle: `How many drum triggers next song?`,
+      // predictionTitle: `How many times will ${drumName} be hit next song?`,
       // Current streamerbot setup only handles two options (as results 0 or 1)
       option1: 'Even',
       option2: 'Odd',
