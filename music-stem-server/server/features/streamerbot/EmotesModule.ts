@@ -60,6 +60,8 @@ export default class EmotesModule {
 
         if ((wholeMessageIsTwitchEmote && isOwnTwitchEmote) || wholeMessage7tvEmote.length) {
           await this.client.sendTwitchMessage(payload.data.message.message);
+          this.previousMessage = '';
+          this.previousMessageUser = '';
           this.messageRepeatTimer = setTimeout(() => { delete this.messageRepeatTimer; }, 30000);
         }
       }
