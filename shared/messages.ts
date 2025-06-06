@@ -126,6 +126,7 @@ export interface SongData {
   noShenanigans?: number | null;
   status?: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | null;
   songRequestId?: number | null;
+  fulfilledToday?: number;
 }
 
 export interface SongRequestData extends SongData {

@@ -663,7 +663,7 @@ export default class SongRequestModule {
     hasCooldown: boolean = true,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
-    const existingRequestCount = await queries.numRequestsByUser(fromUsername);
+    const existingRequestCount = await queries.numOpenRequestsByUser(fromUsername);
     if (perUserLimit && Number(existingRequestCount[0].count) >= perUserLimit) {
       await this.client.sendTwitchMessage(
         `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +

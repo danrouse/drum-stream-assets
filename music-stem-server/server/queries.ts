@@ -18,7 +18,7 @@ export const songRequestsByUser = (user: string) => db.selectFrom('songRequests'
   .orderBy('songRequests.effectiveCreatedAt asc')
   .execute();
 
-export const numRequestsByUser = (user: string) => db.selectFrom('songRequests')
+export const numOpenRequestsByUser = (user: string) => db.selectFrom('songRequests')
   .select(db.fn.countAll().as('count'))
   .where('requester', '=', user)
   .where('status', 'in', ['processing', 'ready'])
@@ -79,11 +79,24 @@ export const allSongs = () => db.selectFrom('songs')
 export const allSongRequests = () => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
   .innerJoin('downloads', 'downloads.id', 'songs.downloadId')
+  .leftJoin(
+    db.selectFrom('songRequests as sr2')
+      .select([
+        'sr2.requester',
+        db.fn.countAll<number>().as('fulfilledToday')
+      ])
+      .where('sr2.status', '=', 'fulfilled')
+      .where('sr2.createdAt', '>', sql<any>`(select createdAt from streamHistory order by id desc limit 1)`)
+      .groupBy('sr2.requester')
+      .as('fulfilledCounts'),
+    join => join.onRef('fulfilledCounts.requester', '=', 'songRequests.requester')
+  )
   .where('songRequests.status', '=', 'ready')
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
     'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
     'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
+    'fulfilledCounts.fulfilledToday',
   ])
   .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
   .execute();

@@ -351,6 +351,20 @@ export default function SongBrowserUI() {
                   id: selectedSong?.id,
                   songRequestId: selectedSong?.songRequestId,
                 });
+                if (selectedSong.songRequestId) {
+                  setPlaylists(nextPlaylists => nextPlaylists.map(playlist => {
+                    if (playlist.title === SONG_REQUEST_PLAYLIST_NAME) {
+                      return {
+                        ...playlist,
+                        songs: playlist.songs.map(song => ({
+                          ...song,
+                          fulfilledToday: song.requester === selectedSong.requester ? (song.fulfilledToday || 0) + 1 : song.fulfilledToday,
+                        })),
+                      };
+                    }
+                    return playlist;
+                  }));
+                }
               }
               if (isAutoplayEnabled) {
                 nextSong();
