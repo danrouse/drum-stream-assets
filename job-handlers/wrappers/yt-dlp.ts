@@ -45,7 +45,7 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
     });
     let buf = '';
     cmd.stdout.on('data', msg => {
-      if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration\)/)) {
+      if (msg.toString().match(/\[download\] (.+) does not pass filter \(duration/)) {
         return reject(new Error('TOO_LONG'));
       } else if (msg.toString().match('because it has not reached minimum view count')) {
         return reject(new Error('MINIMUM_VIEWS'));
