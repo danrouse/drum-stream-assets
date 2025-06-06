@@ -25,7 +25,7 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
         '--write-info-json',
         '-f', '"bv[height<=?720]+ba"',
         '-S', '"filesize:50M"',
-        '--output', `"${join(outputPath, '%%(artist|YouTube)s - %%(fulltitle)s %%(id)s.%%(ext)s')}"`,
+        '--output', `"${join(outputPath, '%%(artist|YouTube)s - %%(fulltitle)s.%%(ext)s')}"`,
         `"${url.toString()}"`
       ],
       { shell: true }

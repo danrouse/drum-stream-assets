@@ -43,7 +43,7 @@ export default async function getSongTags(songPath: string) {
       const title = hyphenParts.length > 1 ? hyphenParts.slice(1).join('-') : titleWithoutId;
       if (!tags.common) tags.common = {};
       tags.common.artist ||= artist.trim();
-      tags.common.title ||= title.trim();
+      tags.common.title ||= title.trim().replace(/_/g, ' ');
       tags.common.album ||= album.trim();
       tags.common.track ||= { no: 1, of: 1 };
     }
