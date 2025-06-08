@@ -5,7 +5,7 @@
   "main": "main.ts",
   "scripts": {
     "update-yt-dlp": "pip install -U yt-dlp",
-    "start": "npm run update-yt-dlp && tsx main.ts 2>&1 | tee --append logs/log.txt",
+    "start": "npm run update-yt-dlp && tsx main.ts 2>&1 | tee --append logs/%date:~10,4%-%date:~4,2%-%date:~7,2%.txt",
     "dev": "tsx watch main.ts"
   },
   "dependencies": {

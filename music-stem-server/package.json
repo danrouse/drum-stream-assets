@@ -4,7 +4,7 @@
   "type": "module",
   "main": "server/main.ts",
   "scripts": {
-    "start": "cross-env NODE_ENV=production npm run dev 2>&1 | tee --append logs/log.txt",
+    "start": "cross-env NODE_ENV=production npm run dev 2>&1 | tee --append logs/%date:~10,4%-%date:~4,2%-%date:~7,2%.txt",
     "dev": "concurrently \"tsx watch generateStreamerbotTypes.ts\" \"tsx watch server/main.ts\"",
     "build": "tsx generateStreamerbotTypes.ts && cd player && vite build"
   },
