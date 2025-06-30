@@ -167,6 +167,21 @@ function createGambaWindow() {
   return win;
 }
 
+function createWheelWindow() {
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    title: 'Wheel',
+    width: 1920,
+    height: 1080,
+  });
+  // win.setIgnoreMouseEvents(true);
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/WheelWindow/index.html');
+  ipcMain.on('wheel_selection', (event, songRequestId) => {
+    ws.send(JSON.stringify({ type: 'wheel_selection', songRequestId }));
+  });
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 let windows: BrowserWindow[] = [];
@@ -224,6 +239,7 @@ function createWindows() {
     createAudioDisplayWindow(),
     createHeartRateWindow(),
     createGambaWindow(),
+    createWheelWindow(),
   ];
 }
 

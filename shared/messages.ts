@@ -64,6 +64,15 @@ export type WebSocketServerMessage = {
   count: number,
 } | {
   type: 'gamba_complete',
+} | {
+  type: 'wheel_show',
+} | {
+  type: 'wheel_hide',
+} | {
+  type: 'wheel_spin',
+} | {
+  type: 'wheel_selection',
+  songRequestId: number,
 };
 
 export type WebSocketPlayerMessage = {

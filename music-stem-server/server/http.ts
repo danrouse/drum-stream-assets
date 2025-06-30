@@ -40,7 +40,7 @@ app.get('/songs', cors(), async (req, res) => {
   res.send(convertLocalPathsToURLs(songs));
 });
 
-app.get('/requests', async (req, res) => {
+app.get('/requests', cors(), async (req, res) => {
   const songs = await Queries.allSongRequests();
   res.send(convertLocalPathsToURLs(songs));
 });
