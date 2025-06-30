@@ -791,12 +791,8 @@ async function initializeWheel() {
 // WEBSOCKET MESSAGE HANDLERS
 // =============================================================================
 
-window.ipcRenderer.on('wheel_show', () => {
-  globalContainer.classList.add('wheel-visible');
-});
-
-window.ipcRenderer.on('wheel_hide', () => {
-  globalContainer.classList.remove('wheel-visible');
+window.ipcRenderer.on('wheel_toggle_visibility', () => {
+  globalContainer.classList.toggle('wheel-visible');
 });
 
 window.ipcRenderer.on('wheel_spin', () => {

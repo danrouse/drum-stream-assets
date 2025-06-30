@@ -65,9 +65,7 @@ export type WebSocketServerMessage = {
 } | {
   type: 'gamba_complete',
 } | {
-  type: 'wheel_show',
-} | {
-  type: 'wheel_hide',
+  type: 'wheel_toggle_visibility',
 } | {
   type: 'wheel_spin',
 } | {
