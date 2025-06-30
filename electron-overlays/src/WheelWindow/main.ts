@@ -95,7 +95,6 @@ let confettiTimeoutId: NodeJS.Timeout | null = null;
 // =============================================================================
 
 const globalContainer = document.getElementById('app')!;
-globalContainer.style.display = 'none'; // Initially hidden until 'wheel_show' message
 
 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 svg.setAttribute('class', 'wheel');
@@ -793,11 +792,11 @@ async function initializeWheel() {
 // =============================================================================
 
 window.ipcRenderer.on('wheel_show', () => {
-  globalContainer.style.display = 'block';
+  globalContainer.classList.add('wheel-visible');
 });
 
 window.ipcRenderer.on('wheel_hide', () => {
-  globalContainer.style.display = 'none';
+  globalContainer.classList.remove('wheel-visible');
 });
 
 window.ipcRenderer.on('wheel_spin', () => {
