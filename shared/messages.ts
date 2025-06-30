@@ -64,6 +64,13 @@ export type WebSocketServerMessage = {
   count: number,
 } | {
   type: 'gamba_complete',
+} | {
+  type: 'wheel_toggle_visibility',
+} | {
+  type: 'wheel_spin',
+} | {
+  type: 'wheel_selection',
+  songRequestId: number,
 };
 
 export type WebSocketPlayerMessage = {
@@ -139,6 +146,7 @@ export interface SongRequestData extends SongData {
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   songRequestId: number;
   createdAt: string;
+  bumpCount: number;
 }
 
 export interface LegacySongData {

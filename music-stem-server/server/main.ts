@@ -11,6 +11,7 @@ import SongVotingModule from './features/streamerbot/SongVotingModule';
 import EmotesModule from './features/streamerbot/EmotesModule';
 import NameThatTuneModule from './features/streamerbot/NameThatTuneModule';
 import GambaModule from './features/streamerbot/GambaModule';
+import WheelModule from './features/streamerbot/WheelModule';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
@@ -64,6 +65,11 @@ const nameThatTuneModule = new NameThatTuneModule(
 );
 
 const gambaModule = new GambaModule(
+  streamerbotWebSocketClient,
+  webSocketCoordinatorServer
+);
+
+const wheelModule = new WheelModule(
   streamerbotWebSocketClient,
   webSocketCoordinatorServer
 );

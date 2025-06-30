@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "npm run dev 2>&1 | tee --append logs/log.txt",
+    "start": "npm run dev 2>&1 | tee --append logs/%date:~10,4%-%date:~4,2%-%date:~7,2%.txt",
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "preview": "vite preview"

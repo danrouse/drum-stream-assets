@@ -4,7 +4,8 @@
   "type": "module",
   "main": "server/main.ts",
   "scripts": {
-    "start": "cross-env NODE_ENV=production npm run dev 2>&1 | tee --append logs/log.txt",
+    "backup-db": "cp db.sqlite backup/%date:~10,4%-%date:~4,2%-%date:~7,2%.sqlite",
+    "start": "npm run backup-db &&cross-env NODE_ENV=production npm run dev 2>&1 | tee --append logs/%date:~10,4%-%date:~4,2%-%date:~7,2%.txt",
     "dev": "concurrently \"tsx watch generateStreamerbotTypes.ts\" \"tsx watch server/main.ts\"",
     "build": "tsx generateStreamerbotTypes.ts && cd player && vite build"
   },

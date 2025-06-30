@@ -32,6 +32,7 @@ interface SongRequestsTable {
   noShenanigans: number | null;
   songId: number | null;
   fulfilledAt: ColumnType<string, string, string> | null;
+  bumpCount: Generated<number>;
 }
 
 interface DownloadsTable {
@@ -183,6 +184,7 @@ export async function initializeDatabase() {
     .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('noShenanigans', 'integer', (cb) => cb.notNull().defaultTo(0))
     .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
+    .addColumn('bumpCount', 'integer', (cb) => cb.notNull().defaultTo(0))
     .execute();
 
   await db.schema.createTable('downloads')

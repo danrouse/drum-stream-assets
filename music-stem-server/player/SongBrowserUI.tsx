@@ -173,6 +173,18 @@ export default function SongBrowserUI() {
       handleClientRemoteControl(message.action, message.duration, message.amount);
     } else if (message?.type === 'viewers_update') {
       setActiveViewers(message.viewers);
+    } else if (message?.type === 'wheel_selection') {
+      // Find and select the song in the Requests playlist
+      const requestsPlaylistIndex = playlists.findIndex(p => p.title === SONG_REQUEST_PLAYLIST_NAME);
+      if (requestsPlaylistIndex !== -1) {
+        const requestsPlaylist = playlists[requestsPlaylistIndex];
+        const selectedSongFromWheel = requestsPlaylist.songs.find(song => song.songRequestId === message.songRequestId);
+        if (selectedSongFromWheel) {
+          setSelectedSong(selectedSongFromWheel);
+          setSelectedPlaylistIndex(requestsPlaylistIndex);
+          setIsPlayingFromPlaylist(true);
+        }
+      }
     }
   };
 

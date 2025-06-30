@@ -135,40 +135,6 @@ export default class SongRequestModule {
         songRequest.id,
       );
     });
-    this.client.registerCommandHandler('!when', async (payload) => {
-      const songRequests = await queries.songRequestsByUser(payload.user);
-      if (!songRequests.length) {
-        await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs in the request queue!`);
-      } else {
-        this.userCommandHistory[payload.user] ||= [];
-        const [_, lastUsage] = this.userCommandHistory[payload.user].findLast(([command, time]) => command === '!when') || [];
-        const FIVE_MINUTES = 5 * 60 * 1000;
-        const now = Date.now();
-        if (lastUsage && now - lastUsage < FIVE_MINUTES && !this.isUserAdmin(payload.user)) {
-          // const pastUsageCount = this.commandHistory[payload.user].filter(([command, time]) => command === commandName && now - time < FIVE_MINUTES).length;
-          // if (pastUsageCount > 2) {
-          //   await this.sendTwitchMessage(`@${payload.user} Your song has been removed from the queue, you can go listen to it on Spotify instead.`);
-          // } else {
-            await this.client.sendTwitchMessage(`@${payload.user} Your song could be playing *right now* if you go to spotify.com - no paid account needed! Please be patient :)`);
-          // }
-        } else {
-          const messageParts = [`@${payload.user}`];
-          if (songRequests.length > 1) {
-            messageParts.push(`You have ${songRequests.length} song${songRequests.length !== 1 ? 's' : ''} in the queue.`);
-          }
-          for (let songRequest of songRequests) {
-            const remaining = await queries.getTimeUntilSongRequest(songRequest.id);
-            if (remaining.numSongRequests === 1) {
-              messageParts.push(`№${remaining.numSongRequests}: ${songRequest.artist} - ${songRequest.title} is up next!`);
-            } else {
-              messageParts.push(`№${remaining.numSongRequests}: ${songRequest.artist} - ${songRequest.title} (in ~${formatTime(remaining.totalDuration)})`);
-            }
-          }
-          await this.client.sendTwitchMessage(messageParts.join(' '));
-        }
-        this.userCommandHistory[payload.user].push(['!when', now]);
-      }
-    });
     this.client.registerCommandHandler('!remove', async (payload) => {
       const { songRequest, isAmbiguous } = await this.disambiguate(
         payload.user, payload.message, 'Use !remove <number> to select which song to remove.'
@@ -209,7 +175,7 @@ export default class SongRequestModule {
     });
     this.client.registerCommandHandler('!bump', async (payload) => {
       const { songRequest, isAmbiguous } = await this.disambiguate(
-        payload.user, payload.message, 'Use !bump <number> to select which song to bump up.'
+        payload.user, payload.message, 'Use !bump <number> to select which song to get more wheel entries for.'
       );
       if (isAmbiguous) return;
       if (!songRequest) {
@@ -232,14 +198,17 @@ export default class SongRequestModule {
       }
 
       if (availableBumps > 0) {
-        // Bump the song
+        // Bump the song - now increases wheel entries instead of queue position
         userUpdate = userUpdate.set('availableBumps', availableBumps - 1);
         await db.updateTable('songRequests')
           .where('id', '=', songRequest.id)
-          .set('effectiveCreatedAt', sql`datetime(songRequests.effectiveCreatedAt, '-30 minutes')`)
+          .set(eb => ({ bumpCount: eb('bumpCount', '+', 1) }))
           .execute();
-        const remaining = await queries.getTimeUntilSongRequest(songRequest.id);
-        await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been bumped up to position ${remaining.numSongRequests}!`);
+        const currentBumpCount = (await db.selectFrom('songRequests')
+          .select('bumpCount')
+          .where('id', '=', songRequest.id)
+          .execute())[0].bumpCount;
+        await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} now has ${currentBumpCount + 1} entries in the wheel!`);
         this.wss.broadcast({ type: 'song_request_moved', songRequestId: songRequest.id });
       } else {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any bumps available to use!`);
@@ -322,7 +291,7 @@ export default class SongRequestModule {
             .set({ priority: SongRequestModule.PRIORITY_REQUEST_VALUE })
             .where('id', '=', existingRequest.id)
             .execute();
-          await this.client.sendTwitchMessage(`@${payload.user} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been bumped!`);
+          await this.client.sendTwitchMessage(`@${payload.user} Your song request for ${existingRequest.artist} - ${existingRequest.title} has been given priority!`);
         } else {
           const query = await this.prepareUserSongRequest(
             payload.input,
@@ -735,13 +704,9 @@ export default class SongRequestModule {
             .where('id', '=', songRequestId)
             .set('effectiveCreatedAt', oldSongRequest[0].effectiveCreatedAt)
             .execute();
-          const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
-          const timeRemaining = waitTime.numSongRequests > 1 ? ` (in ~${formatTime(Number(waitTime.totalDuration))})` : '';
-          await this.client.sendTwitchMessage(`@${requesterName} Your request has been replaced with ${songTitle} (at position ${waitTime.numSongRequests}${timeRemaining})`);
+          await this.client.sendTwitchMessage(`@${requesterName} Your request has been replaced with ${songTitle}!`);
         } else {
-          const waitTime = await queries.getTimeUntilSongRequest(songRequestId);
-          const timeRemaining = waitTime.numSongRequests > 1 ? ` (in ~${formatTime(Number(waitTime.totalDuration))})` : '';
-          await this.client.sendTwitchMessage(`@${requesterName} ${songTitle} was added to the queue in position ${waitTime.numSongRequests}${timeRemaining}`);
+          await this.client.sendTwitchMessage(`@${requesterName} ${songTitle} was added to the queue!`);
         }
         hasResponded = true;
       },
