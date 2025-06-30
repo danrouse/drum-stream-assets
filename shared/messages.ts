@@ -148,6 +148,7 @@ export interface SongRequestData extends SongData {
   status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
   songRequestId: number;
   createdAt: string;
+  bumpCount: number;
 }
 
 export interface LegacySongData {

@@ -40,27 +40,6 @@ export const requestsByUserToday = (user: string) => db.selectFrom('songRequests
   .orderBy('id desc')
   .execute();
 
-//
-// song requests by id
-//
-export async function getTimeUntilSongRequest(songRequestId: number) {
-  const songRequest = (await db.selectFrom('songRequests')
-    .select(['priority', 'effectiveCreatedAt'])
-    .where('id', '=', songRequestId)
-    .execute())[0];
-  const precedingRequests = await db.selectFrom('songRequests')
-    .innerJoin('songs', 'songs.id', 'songRequests.songId')
-    .select(db.fn.sum<number>('duration').as('totalDuration'))
-    .select(eb => eb(db.fn.countAll<number>(), '+', 1).as('numSongRequests'))
-    .where('songRequests.status', '=', 'ready')
-    .where(q => q.or([
-      q('songRequests.priority', '>', songRequest.priority),
-      q.and([q('songRequests.priority', '=', songRequest.priority), q('songRequests.effectiveCreatedAt', '<', songRequest.effectiveCreatedAt)])
-    ]))
-    .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
-    .execute();
-  return precedingRequests[0];
-}
 
 //
 // songs and song requests
@@ -95,7 +74,7 @@ export const allSongRequests = () => db.selectFrom('songRequests')
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
     'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-    'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt',
+    'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.bumpCount',
     'fulfilledCounts.fulfilledToday',
   ])
   .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])

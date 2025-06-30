@@ -760,7 +760,18 @@ async function fetchSongRequests(): Promise<SongRequestData[]> {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return await response.json();
+    const requests: SongRequestData[] = await response.json();
+
+    // Expand requests based on bumpCount - each bump adds one more wheel entry
+    const expandedRequests: SongRequestData[] = [];
+    for (const request of requests) {
+      const wheelEntries = (request.bumpCount || 0) + 1; // Base 1 entry + bump count
+      for (let i = 0; i < wheelEntries; i++) {
+        expandedRequests.push(request);
+      }
+    }
+
+    return expandedRequests;
   } catch (error) {
     console.error('Failed to fetch song requests:', error);
     return [];
