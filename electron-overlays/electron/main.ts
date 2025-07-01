@@ -228,16 +228,16 @@ setInterval(() => {
 
 function createWindows() {
   windows = [
-    createMIDINotesWindow('774d9107ef8b4f25157647c2582a3aa029e646796b1bfbc461e5d5506f21f605'), // Ride
-    createMIDINotesWindow('72256d8bff1b9ea8c8419998251aec88fcefcfda948e0b728d34854b9716f8aa'), // Overhead
-    createMIDINotesWindow('83e36e542bfe09a322c53a9a3c3293cee8fc7918640273ffd80ff8d00b6f14d8'), // Left
+    createMIDINotesWindow('d7f1f1d39ab23b254ab99defdb308bb89e7039d032b6a6626d344eb392ef4528'), // Ride
+    createMIDINotesWindow('062081be9db82c7128351e1b1d673bee186043945ad393c63e876a200e1d59d9'), // Overhead
+    // createMIDINotesWindow('123f988ac897fdf30286e00c672a8f81fd143af53b0e2ff0e55e92de3ed1f774'), // Left
     createNowPlayingWindow(),
     createSyncedLyricsWindow(),
     createDrumTriggersWindow(),
     createSongHistoryWindow(),
     createGuessTheSongWindow(),
     createAudioDisplayWindow(),
-    createHeartRateWindow(),
+    // createHeartRateWindow(),
     createGambaWindow(),
     createWheelWindow(),
   ];
