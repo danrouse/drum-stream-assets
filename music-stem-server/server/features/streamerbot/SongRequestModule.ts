@@ -155,6 +155,22 @@ export default class SongRequestModule {
       });
       await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been removed from the queue.`);
     });
+    this.client.registerCommandHandler('!songs', async (payload) => {
+      const songRequests = await queries.songRequestsByUser(payload.user);
+      if (!songRequests.length) {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs in the request queue!`);
+      } else {
+        const songList = songRequests.map((sr, i) =>
+          `${i + 1}: ${[sr.artist, sr.title].filter(s => s).join(' - ')}`
+        ).join(', ');
+
+        if (songRequests.length === 1) {
+          await this.client.sendTwitchMessage(`@${payload.user} Your song: ${songList}`);
+        } else {
+          await this.client.sendTwitchMessage(`@${payload.user} Your ${songRequests.length} songs: ${songList}`);
+        }
+      }
+    });
     this.client.registerCommandHandler('!songlist', async (payload) => {
       const MAX_RESPONSE_SONGS = 5;
       const res = await queries.songRequestQueue();
