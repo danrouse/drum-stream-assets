@@ -34,7 +34,8 @@ const BORDER_CONFIG = {
 } as const;
 
 const ANIMATION_CONFIG = {
-  SPIN_DURATION_MS: 8000,
+  MIN_SPIN_DURATION_MS: 10000,
+  MAX_SPIN_DURATION_MS: 15000,
   MIN_ROTATIONS: 5,
   MAX_ADDITIONAL_ROTATIONS: 3,
   TIMING_FUNCTION: 'cubic-bezier(0.17, 0.67, 0.12, 0.99)',
@@ -85,7 +86,6 @@ let selectedSliceIndex = -1;
 let currentRotation = 0;
 let animationFrameId: number | null = null;
 let currentHighlightedSlice = -1;
-let sliceColors: string[] = [];
 let spinTimeoutId: NodeJS.Timeout | null = null;
 let winnerTimeoutId: NodeJS.Timeout | null = null;
 let confettiTimeoutId: NodeJS.Timeout | null = null;
@@ -95,6 +95,7 @@ let confettiTimeoutId: NodeJS.Timeout | null = null;
 // =============================================================================
 
 const globalContainer = document.getElementById('app')!;
+globalContainer.classList.add('wheel-visible');
 
 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 svg.setAttribute('class', 'wheel');
@@ -136,6 +137,32 @@ function generateRandomPastelColor(): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
+function generateBrightPastelColor(): string {
+  const hue = Math.floor(Math.random() * 360);
+  const saturation = Math.floor(Math.random() * 20) + 75; // Higher saturation
+  const lightness = Math.floor(Math.random() * 15) + 80; // Higher lightness
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function brightenPastelColor(hslColor: string): string {
+  // Parse HSL color string like "hsl(120, 65%, 75%)"
+  const match = hslColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+  if (!match) {
+    // Fallback if parsing fails
+    return generateBrightPastelColor();
+  }
+
+  const hue = parseInt(match[1]);
+  const saturation = parseInt(match[2]);
+  const lightness = parseInt(match[3]);
+
+  // Increase saturation and lightness for highlighting
+  const newSaturation = Math.min(95, saturation + 15); // Add 15% saturation, cap at 95%
+  const newLightness = Math.min(90, lightness + 10);   // Add 10% lightness, cap at 90%
+
+  return `hsl(${hue}, ${newSaturation}%, ${newLightness}%)`;
+}
+
 function generateGrayShades(numSlices: number): string[] {
   const colors: string[] = [];
 
@@ -162,6 +189,16 @@ function generateGrayShades(numSlices: number): string[] {
     }
 
     colors.push(GRAY_SHADES[colorIndex]);
+  }
+
+  return colors;
+}
+
+function generatePastelColors(numSlices: number): string[] {
+  const colors: string[] = [];
+
+  for (let i = 0; i < numSlices; i++) {
+    colors.push(generateRandomPastelColor());
   }
 
   return colors;
@@ -395,8 +432,9 @@ function updateRealtimeHighlighting() {
       const currentSlice = slices[currentSliceIndex] as SVGElement;
       if (currentSlice) {
         currentSlice.classList.add('selected');
-        const selectedPastelColor = sliceColors[currentSliceIndex];
-        currentSlice.setAttribute('fill', selectedPastelColor);
+        const originalColor = currentSlice.getAttribute('data-original-color') || '';
+        const brighterColor = brightenPastelColor(originalColor);
+        currentSlice.setAttribute('fill', brighterColor);
       }
     }
 
@@ -412,9 +450,10 @@ function highlightSelectedSlice() {
     const selectedSlice = slices[selectedSliceIndex] as SVGElement;
     if (selectedSlice) {
       selectedSlice.classList.add('selected');
-      const selectedPastelColor = sliceColors[selectedSliceIndex] || generateRandomPastelColor();
-      selectedSlice.setAttribute('fill', selectedPastelColor);
-      selectedSlice.setAttribute('data-selected-color', selectedPastelColor);
+      const originalColor = selectedSlice.getAttribute('data-original-color') || '';
+      const brighterColor = brightenPastelColor(originalColor);
+      selectedSlice.setAttribute('fill', brighterColor);
+      selectedSlice.setAttribute('data-selected-color', brighterColor);
     }
   }
 }
@@ -625,7 +664,8 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
     currentRotation = 0;
   } else {
     wheelGroup.style.transform = `rotate(${currentRotation}deg)`;
-    wheelGroup.style.transition = `transform ${ANIMATION_CONFIG.SPIN_DURATION_MS / 1000}s ${ANIMATION_CONFIG.TIMING_FUNCTION}`;
+    const averageDuration = (ANIMATION_CONFIG.MIN_SPIN_DURATION_MS + ANIMATION_CONFIG.MAX_SPIN_DURATION_MS) / 2;
+    wheelGroup.style.transition = `transform ${averageDuration / 1000}s ${ANIMATION_CONFIG.TIMING_FUNCTION}`;
   }
 
   svg.appendChild(wheelGroup);
@@ -633,21 +673,21 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
 
   const numElements = songs.length;
   const anglePerSlice = 360 / numElements;
-  const grayColors = generateGrayShades(numElements);
+  const pastelColors = generatePastelColors(numElements);
 
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
     const startAngle = i * anglePerSlice;
     const endAngle = (i + 1) * anglePerSlice;
-    const grayColor = grayColors[i];
+    const pastelColor = pastelColors[i];
 
     // Create slice
     const path = createSVGElement('path', {
       class: 'slice',
       d: createPieSlice(startAngle, endAngle),
       'data-song-id': song.id.toString(),
-      fill: grayColor,
-      'data-original-color': grayColor
+      fill: pastelColor,
+      'data-original-color': pastelColor
     });
     wheelGroup.appendChild(path);
 
@@ -680,6 +720,10 @@ async function spinWheel() {
   stopWinnerLightShow();
   resetSelection();
 
+  // Generate random spin duration between 10-15 seconds
+  const spinDurationMs = ANIMATION_CONFIG.MIN_SPIN_DURATION_MS +
+    Math.random() * (ANIMATION_CONFIG.MAX_SPIN_DURATION_MS - ANIMATION_CONFIG.MIN_SPIN_DURATION_MS);
+
   try {
     const latestSongs = await fetchSongRequests();
     if (latestSongs.length === 0) {
@@ -690,7 +734,6 @@ async function spinWheel() {
 
     createWheel(latestSongs, true);
 
-    sliceColors = Array.from({ length: currentSongs.length }, () => generateRandomPastelColor());
     currentHighlightedSlice = -1;
 
     const baseRotations = ANIMATION_CONFIG.MIN_ROTATIONS + Math.random() * ANIMATION_CONFIG.MAX_ADDITIONAL_ROTATIONS;
@@ -701,7 +744,7 @@ async function spinWheel() {
 
     const wheelGroup = svg.querySelector('.wheel-group') as SVGElement;
     if (wheelGroup) {
-      wheelGroup.style.transition = `transform ${ANIMATION_CONFIG.SPIN_DURATION_MS / 1000}s ${ANIMATION_CONFIG.TIMING_FUNCTION}`;
+      wheelGroup.style.transition = `transform ${spinDurationMs / 1000}s ${ANIMATION_CONFIG.TIMING_FUNCTION}`;
       wheelGroup.style.transform = `rotate(${newTotalRotation}deg)`;
       updateRealtimeHighlighting();
     }
@@ -734,7 +777,10 @@ async function spinWheel() {
     }
 
     // Trigger winner light show with the selected slice color
-    const winnerColor = sliceColors[selectedSliceIndex] || generateRandomPastelColor();
+    const slices = svg.querySelectorAll('.slice');
+    const selectedSlice = slices[selectedSliceIndex] as SVGElement;
+    const originalColor = selectedSlice?.getAttribute('data-original-color') || '';
+    const winnerColor = brightenPastelColor(originalColor);
     triggerWinnerLightShow(winnerColor);
 
     winnerTimeoutId = setTimeout(() => {
@@ -746,7 +792,7 @@ async function spinWheel() {
         confettiTimeoutId = null;
       }, ANIMATION_CONFIG.CONFETTI_DELAY_MS);
     }, ANIMATION_CONFIG.WINNER_DELAY_MS);
-  }, ANIMATION_CONFIG.SPIN_DURATION_MS);
+  }, spinDurationMs);
 }
 
 // =============================================================================
@@ -791,14 +837,33 @@ async function initializeWheel() {
 // WEBSOCKET MESSAGE HANDLERS
 // =============================================================================
 
-window.ipcRenderer.on('wheel_toggle_visibility', () => {
+window.ipcRenderer.on('wheel_toggle_visibility', async () => {
+  const isCurrentlyVisible = globalContainer.classList.contains('wheel-visible');
   globalContainer.classList.toggle('wheel-visible');
+
+  // If wheel is now visible (was hidden, now shown), update song list and hide winner message
+  if (!isCurrentlyVisible) {
+    // Hide any previous winner message
+    document.querySelector('.winner-announcement')?.remove();
+
+    // Update the song list
+    try {
+      const songs = await fetchSongRequests();
+      createWheel(songs);
+    } catch (error) {
+      console.error('Failed to update wheel when showing:', error);
+    }
+  }
 });
 
 window.ipcRenderer.on('wheel_spin', () => {
   if (!isSpinning && currentSongs.length > 0) {
     spinWheel();
   }
+});
+
+window.ipcRenderer.on('song_played', () => {
+  globalContainer.classList.remove('wheel-visible');
 });
 
 // =============================================================================
