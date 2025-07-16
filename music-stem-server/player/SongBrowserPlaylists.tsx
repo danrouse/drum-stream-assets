@@ -40,6 +40,15 @@ export default function SongBrowserPlaylists({
   refreshRequests,
 }: SongBrowserPlaylistsProps) {
   const isRequestsPlaylistSelected = ['Requests'].includes(playlists[selectedPlaylistIndex].title);
+
+  const handleRemoveAllClick = () => {
+    if (confirm('Are you sure you want to remove all song requests? This action cannot be undone.')) {
+      playlists[selectedPlaylistIndex].songs.forEach(song => {
+        removeFromPlaylist(playlists[selectedPlaylistIndex], song);
+      });
+    }
+  };
+
   return (
     <div className={`SongBrowserPlaylists ${className || ''}`}>
       <div className={isPlayingFromPlaylist ? '' : 'active'}>
@@ -95,6 +104,9 @@ export default function SongBrowserPlaylists({
               ))}
             </select>
             {refreshRequests && <button onClick={refreshRequests}>🔃</button>}
+            {isRequestsPlaylistSelected && (
+              <button onClick={handleRemoveAllClick}>🗑️</button>
+            )}
           </div>
           <SongList
             songs={playlists[selectedPlaylistIndex].songs}
