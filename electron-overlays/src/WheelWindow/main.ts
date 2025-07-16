@@ -86,9 +86,70 @@ let selectedSliceIndex = -1;
 let currentRotation = 0;
 let animationFrameId: number | null = null;
 let currentHighlightedSlice = -1;
+let sliceColors: string[] = [];
 let spinTimeoutId: NodeJS.Timeout | null = null;
 let winnerTimeoutId: NodeJS.Timeout | null = null;
 let confettiTimeoutId: NodeJS.Timeout | null = null;
+
+// Audio context for click sounds
+let audioContext: AudioContext | null = null;
+
+// Initialize audio context
+function initAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  return audioContext;
+}
+
+// Synthesize and play a click sound
+function playClickSound() {
+  try {
+    const ctx = initAudioContext();
+
+    // Create a brief click sound using white noise and envelope
+    const duration = 0.05; // 50ms
+    const bufferSize = ctx.sampleRate * duration;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const channelData = buffer.getChannelData(0);
+
+    // Generate white noise
+    for (let i = 0; i < bufferSize; i++) {
+      channelData[i] = (Math.random() * 2 - 1) * 0.1; // Low volume white noise
+    }
+
+    // Apply envelope (quick attack, quick decay)
+    for (let i = 0; i < bufferSize; i++) {
+      const envelope = Math.exp(-i / (bufferSize * 0.1)); // Exponential decay
+      channelData[i] *= envelope;
+    }
+
+    // Create and configure audio nodes
+    const source = ctx.createBufferSource();
+    const gainNode = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    // Configure filter for a sharp click
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(2000, ctx.currentTime); // High-pass filter for crisp click
+    filter.Q.setValueAtTime(2, ctx.currentTime);
+
+    // Configure gain
+    gainNode.gain.setValueAtTime(1, ctx.currentTime);
+
+    // Connect the audio graph
+    source.buffer = buffer;
+    source.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    // Play the sound
+    source.start(ctx.currentTime);
+
+  } catch (error) {
+    console.warn('Failed to play click sound:', error);
+  }
+}
 
 // =============================================================================
 // DOM ELEMENTS
@@ -137,32 +198,6 @@ function generateRandomPastelColor(): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function generateBrightPastelColor(): string {
-  const hue = Math.floor(Math.random() * 360);
-  const saturation = Math.floor(Math.random() * 20) + 75; // Higher saturation
-  const lightness = Math.floor(Math.random() * 15) + 80; // Higher lightness
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-}
-
-function brightenPastelColor(hslColor: string): string {
-  // Parse HSL color string like "hsl(120, 65%, 75%)"
-  const match = hslColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-  if (!match) {
-    // Fallback if parsing fails
-    return generateBrightPastelColor();
-  }
-
-  const hue = parseInt(match[1]);
-  const saturation = parseInt(match[2]);
-  const lightness = parseInt(match[3]);
-
-  // Increase saturation and lightness for highlighting
-  const newSaturation = Math.min(95, saturation + 15); // Add 15% saturation, cap at 95%
-  const newLightness = Math.min(90, lightness + 10);   // Add 10% lightness, cap at 90%
-
-  return `hsl(${hue}, ${newSaturation}%, ${newLightness}%)`;
-}
-
 function generateGrayShades(numSlices: number): string[] {
   const colors: string[] = [];
 
@@ -189,16 +224,6 @@ function generateGrayShades(numSlices: number): string[] {
     }
 
     colors.push(GRAY_SHADES[colorIndex]);
-  }
-
-  return colors;
-}
-
-function generatePastelColors(numSlices: number): string[] {
-  const colors: string[] = [];
-
-  for (let i = 0; i < numSlices; i++) {
-    colors.push(generateRandomPastelColor());
   }
 
   return colors;
@@ -418,6 +443,9 @@ function updateRealtimeHighlighting() {
   const currentSliceIndex = getCurrentSliceUnderIndicator();
 
   if (currentSliceIndex !== currentHighlightedSlice) {
+    // Play click sound when a new slice is highlighted
+    playClickSound();
+
     const slices = svg.querySelectorAll('.slice');
 
     slices.forEach(slice => {
@@ -432,9 +460,8 @@ function updateRealtimeHighlighting() {
       const currentSlice = slices[currentSliceIndex] as SVGElement;
       if (currentSlice) {
         currentSlice.classList.add('selected');
-        const originalColor = currentSlice.getAttribute('data-original-color') || '';
-        const brighterColor = brightenPastelColor(originalColor);
-        currentSlice.setAttribute('fill', brighterColor);
+        const selectedPastelColor = sliceColors[currentSliceIndex];
+        currentSlice.setAttribute('fill', selectedPastelColor);
       }
     }
 
@@ -450,10 +477,9 @@ function highlightSelectedSlice() {
     const selectedSlice = slices[selectedSliceIndex] as SVGElement;
     if (selectedSlice) {
       selectedSlice.classList.add('selected');
-      const originalColor = selectedSlice.getAttribute('data-original-color') || '';
-      const brighterColor = brightenPastelColor(originalColor);
-      selectedSlice.setAttribute('fill', brighterColor);
-      selectedSlice.setAttribute('data-selected-color', brighterColor);
+      const selectedPastelColor = sliceColors[selectedSliceIndex] || generateRandomPastelColor();
+      selectedSlice.setAttribute('fill', selectedPastelColor);
+      selectedSlice.setAttribute('data-selected-color', selectedPastelColor);
     }
   }
 }
@@ -673,21 +699,21 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
 
   const numElements = songs.length;
   const anglePerSlice = 360 / numElements;
-  const pastelColors = generatePastelColors(numElements);
+  const grayColors = generateGrayShades(numElements);
 
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
     const startAngle = i * anglePerSlice;
     const endAngle = (i + 1) * anglePerSlice;
-    const pastelColor = pastelColors[i];
+    const grayColor = grayColors[i];
 
     // Create slice
     const path = createSVGElement('path', {
       class: 'slice',
       d: createPieSlice(startAngle, endAngle),
       'data-song-id': song.id.toString(),
-      fill: pastelColor,
-      'data-original-color': pastelColor
+      fill: grayColor,
+      'data-original-color': grayColor
     });
     wheelGroup.appendChild(path);
 
@@ -734,6 +760,7 @@ async function spinWheel() {
 
     createWheel(latestSongs, true);
 
+    sliceColors = Array.from({ length: currentSongs.length }, () => generateRandomPastelColor());
     currentHighlightedSlice = -1;
 
     const baseRotations = ANIMATION_CONFIG.MIN_ROTATIONS + Math.random() * ANIMATION_CONFIG.MAX_ADDITIONAL_ROTATIONS;
@@ -777,10 +804,7 @@ async function spinWheel() {
     }
 
     // Trigger winner light show with the selected slice color
-    const slices = svg.querySelectorAll('.slice');
-    const selectedSlice = slices[selectedSliceIndex] as SVGElement;
-    const originalColor = selectedSlice?.getAttribute('data-original-color') || '';
-    const winnerColor = brightenPastelColor(originalColor);
+    const winnerColor = sliceColors[selectedSliceIndex] || generateRandomPastelColor();
     triggerWinnerLightShow(winnerColor);
 
     winnerTimeoutId = setTimeout(() => {
