@@ -85,7 +85,7 @@ export default class SongRequestModule {
           ];
           if (query.match(/dance of eternity/i) || danceOfEternityURLs.includes(query)) {
             await this.client.doAction('!danceofeternity');
-            await this.client.sendTwitchMessage(`${payload.user} probably not`);
+            await this.client.sendTwitchMessage(`@${payload.user} probably not`);
             return;
           }
 
