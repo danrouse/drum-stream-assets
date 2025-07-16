@@ -78,6 +78,17 @@ export default class SongRequestModule {
             payload.user,
             await this.songRequestMaxCountForUser(payload.user)
           );
+
+          const danceOfEternityURLs = [
+            'https://www.youtube.com/watch?v=eYCYGpu0OxM',
+            'https://open.spotify.com/track/7FTf3bJuCq5UYHjUwggKNB',
+          ];
+          if (query.match(/dance of eternity/i) || danceOfEternityURLs.includes(query)) {
+            await this.client.doAction('!danceofeternity');
+            await this.client.sendTwitchMessage(`${payload.user} probably not`);
+            return;
+          }
+
           await this.handleUserSongRequest(
             query,
             payload.user,
