@@ -198,35 +198,47 @@ function generateRandomPastelColor(): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function generateGrayShades(numSlices: number): string[] {
+function generatePastelColors(numSlices: number): string[] {
   const colors: string[] = [];
+  const usedHues: number[] = [];
 
   for (let i = 0; i < numSlices; i++) {
-    let colorIndex;
+    let hue: number;
+    let attempts = 0;
 
-    if (i === 0) {
-      colorIndex = Math.floor(Math.random() * GRAY_SHADES.length);
-    } else {
-      let attempts = 0;
-      do {
-        colorIndex = Math.floor(Math.random() * GRAY_SHADES.length);
-        attempts++;
-      } while (GRAY_SHADES[colorIndex] === colors[i - 1] && attempts < 10);
+    // Generate a hue that's sufficiently different from previous ones
+    do {
+      hue = Math.floor(Math.random() * 360);
+      attempts++;
+    } while (
+      attempts < 20 &&
+      usedHues.some(usedHue => Math.abs(hue - usedHue) < (360 / Math.max(numSlices, 6)))
+    );
 
-      // For odd numbers of slices, ensure last slice doesn't match first
-      if (i === numSlices - 1 && numSlices % 2 === 1) {
-        let finalAttempts = 0;
-        while ((GRAY_SHADES[colorIndex] === colors[i - 1] || GRAY_SHADES[colorIndex] === colors[0]) && finalAttempts < 10) {
-          colorIndex = Math.floor(Math.random() * GRAY_SHADES.length);
-          finalAttempts++;
-        }
-      }
-    }
+    usedHues.push(hue);
 
-    colors.push(GRAY_SHADES[colorIndex]);
+    // Generate a softer pastel color for the base state
+    const saturation = Math.floor(Math.random() * 20) + 45; // 45-65%
+    const lightness = Math.floor(Math.random() * 15) + 75;  // 75-90%
+
+    colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
   }
 
   return colors;
+}
+
+function generateBrighterPastelColor(originalPastel: string): string {
+  // Extract HSL values from the original pastel color
+  const hslMatch = originalPastel.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+  if (!hslMatch) {
+    return generateRandomPastelColor(); // fallback
+  }
+
+  const hue = parseInt(hslMatch[1]);
+  const saturation = Math.min(100, parseInt(hslMatch[2]) + 25); // Increase saturation
+  const lightness = Math.max(50, parseInt(hslMatch[3]) - 15);   // Decrease lightness (make brighter)
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
 function createSVGElement(type: string, attributes: Record<string, string>): SVGElement {
@@ -699,21 +711,24 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
 
   const numElements = songs.length;
   const anglePerSlice = 360 / numElements;
-  const grayColors = generateGrayShades(numElements);
+  const basePastelColors = generatePastelColors(numElements);
+
+  // Store base colors globally so highlighting can use brighter versions
+  sliceColors = basePastelColors.map(color => generateBrighterPastelColor(color));
 
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
     const startAngle = i * anglePerSlice;
     const endAngle = (i + 1) * anglePerSlice;
-    const grayColor = grayColors[i];
+    const baseColor = basePastelColors[i];
 
     // Create slice
     const path = createSVGElement('path', {
       class: 'slice',
       d: createPieSlice(startAngle, endAngle),
       'data-song-id': song.id.toString(),
-      fill: grayColor,
-      'data-original-color': grayColor
+      fill: baseColor,
+      'data-original-color': baseColor
     });
     wheelGroup.appendChild(path);
 
@@ -760,7 +775,6 @@ async function spinWheel() {
 
     createWheel(latestSongs, true);
 
-    sliceColors = Array.from({ length: currentSongs.length }, () => generateRandomPastelColor());
     currentHighlightedSlice = -1;
 
     const baseRotations = ANIMATION_CONFIG.MIN_ROTATIONS + Math.random() * ANIMATION_CONFIG.MAX_ADDITIONAL_ROTATIONS;
