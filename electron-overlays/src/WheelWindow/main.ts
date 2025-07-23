@@ -66,10 +66,7 @@ const CONFETTI_CONFIG = {
   CLEANUP_DELAY_MS: 8000
 } as const;
 
-const GRAY_SHADES = [
-  '#888888', '#666666', '#777777', '#555555',
-  '#999999', '#444444', '#6a6a6a', '#7a7a7a'
-] as const;
+
 
 const CONFETTI_COLORS = [
   '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24',
@@ -90,6 +87,9 @@ let sliceColors: string[] = [];
 let spinTimeoutId: NodeJS.Timeout | null = null;
 let winnerTimeoutId: NodeJS.Timeout | null = null;
 let confettiTimeoutId: NodeJS.Timeout | null = null;
+
+// User color mapping from viewers_update events
+let userColors: Map<string, string> = new Map();
 
 // Audio context for click sounds
 let audioContext: AudioContext | null = null;
@@ -198,34 +198,7 @@ function generateRandomPastelColor(): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function generatePastelColors(numSlices: number): string[] {
-  const colors: string[] = [];
-  const usedHues: number[] = [];
 
-  for (let i = 0; i < numSlices; i++) {
-    let hue: number;
-    let attempts = 0;
-
-    // Generate a hue that's sufficiently different from previous ones
-    do {
-      hue = Math.floor(Math.random() * 360);
-      attempts++;
-    } while (
-      attempts < 20 &&
-      usedHues.some(usedHue => Math.abs(hue - usedHue) < (360 / Math.max(numSlices, 6)))
-    );
-
-    usedHues.push(hue);
-
-    // Generate a softer pastel color for the base state
-    const saturation = Math.floor(Math.random() * 20) + 45; // 45-65%
-    const lightness = Math.floor(Math.random() * 15) + 75;  // 75-90%
-
-    colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
-  }
-
-  return colors;
-}
 
 function generateBrighterPastelColor(originalPastel: string): string {
   // Extract HSL values from the original pastel color
@@ -239,6 +212,82 @@ function generateBrighterPastelColor(originalPastel: string): string {
   const lightness = Math.max(50, parseInt(hslMatch[3]) - 15);   // Decrease lightness (make brighter)
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function convertToHSL(color: string): string {
+  // If already HSL, return as-is
+  if (color.startsWith('hsl(')) {
+    return color;
+  }
+
+  // If hex color, convert to HSL
+  if (color.startsWith('#')) {
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+  }
+
+  // Fallback to generating a random color
+  return generateRandomPastelColor();
+}
+
+function dimUserColor(userColor: string): string {
+  const hslColor = convertToHSL(userColor);
+  const hslMatch = hslColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+
+  if (!hslMatch) {
+    return generateRandomPastelColor(); // fallback
+  }
+
+  const hue = parseInt(hslMatch[1]);
+  const saturation = Math.max(20, parseInt(hslMatch[2]) - 30); // Decrease saturation
+  const lightness = Math.min(85, parseInt(hslMatch[3]) + 20);  // Increase lightness (make paler)
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function getUserColor(requester: string | null): { baseColor: string, highlightColor: string } {
+  if (!requester) {
+    const fallbackColor = generateRandomPastelColor();
+    return {
+      baseColor: dimUserColor(fallbackColor),
+      highlightColor: fallbackColor
+    };
+  }
+
+  const userColor = userColors.get(requester.toLowerCase());
+  if (userColor) {
+    return {
+      baseColor: dimUserColor(userColor),
+      highlightColor: userColor
+    };
+  }
+
+  // User not found in viewer list, use a consistent fallback based on username
+  const fallbackColor = generateRandomPastelColor();
+  return {
+    baseColor: dimUserColor(fallbackColor),
+    highlightColor: fallbackColor
+  };
 }
 
 function createSVGElement(type: string, attributes: Record<string, string>): SVGElement {
@@ -711,16 +760,18 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
 
   const numElements = songs.length;
   const anglePerSlice = 360 / numElements;
-  const basePastelColors = generatePastelColors(numElements);
 
-  // Store base colors globally so highlighting can use brighter versions
-  sliceColors = basePastelColors.map(color => generateBrighterPastelColor(color));
+  // Get user colors for each song
+  const songColors = songs.map(song => getUserColor(song.requester));
+
+  // Store highlight colors globally for highlighting
+  sliceColors = songColors.map(colors => colors.highlightColor);
 
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
     const startAngle = i * anglePerSlice;
     const endAngle = (i + 1) * anglePerSlice;
-    const baseColor = basePastelColors[i];
+    const baseColor = songColors[i].baseColor;
 
     // Create slice
     const path = createSVGElement('path', {
@@ -902,6 +953,21 @@ window.ipcRenderer.on('wheel_spin', () => {
 
 window.ipcRenderer.on('song_played', () => {
   globalContainer.classList.remove('wheel-visible');
+});
+
+window.ipcRenderer.on('viewers_update', (_, payload) => {
+  // Update user color mapping from viewer data
+  userColors.clear();
+  payload.viewers.forEach((viewer: any) => {
+    if (viewer.login && viewer.color) {
+      userColors.set(viewer.login.toLowerCase(), viewer.color);
+    }
+  });
+
+  // If wheel is visible and not spinning, update colors
+  if (globalContainer.classList.contains('wheel-visible') && !isSpinning && currentSongs.length > 0) {
+    createWheel(currentSongs, false);
+  }
 });
 
 // =============================================================================
