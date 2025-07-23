@@ -324,7 +324,6 @@ export default class SongRequestModule {
             payload.input,
             payload.user,
             0,
-            false,
           );
           await this.handleUserSongRequest(
             query,
@@ -656,7 +655,6 @@ export default class SongRequestModule {
     query: string,
     fromUsername: string,
     perUserLimit?: number,
-    hasCooldown: boolean = true,
   ) {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequestCount = await queries.numOpenRequestsByUser(fromUsername);
@@ -666,20 +664,6 @@ export default class SongRequestModule {
         `please wait until one of your songs has played before requesting another!`
       );
       throw new Error('TOO_MANY_REQUESTS');
-    }
-
-    // Check if the user is on cooldown for their next song request
-    if (hasCooldown && !(await this.isUserAdmin(fromUsername))) {
-      const lastRequestTime = await queries.lastRequestTimeByUser(fromUsername);
-      if (lastRequestTime[0]) {
-        const createdAt = new Date(lastRequestTime[0].createdAt + 'Z');
-        const availableAt = createdAt.getTime() + (lastRequestTime[0].duration * 1000);
-        const now = new Date().getTime();
-        if (availableAt > now) {
-          await this.client.sendTwitchMessage(`@${fromUsername} Your next song request will be available in ${formatTime((availableAt - now) / 1000)}! (wait at least the length of your last requested song for your next one)`);
-          throw new Error('COOLDOWN');
-        }
-      }
     }
 
     try {
