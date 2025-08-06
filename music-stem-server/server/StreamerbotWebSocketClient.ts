@@ -354,7 +354,11 @@ export default class StreamerbotWebSocketClient {
 
   private async updateActiveViewers() {
     const res = await this.client.getActiveViewers();
-    const viewers = res.viewers.map(v => ({ ...v, online: true }));
+    const viewers: typeof this.viewers = res.viewers.map(v => ({
+      ...v,
+      online: true,
+      color: this.viewers.find(v2 => v2.id === v.id)?.color,
+    }));
     for (let prevViewer of this.viewers) {
       if (!viewers.find(v => v.id === prevViewer.id)) {
         // viewer was in previous list but is no longer showing online
