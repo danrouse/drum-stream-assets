@@ -472,7 +472,9 @@ export default class StreamerbotWebSocketClient {
     const eventName = payload.data.eventName;
     if (eventName === '!today') {
       const res = await queries.songsPlayedTodayCount();
-      await this.sendTwitchMessage(`Danny has played ${res[0].count} songs so far today! 💦 ${'🥁'.repeat(res[0].count)}`);
+      if (res[0].count > 0) {
+        await this.sendTwitchMessage(`Danny has played ${res[0].count} songs during today's stream! 💦 ${'🥁'.repeat(res[0].count)}`);
+      }
     }
 
     this.customEventHandlers[eventName]?.(payload.data.args);
