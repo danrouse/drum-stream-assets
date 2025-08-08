@@ -182,9 +182,39 @@ function createWheelWindow() {
   return win;
 }
 
+function createManagerWindow() {
+  const win = new BrowserWindow({
+    title: 'Overlay Manager',
+    width: 1200,
+    height: 800,
+    transparent: false,
+    frame: true,
+    webPreferences: {
+      preload: join(__dirname, 'preload.mjs'),
+      backgroundThrottling: false,
+    },
+  });
+  win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/ManagerWindow/index.html');
+  return win;
+}
+
 let prevSongChangedPayload: any;
 
 let windows: BrowserWindow[] = [];
+let managerWindow: BrowserWindow | null = null;
+const managedWindows: { [key: string]: BrowserWindow | null } = {
+  'midi-ride': null,
+  'midi-overhead': null,
+  'now-playing': null,
+  'synced-lyrics': null,
+  'audio-display': null,
+  'song-history': null,
+  'drum-triggers': null,
+  'guess-the-song': null,
+  'heart-rate': null,
+  'gamba': null,
+  'wheel': null,
+};
 // Connect to server WS to receive rebroadcast messages from remote client
 // Send all messages via IPC to individual windows
 const createWebSocket = () => {
@@ -226,21 +256,107 @@ setInterval(() => {
   }
 }, 1000);
 
+// Window management functions
+function getWindowCreator(windowKey: string): (() => BrowserWindow) | null {
+  switch (windowKey) {
+    case 'midi-ride': return () => createMIDINotesWindow('d7f1f1d39ab23b254ab99defdb308bb89e7039d032b6a6626d344eb392ef4528');
+    case 'midi-overhead': return () => createMIDINotesWindow('062081be9db82c7128351e1b1d673bee186043945ad393c63e876a200e1d59d9');
+    case 'now-playing': return createNowPlayingWindow;
+    case 'synced-lyrics': return createSyncedLyricsWindow;
+    case 'audio-display': return createAudioDisplayWindow;
+    case 'song-history': return createSongHistoryWindow;
+    case 'drum-triggers': return createDrumTriggersWindow;
+    case 'guess-the-song': return createGuessTheSongWindow;
+    case 'heart-rate': return createHeartRateWindow;
+    case 'gamba': return createGambaWindow;
+    case 'wheel': return createWheelWindow;
+    default: return null;
+  }
+}
+
+function openWindow(windowKey: string) {
+  if (managedWindows[windowKey]) {
+    // Window already exists, focus it
+    managedWindows[windowKey]!.focus();
+    return;
+  }
+
+  const createFunc = getWindowCreator(windowKey);
+  if (!createFunc) return;
+
+  const window = createFunc();
+  managedWindows[windowKey] = window;
+
+  // Add to windows array for WebSocket message broadcasting
+  windows.push(window);
+
+  // Handle window closed event
+  window.on('closed', () => {
+    managedWindows[windowKey] = null;
+    const index = windows.indexOf(window);
+    if (index > -1) {
+      windows.splice(index, 1);
+    }
+    notifyManagerWindowStateChange(windowKey, false);
+  });
+
+  notifyManagerWindowStateChange(windowKey, true);
+}
+
+function closeWindow(windowKey: string) {
+  const window = managedWindows[windowKey];
+  if (window) {
+    window.close();
+  }
+}
+
+function restartWindow(windowKey: string) {
+  closeWindow(windowKey);
+  setTimeout(() => openWindow(windowKey), 100);
+}
+
+function closeAllWindows() {
+  Object.keys(managedWindows).forEach(windowKey => {
+    closeWindow(windowKey);
+  });
+}
+
+function notifyManagerWindowStateChange(windowKey: string, isOpen: boolean) {
+  if (managerWindow && !managerWindow.isDestroyed()) {
+    managerWindow.webContents.send('window-state-change', windowKey, isOpen);
+  }
+}
+
+function getWindowStates() {
+  const states: { [key: string]: boolean } = {};
+  Object.keys(managedWindows).forEach(windowKey => {
+    states[windowKey] = managedWindows[windowKey] !== null;
+  });
+  return states;
+}
+
+// IPC handlers for window management
+ipcMain.on('open-window', (event, windowKey) => openWindow(windowKey));
+ipcMain.on('close-window', (event, windowKey) => closeWindow(windowKey));
+ipcMain.on('restart-window', (event, windowKey) => restartWindow(windowKey));
+ipcMain.on('close-all-windows', () => closeAllWindows());
+ipcMain.on('request-window-states', (event) => {
+  const states = getWindowStates();
+  Object.keys(states).forEach(windowKey => {
+    event.reply('window-state-change', windowKey, states[windowKey]);
+  });
+});
+
 function createWindows() {
-  windows = [
-    createMIDINotesWindow('d7f1f1d39ab23b254ab99defdb308bb89e7039d032b6a6626d344eb392ef4528'), // Ride
-    createMIDINotesWindow('062081be9db82c7128351e1b1d673bee186043945ad393c63e876a200e1d59d9'), // Overhead
-    // createMIDINotesWindow('123f988ac897fdf30286e00c672a8f81fd143af53b0e2ff0e55e92de3ed1f774'), // Left
-    createNowPlayingWindow(),
-    createSyncedLyricsWindow(),
-    createDrumTriggersWindow(),
-    createSongHistoryWindow(),
-    createGuessTheSongWindow(),
-    createAudioDisplayWindow(),
-    // createHeartRateWindow(),
-    createGambaWindow(),
-    createWheelWindow(),
-  ];
+  // Only create the manager window on startup
+  managerWindow = createManagerWindow();
+
+  // Handle manager window closed event
+  managerWindow.on('closed', () => {
+    managerWindow = null;
+    // Close all managed windows when manager is closed
+    closeAllWindows();
+  });
 }
 
 const parseLRCTimeToFloat = (lrcTime: string) => {
@@ -286,5 +402,9 @@ process.on('unhandledRejection', (reason, promise) => console.error(reason, prom
 
 process.on('exit', () => app.quit());
 app.on('window-all-closed', () => app.quit());
-app.on('activate', () => BrowserWindow.getAllWindows().length || createWindows());
+app.on('activate', () => {
+  if (!managerWindow || managerWindow.isDestroyed()) {
+    createWindows();
+  }
+});
 app.whenReady().then(createWindows);
