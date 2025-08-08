@@ -905,7 +905,7 @@ async function fetchSongRequests(): Promise<SongRequestData[]> {
       }
     }
 
-    return expandedRequests;
+    return expandedRequests.toSorted(() => Math.random() - 0.5);
   } catch (error) {
     console.error('Failed to fetch song requests:', error);
     return [];
