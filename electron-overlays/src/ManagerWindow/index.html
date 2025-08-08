@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay Manager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Overlay Window Manager</h1>
+
+    <div class="window-controls">
+      <div class="window-group">
+        <h3>MIDI Notes Windows</h3>
+        <div class="window-item">
+          <span class="window-name">MIDI Notes - Ride</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="midi-ride" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="midi-ride">Open</button>
+            <button class="btn btn-close" data-window="midi-ride">Close</button>
+            <button class="btn btn-restart" data-window="midi-ride">Restart</button>
+          </div>
+          <span class="status" id="status-midi-ride">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">MIDI Notes - Overhead</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="midi-overhead" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="midi-overhead">Open</button>
+            <button class="btn btn-close" data-window="midi-overhead">Close</button>
+            <button class="btn btn-restart" data-window="midi-overhead">Restart</button>
+          </div>
+          <span class="status" id="status-midi-overhead">Closed</span>
+        </div>
+      </div>
+
+      <div class="window-group">
+        <h3>Media & Audio</h3>
+        <div class="window-item">
+          <span class="window-name">Now Playing</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="now-playing" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="now-playing">Open</button>
+            <button class="btn btn-close" data-window="now-playing">Close</button>
+            <button class="btn btn-restart" data-window="now-playing">Restart</button>
+          </div>
+          <span class="status" id="status-now-playing">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">Synced Lyrics</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="synced-lyrics" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="synced-lyrics">Open</button>
+            <button class="btn btn-close" data-window="synced-lyrics">Close</button>
+            <button class="btn btn-restart" data-window="synced-lyrics">Restart</button>
+          </div>
+          <span class="status" id="status-synced-lyrics">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">Audio Display</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="audio-display" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="audio-display">Open</button>
+            <button class="btn btn-close" data-window="audio-display">Close</button>
+            <button class="btn btn-restart" data-window="audio-display">Restart</button>
+          </div>
+          <span class="status" id="status-audio-display">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">Song History</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="song-history" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="song-history">Open</button>
+            <button class="btn btn-close" data-window="song-history">Close</button>
+            <button class="btn btn-restart" data-window="song-history">Restart</button>
+          </div>
+          <span class="status" id="status-song-history">Closed</span>
+        </div>
+      </div>
+
+      <div class="window-group">
+        <h3>Interactive Windows</h3>
+        <div class="window-item">
+          <span class="window-name">Drum Triggers</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="drum-triggers" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="drum-triggers">Open</button>
+            <button class="btn btn-close" data-window="drum-triggers">Close</button>
+            <button class="btn btn-restart" data-window="drum-triggers">Restart</button>
+          </div>
+          <span class="status" id="status-drum-triggers">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">Guess The Song</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="guess-the-song" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="guess-the-song">Open</button>
+            <button class="btn btn-close" data-window="guess-the-song">Close</button>
+            <button class="btn btn-restart" data-window="guess-the-song">Restart</button>
+          </div>
+          <span class="status" id="status-guess-the-song">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">Heart Rate</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="heart-rate" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="heart-rate">Open</button>
+            <button class="btn btn-close" data-window="heart-rate">Close</button>
+            <button class="btn btn-restart" data-window="heart-rate">Restart</button>
+          </div>
+          <span class="status" id="status-heart-rate">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">GAMBA</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="gamba" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="gamba">Open</button>
+            <button class="btn btn-close" data-window="gamba">Close</button>
+            <button class="btn btn-restart" data-window="gamba">Restart</button>
+          </div>
+          <span class="status" id="status-gamba">Closed</span>
+        </div>
+        <div class="window-item">
+          <span class="window-name">Wheel</span>
+          <div class="window-options">
+            <label class="include-checkbox">
+              <input type="checkbox" data-window="wheel" class="include-in-open-all" checked>
+              <span class="checkbox-label">Include in "Open All"</span>
+            </label>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-open" data-window="wheel">Open</button>
+            <button class="btn btn-close" data-window="wheel">Close</button>
+            <button class="btn btn-restart" data-window="wheel">Restart</button>
+          </div>
+          <span class="status" id="status-wheel">Closed</span>
+        </div>
+      </div>
+
+      <div class="global-controls">
+        <h3>Global Controls</h3>
+        <div class="button-group">
+          <button class="btn btn-primary" id="open-all">Open All Windows</button>
+          <button class="btn btn-danger" id="close-all">Close All Windows</button>
+          <button class="btn btn-warning" id="restart-all">Restart All Windows</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.ts"></script>
+</body>
+</html>
