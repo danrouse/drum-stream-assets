@@ -194,10 +194,31 @@ function formatRequestTime(createdAt: string): string {
   }
 }
 
+function simpleStringHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
 function generateRandomPastelColor(): string {
   const hue = Math.floor(Math.random() * 360);
   const saturation = Math.floor(Math.random() * 30) + 60;
   const lightness = Math.floor(Math.random() * 20) + 70;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function generateConsistentPastelColor(username: string): string {
+  const hash = simpleStringHash(username.toLowerCase());
+
+  // Use hash to generate deterministic but varied HSL values
+  const hue = hash % 360;
+  const saturation = (hash % 30) + 60; // Range: 60-89%
+  const lightness = ((hash >> 8) % 20) + 70; // Range: 70-89%
+
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
@@ -285,8 +306,8 @@ function getUserColor(requester: string | null): { baseColor: string, highlightC
     };
   }
 
-  // User not found in viewer list, use a consistent fallback based on username
-  const fallbackColor = generateRandomPastelColor();
+  // User not found in viewer list, use a consistent fallback based on username hash
+  const fallbackColor = generateConsistentPastelColor(requester);
   return {
     baseColor: dimUserColor(fallbackColor),
     highlightColor: fallbackColor
