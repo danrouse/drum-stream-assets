@@ -91,6 +91,12 @@ let spinTimeoutId: NodeJS.Timeout | null = null;
 let winnerTimeoutId: NodeJS.Timeout | null = null;
 let confettiTimeoutId: NodeJS.Timeout | null = null;
 
+// Store slice angles for non-uniform slice sizes
+let currentSliceAngles: { startAngle: number; endAngle: number; scaleFactor: number }[] = [];
+
+// User color mapping from viewers_update events
+let userColors: Map<string, string> = new Map();
+
 // Audio context for click sounds
 let audioContext: AudioContext | null = null;
 
@@ -191,6 +197,16 @@ function formatRequestTime(createdAt: string): string {
   }
 }
 
+function simpleStringHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
 function generateRandomPastelColor(): string {
   const hue = Math.floor(Math.random() * 360);
   const saturation = Math.floor(Math.random() * 30) + 60;
@@ -198,33 +214,15 @@ function generateRandomPastelColor(): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function generatePastelColors(numSlices: number): string[] {
-  const colors: string[] = [];
-  const usedHues: number[] = [];
+function generateConsistentPastelColor(username: string): string {
+  const hash = simpleStringHash(username.toLowerCase());
 
-  for (let i = 0; i < numSlices; i++) {
-    let hue: number;
-    let attempts = 0;
+  // Use hash to generate deterministic but varied HSL values
+  const hue = hash % 360;
+  const saturation = (hash % 30) + 60; // Range: 60-89%
+  const lightness = ((hash >> 8) % 20) + 70; // Range: 70-89%
 
-    // Generate a hue that's sufficiently different from previous ones
-    do {
-      hue = Math.floor(Math.random() * 360);
-      attempts++;
-    } while (
-      attempts < 20 &&
-      usedHues.some(usedHue => Math.abs(hue - usedHue) < (360 / Math.max(numSlices, 6)))
-    );
-
-    usedHues.push(hue);
-
-    // Generate a softer pastel color for the base state
-    const saturation = Math.floor(Math.random() * 20) + 45; // 45-65%
-    const lightness = Math.floor(Math.random() * 15) + 75;  // 75-90%
-
-    colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
-  }
-
-  return colors;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
 function generateBrighterPastelColor(originalPastel: string): string {
@@ -239,6 +237,82 @@ function generateBrighterPastelColor(originalPastel: string): string {
   const lightness = Math.max(50, parseInt(hslMatch[3]) - 15);   // Decrease lightness (make brighter)
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function convertToHSL(color: string): string {
+  // If already HSL, return as-is
+  if (color.startsWith('hsl(')) {
+    return color;
+  }
+
+  // If hex color, convert to HSL
+  if (color.startsWith('#')) {
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+  }
+
+  // Fallback to generating a random color
+  return generateRandomPastelColor();
+}
+
+function dimUserColor(userColor: string): string {
+  const hslColor = convertToHSL(userColor);
+  const hslMatch = hslColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+
+  if (!hslMatch) {
+    return generateRandomPastelColor(); // fallback
+  }
+
+  const hue = parseInt(hslMatch[1]);
+  const saturation = Math.max(20, parseInt(hslMatch[2]) - 30); // Decrease saturation
+  const lightness = Math.min(85, parseInt(hslMatch[3]) + 20);  // Increase lightness (make paler)
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function getUserColor(requester: string | null): { baseColor: string, highlightColor: string } {
+  if (!requester) {
+    const fallbackColor = generateRandomPastelColor();
+    return {
+      baseColor: dimUserColor(fallbackColor),
+      highlightColor: fallbackColor
+    };
+  }
+
+  const userColor = userColors.get(requester.toLowerCase());
+  if (userColor) {
+    return {
+      baseColor: dimUserColor(userColor),
+      highlightColor: userColor
+    };
+  }
+
+  // User not found in viewer list, use a consistent fallback based on username hash
+  const fallbackColor = generateConsistentPastelColor(requester);
+  return {
+    baseColor: dimUserColor(fallbackColor),
+    highlightColor: fallbackColor
+  };
 }
 
 function createSVGElement(type: string, attributes: Record<string, string>): SVGElement {
@@ -439,14 +513,21 @@ function getCurrentRotationFromDOM(): number {
 }
 
 function getCurrentSliceUnderIndicator(): number {
-  if (currentSongs.length === 0) return -1;
+  if (currentSongs.length === 0 || currentSliceAngles.length === 0) return -1;
 
-  const anglePerSlice = 360 / currentSongs.length;
   const currentDOMRotation = getCurrentRotationFromDOM();
   const effectiveRotation = currentDOMRotation % 360;
   const originalAngleAtIndicator = (-effectiveRotation + 90 + 360) % 360;
 
-  return Math.floor(originalAngleAtIndicator / anglePerSlice);
+  // Find which slice the indicator angle falls into
+  for (let i = 0; i < currentSliceAngles.length; i++) {
+    const { startAngle, endAngle } = currentSliceAngles[i];
+    if (originalAngleAtIndicator >= startAngle && originalAngleAtIndicator < endAngle) {
+      return i;
+    }
+  }
+
+  return -1;
 }
 
 function updateRealtimeHighlighting() {
@@ -499,6 +580,22 @@ function highlightSelectedSlice() {
 // =============================================================================
 // GEOMETRY FUNCTIONS
 // =============================================================================
+
+function calculateSliceScale(song: SongRequestData): number {
+  // Start with base scale of 1.0 (100%)
+  let scale = 1.0;
+
+  // Apply fulfilled request penalty: 10% smaller per fulfilled request
+  // Minimum scale is 50% (0.5)
+  const fulfilledPenalty = (song.fulfilledToday || 0) * 0.1;
+  scale = Math.max(0.5, scale - fulfilledPenalty);
+
+  // Apply bump bonus: 50% larger per bump
+  const bumpBonus = (song.bumpCount || 0) * 0.5;
+  scale = scale + bumpBonus;
+
+  return scale;
+}
 
 function createPieSlice(startAngle: number, endAngle: number): string {
   const startAngleRad = ((startAngle - 90) * Math.PI) / 180;
@@ -668,7 +765,7 @@ function createPointer() {
 function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
   currentSongs = songs;
 
-    // Remove existing wheel content except pointer
+  // Remove existing wheel content except pointer
   Array.from(svg.children)
     .filter(child => !child.classList.contains('pointer'))
     .forEach(element => svg.removeChild(element));
@@ -710,17 +807,31 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
   wheelGroup.addEventListener('click', spinWheel);
 
   const numElements = songs.length;
-  const anglePerSlice = 360 / numElements;
-  const basePastelColors = generatePastelColors(numElements);
 
   // Store base colors globally so highlighting can use brighter versions
   sliceColors = basePastelColors.map(color => generateBrighterPastelColor(color));
 
+  // Calculate scale factors for each song
+  const scaleFactors = songs.map(song => calculateSliceScale(song));
+  const totalScaleFactor = scaleFactors.reduce((sum, scale) => sum + scale, 0);
+
+  // Calculate proportional angles based on scale factors
+  let currentAngle = 0;
+  currentSliceAngles = []; // Store globally for highlighting/selection logic
+
+  for (let i = 0; i < numElements; i++) {
+    const proportionalAngle = (scaleFactors[i] / totalScaleFactor) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + proportionalAngle;
+
+    currentSliceAngles.push({ startAngle, endAngle, scaleFactor: scaleFactors[i] });
+    currentAngle = endAngle;
+  }
+
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
-    const startAngle = i * anglePerSlice;
-    const endAngle = (i + 1) * anglePerSlice;
-    const baseColor = basePastelColors[i];
+    const { startAngle, endAngle } = currentSliceAngles[i];
+    const baseColor = songColors[i].baseColor;
 
     // Create slice
     const path = createSVGElement('path', {
@@ -732,7 +843,7 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
     });
     wheelGroup.appendChild(path);
 
-    // Create text
+    // Create text - positioned at the normal text radius
     const midAngle = (startAngle + endAngle) / 2;
     const textRadius = WHEEL_CONFIG.RADIUS * WHEEL_CONFIG.TEXT_RADIUS_MULTIPLIER;
     const textAngleRad = ((midAngle - 90) * Math.PI) / 180;
@@ -799,10 +910,18 @@ async function spinWheel() {
   spinTimeoutId = setTimeout(() => {
     clearAllAnimationsAndTimeouts();
 
-    const anglePerSlice = 360 / currentSongs.length;
     const effectiveRotation = currentRotation % 360;
     const originalAngleAtIndicator = (-effectiveRotation + 90 + 360) % 360;
-    selectedSliceIndex = Math.floor(originalAngleAtIndicator / anglePerSlice);
+
+    // Find which slice the indicator angle falls into
+    selectedSliceIndex = -1;
+    for (let i = 0; i < currentSliceAngles.length; i++) {
+      const { startAngle, endAngle } = currentSliceAngles[i];
+      if (originalAngleAtIndicator >= startAngle && originalAngleAtIndicator < endAngle) {
+        selectedSliceIndex = i;
+        break;
+      }
+    }
 
     highlightSelectedSlice();
     isSpinning = false;
@@ -854,7 +973,7 @@ async function fetchSongRequests(): Promise<SongRequestData[]> {
       }
     }
 
-    return expandedRequests.toSorted(() => Math.random() - 0.5);
+    return expandedRequests.sort(() => Math.random() - 0.5);
   } catch (error) {
     console.error('Failed to fetch song requests:', error);
     return [];
