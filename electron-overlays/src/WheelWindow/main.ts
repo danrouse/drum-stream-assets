@@ -88,6 +88,9 @@ let spinTimeoutId: NodeJS.Timeout | null = null;
 let winnerTimeoutId: NodeJS.Timeout | null = null;
 let confettiTimeoutId: NodeJS.Timeout | null = null;
 
+// Store slice angles for non-uniform slice sizes
+let currentSliceAngles: { startAngle: number; endAngle: number; scaleFactor: number }[] = [];
+
 // User color mapping from viewers_update events
 let userColors: Map<string, string> = new Map();
 
@@ -488,14 +491,21 @@ function getCurrentRotationFromDOM(): number {
 }
 
 function getCurrentSliceUnderIndicator(): number {
-  if (currentSongs.length === 0) return -1;
+  if (currentSongs.length === 0 || currentSliceAngles.length === 0) return -1;
 
-  const anglePerSlice = 360 / currentSongs.length;
   const currentDOMRotation = getCurrentRotationFromDOM();
   const effectiveRotation = currentDOMRotation % 360;
   const originalAngleAtIndicator = (-effectiveRotation + 90 + 360) % 360;
 
-  return Math.floor(originalAngleAtIndicator / anglePerSlice);
+  // Find which slice the indicator angle falls into
+  for (let i = 0; i < currentSliceAngles.length; i++) {
+    const { startAngle, endAngle } = currentSliceAngles[i];
+    if (originalAngleAtIndicator >= startAngle && originalAngleAtIndicator < endAngle) {
+      return i;
+    }
+  }
+
+  return -1;
 }
 
 function updateRealtimeHighlighting() {
@@ -548,6 +558,22 @@ function highlightSelectedSlice() {
 // =============================================================================
 // GEOMETRY FUNCTIONS
 // =============================================================================
+
+function calculateSliceScale(song: SongRequestData): number {
+  // Start with base scale of 1.0 (100%)
+  let scale = 1.0;
+
+  // Apply fulfilled request penalty: 10% smaller per fulfilled request
+  // Minimum scale is 50% (0.5)
+  const fulfilledPenalty = (song.fulfilledToday || 0) * 0.1;
+  scale = Math.max(0.5, scale - fulfilledPenalty);
+
+  // Apply bump bonus: 50% larger per bump
+  const bumpBonus = (song.bumpCount || 0) * 0.5;
+  scale = scale + bumpBonus;
+
+  return scale;
+}
 
 function createPieSlice(startAngle: number, endAngle: number): string {
   const startAngleRad = ((startAngle - 90) * Math.PI) / 180;
@@ -717,7 +743,7 @@ function createPointer() {
 function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
   currentSongs = songs;
 
-    // Remove existing wheel content except pointer
+  // Remove existing wheel content except pointer
   Array.from(svg.children)
     .filter(child => !child.classList.contains('pointer'))
     .forEach(element => svg.removeChild(element));
@@ -759,7 +785,6 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
   wheelGroup.addEventListener('click', spinWheel);
 
   const numElements = songs.length;
-  const anglePerSlice = 360 / numElements;
 
   // Get user colors for each song
   const songColors = songs.map(song => getUserColor(song.requester));
@@ -767,10 +792,26 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
   // Store highlight colors globally for highlighting
   sliceColors = songColors.map(colors => colors.highlightColor);
 
+  // Calculate scale factors for each song
+  const scaleFactors = songs.map(song => calculateSliceScale(song));
+  const totalScaleFactor = scaleFactors.reduce((sum, scale) => sum + scale, 0);
+
+  // Calculate proportional angles based on scale factors
+  let currentAngle = 0;
+  currentSliceAngles = []; // Store globally for highlighting/selection logic
+
+  for (let i = 0; i < numElements; i++) {
+    const proportionalAngle = (scaleFactors[i] / totalScaleFactor) * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + proportionalAngle;
+
+    currentSliceAngles.push({ startAngle, endAngle, scaleFactor: scaleFactors[i] });
+    currentAngle = endAngle;
+  }
+
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
-    const startAngle = i * anglePerSlice;
-    const endAngle = (i + 1) * anglePerSlice;
+    const { startAngle, endAngle } = currentSliceAngles[i];
     const baseColor = songColors[i].baseColor;
 
     // Create slice
@@ -783,7 +824,7 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
     });
     wheelGroup.appendChild(path);
 
-    // Create text
+    // Create text - positioned at the normal text radius
     const midAngle = (startAngle + endAngle) / 2;
     const textRadius = WHEEL_CONFIG.RADIUS * WHEEL_CONFIG.TEXT_RADIUS_MULTIPLIER;
     const textAngleRad = ((midAngle - 90) * Math.PI) / 180;
@@ -850,10 +891,18 @@ async function spinWheel() {
   spinTimeoutId = setTimeout(() => {
     clearAllAnimationsAndTimeouts();
 
-    const anglePerSlice = 360 / currentSongs.length;
     const effectiveRotation = currentRotation % 360;
     const originalAngleAtIndicator = (-effectiveRotation + 90 + 360) % 360;
-    selectedSliceIndex = Math.floor(originalAngleAtIndicator / anglePerSlice);
+
+    // Find which slice the indicator angle falls into
+    selectedSliceIndex = -1;
+    for (let i = 0; i < currentSliceAngles.length; i++) {
+      const { startAngle, endAngle } = currentSliceAngles[i];
+      if (originalAngleAtIndicator >= startAngle && originalAngleAtIndicator < endAngle) {
+        selectedSliceIndex = i;
+        break;
+      }
+    }
 
     highlightSelectedSlice();
     isSpinning = false;
@@ -905,7 +954,7 @@ async function fetchSongRequests(): Promise<SongRequestData[]> {
       }
     }
 
-    return expandedRequests.toSorted(() => Math.random() - 0.5);
+    return expandedRequests.sort(() => Math.random() - 0.5);
   } catch (error) {
     console.error('Failed to fetch song requests:', error);
     return [];
