@@ -18,6 +18,19 @@ interface DrumMapping {
   endLight: number;
   midiKeys: number[];
   color: { r: number; g: number; b: number };
+  altColor: { r: number; g: number; b: number }; // Alternating color
+  centerPosition: number; // Center position for ripple effect
+}
+
+interface RippleWave {
+  drumName: string;
+  centerPosition: number;
+  color: { r: number; g: number; b: number };
+  intensity: number;
+  radius: number;
+  maxRadius: number;
+  speed: number;
+  age: number;
 }
 
 export default class DMXLightingModule {
@@ -25,52 +38,65 @@ export default class DMXLightingModule {
   private dmxData: Uint8Array;
   private isConnected: boolean = false;
   private transmissionInterval: NodeJS.Timeout | null = null;
-  private fadeIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private rippleInterval: NodeJS.Timeout | null = null;
+  private activeWaves: RippleWave[] = [];
+  private drumHitCounts: Map<string, number> = new Map(); // Track alternating hits
 
-  // Define drum-to-light mappings (mirrored layout)
-  // Layout: Kick(4) + Tom4(3) + Tom3(3) + Tom2(3) + Tom1(3) + Snare(4) + Tom1(3) + Tom2(3) + Tom3(3) + Tom4(3) + Kick(4) = 40 lights
+  // Define drum-to-light mappings with ripple centers and alternating colors (highly saturated)
   private drumMappings: DrumMapping[] = [
     {
       name: 'Kick',
       startLight: 1,
       endLight: 4,
+      centerPosition: 2.5, // Center of kick section
       midiKeys: midiNoteKeysByName.Kick,
-      color: this.parseColor('#444')
+      color: this.parseColor('rgb(255, 255, 255)'), // Pure white for kick
+      altColor: this.parseColor('rgb(200, 200, 255)') // Light blue-white for alternating hits
     },
     {
       name: 'Tom4',
       startLight: 5,
       endLight: 7,
+      centerPosition: 6, // Center of tom4 section
       midiKeys: midiNoteKeysByName.Tom4,
-      color: this.parseColor('rgb(60 145 40)')
+      color: this.parseColor('rgb(0, 255, 0)'), // Pure saturated green
+      altColor: this.parseColor('rgb(100, 255, 0)') // Yellow-green
     },
     {
       name: 'Tom3',
       startLight: 8,
       endLight: 10,
+      centerPosition: 9, // Center of tom3 section
       midiKeys: midiNoteKeysByName.Tom3,
-      color: this.parseColor('rgb(77 218 134)')
+      color: this.parseColor('rgb(0, 255, 150)'), // Saturated cyan-green
+      altColor: this.parseColor('rgb(50, 255, 200)') // Brighter cyan-green
     },
     {
       name: 'Tom2',
       startLight: 11,
       endLight: 13,
+      centerPosition: 12, // Center of tom2 section
       midiKeys: midiNoteKeysByName.Tom2,
-      color: this.parseColor('rgb(94 201 231)')
+      color: this.parseColor('rgb(0, 150, 255)'), // Saturated sky blue
+      altColor: this.parseColor('rgb(100, 200, 255)') // Brighter sky blue
     },
     {
       name: 'Tom1',
       startLight: 14,
       endLight: 16,
+      centerPosition: 15, // Center of tom1 section
       midiKeys: midiNoteKeysByName.Tom1,
-      color: this.parseColor('rgb(94 120 231)')
+      color: this.parseColor('rgb(0, 0, 255)'), // Pure saturated blue
+      altColor: this.parseColor('rgb(100, 100, 255)') // Brighter blue
     },
     {
       name: 'Snare',
       startLight: 17,
-      endLight: 24, // Middle 8 lights for snare (since it's the most important)
+      endLight: 24,
+      centerPosition: 20.5, // Center of snare section (middle of the bar)
       midiKeys: midiNoteKeysByName.Snare,
-      color: this.parseColor('rgb(223, 25, 25)')
+      color: this.parseColor('rgb(255, 0, 0)'), // Pure saturated red
+      altColor: this.parseColor('rgb(255, 100, 0)') // Orange-red
     }
   ];
 
@@ -78,6 +104,7 @@ export default class DMXLightingModule {
     this.dmxData = new Uint8Array(DMX_UNIVERSE_SIZE);
     this.initializeDMX();
     this.setupMIDIListeners();
+    this.startRippleEngine();
   }
 
   private parseColor(colorString: string): { r: number; g: number; b: number } {
@@ -180,6 +207,87 @@ export default class DMXLightingModule {
     });
   }
 
+  private startRippleEngine(): void {
+    // Update ripples at 60fps for smooth animation
+    this.rippleInterval = setInterval(() => {
+      this.updateRipples();
+      this.renderLights();
+    }, 16); // ~60fps
+  }
+
+  private updateRipples(): void {
+    // Update all active waves
+    for (let i = this.activeWaves.length - 1; i >= 0; i--) {
+      const wave = this.activeWaves[i];
+
+      // Expand the ripple
+      wave.radius += wave.speed;
+      wave.age += 16; // Age in milliseconds
+
+      // Fade out over time
+      const fadeTime = 800; // 800ms fade
+      wave.intensity = Math.max(0, 1 - (wave.age / fadeTime));
+
+      // Remove dead waves
+      if (wave.intensity <= 0 || wave.radius > wave.maxRadius) {
+        this.activeWaves.splice(i, 1);
+      }
+    }
+  }
+
+  private renderLights(): void {
+    // Clear all lights first
+    for (let i = 1; i <= NUM_LIGHTS; i++) {
+      this.setLightRGB(i, 0, 0, 0);
+    }
+
+    // Calculate combined color for each light from all active waves
+    for (let lightPos = 1; lightPos <= NUM_LIGHTS; lightPos++) {
+      let combinedR = 0;
+      let combinedG = 0;
+      let combinedB = 0;
+
+      // Check influence from each wave
+      for (const wave of this.activeWaves) {
+        const distance = Math.abs(lightPos - wave.centerPosition);
+
+        // Calculate wave influence based on distance and wave properties
+        const waveInfluence = this.calculateWaveInfluence(distance, wave);
+
+        if (waveInfluence > 0) {
+          // Add this wave's color contribution
+          combinedR += wave.color.r * waveInfluence;
+          combinedG += wave.color.g * waveInfluence;
+          combinedB += wave.color.b * waveInfluence;
+        }
+      }
+
+      // Clamp colors to valid range
+      combinedR = Math.min(255, combinedR);
+      combinedG = Math.min(255, combinedG);
+      combinedB = Math.min(255, combinedB);
+
+      // Set the light if it has any color
+      if (combinedR > 0 || combinedG > 0 || combinedB > 0) {
+        this.setLightRGB(lightPos, combinedR, combinedG, combinedB);
+      }
+    }
+  }
+
+  private calculateWaveInfluence(distance: number, wave: RippleWave): number {
+    // Create a wave effect with peak at the center and falloff
+    const waveWidth = 3; // Width of the wave ring
+    const ringDistance = Math.abs(distance - wave.radius);
+
+    if (ringDistance <= waveWidth) {
+      // Within the wave ring - calculate intensity
+      const ringIntensity = 1 - (ringDistance / waveWidth);
+      return wave.intensity * ringIntensity;
+    }
+
+    return 0;
+  }
+
   private handleMIDINoteOn(note: number, velocity: number): void {
     // Find which drum this note belongs to
     const drumMapping = this.drumMappings.find(mapping =>
@@ -190,96 +298,46 @@ export default class DMXLightingModule {
       return; // Not a drum we're interested in
     }
 
-    log(`🥁 ${drumMapping.name} hit (note ${note}, velocity ${velocity})`);
-    this.triggerDrumLights(drumMapping, velocity);
+    // log(`🥁 ${drumMapping.name} hit (note ${note}, velocity ${velocity})`);
+    this.createRippleWave(drumMapping, velocity);
+  }
+
+  private createRippleWave(drumMapping: DrumMapping, velocity: number): void {
+    // Track hit count for alternating colors
+    const currentHits = this.drumHitCounts.get(drumMapping.name) || 0;
+    this.drumHitCounts.set(drumMapping.name, currentHits + 1);
+
+    // Use alternating color for every other hit
+    const useAltColor = (currentHits % 2) === 1;
+    const color = useAltColor ? drumMapping.altColor : drumMapping.color;
+
+    // Calculate intensity based on velocity (0-127 MIDI range)
+    const baseIntensity = (velocity / 127);
+
+    // Create ripple wave
+    const wave: RippleWave = {
+      drumName: drumMapping.name,
+      centerPosition: drumMapping.centerPosition,
+      color: {
+        r: color.r * baseIntensity,
+        g: color.g * baseIntensity,
+        b: color.b * baseIntensity
+      },
+      intensity: baseIntensity,
+      radius: 0,
+      maxRadius: NUM_LIGHTS, // Can propagate across entire bar
+      speed: 0.8, // Lights per frame
+      age: 0
+    };
+
+    this.activeWaves.push(wave);
+
+    // log(`🌊 ${useAltColor ? 'Alt' : 'Base'} ${drumMapping.name} ripple created at position ${drumMapping.centerPosition}`);
   }
 
 
 
-  private triggerDrumLights(drumMapping: DrumMapping, velocity: number): void {
-    // Cancel any existing fade for this drum
-    const fadeKey = drumMapping.name;
-    if (this.fadeIntervals.has(fadeKey)) {
-      clearInterval(this.fadeIntervals.get(fadeKey)!);
-      this.fadeIntervals.delete(fadeKey);
-    }
 
-    // Calculate brightness based on velocity (0-127 MIDI range)
-    const brightness = Math.floor((velocity / 127) * 255);
-
-    // Set master dimmer
-    this.setMasterDimmer(255);
-
-    // Light up the mirrored sections
-    // Left side (start of bar)
-    for (let i = drumMapping.startLight; i <= drumMapping.endLight; i++) {
-      this.setLightRGB(i,
-        Math.floor(drumMapping.color.r * brightness / 255),
-        Math.floor(drumMapping.color.g * brightness / 255),
-        Math.floor(drumMapping.color.b * brightness / 255)
-      );
-    }
-
-    // Right side (end of bar) - mirror the positions
-    const mirrorStart = NUM_LIGHTS - drumMapping.endLight + 1;
-    const mirrorEnd = NUM_LIGHTS - drumMapping.startLight + 1;
-    for (let i = mirrorStart; i <= mirrorEnd; i++) {
-      this.setLightRGB(i,
-        Math.floor(drumMapping.color.r * brightness / 255),
-        Math.floor(drumMapping.color.g * brightness / 255),
-        Math.floor(drumMapping.color.b * brightness / 255)
-      );
-    }
-
-    // Start fade out after brief flash
-    setTimeout(() => {
-      this.fadeOutDrumLights(drumMapping);
-    }, 100);
-  }
-
-  private fadeOutDrumLights(drumMapping: DrumMapping): void {
-    let brightness = 255;
-    const fadeInterval = setInterval(() => {
-      brightness -= 30; // Fade speed
-
-      if (brightness <= 0) {
-        // Turn off completely
-        for (let i = drumMapping.startLight; i <= drumMapping.endLight; i++) {
-          this.setLightRGB(i, 0, 0, 0);
-        }
-
-        const mirrorStart = NUM_LIGHTS - drumMapping.endLight + 1;
-        const mirrorEnd = NUM_LIGHTS - drumMapping.startLight + 1;
-        for (let i = mirrorStart; i <= mirrorEnd; i++) {
-          this.setLightRGB(i, 0, 0, 0);
-        }
-
-        clearInterval(fadeInterval);
-        this.fadeIntervals.delete(drumMapping.name);
-      } else {
-        // Apply faded color
-        const fadedColor = {
-          r: Math.floor(drumMapping.color.r * brightness / 255),
-          g: Math.floor(drumMapping.color.g * brightness / 255),
-          b: Math.floor(drumMapping.color.b * brightness / 255)
-        };
-
-        // Left side
-        for (let i = drumMapping.startLight; i <= drumMapping.endLight; i++) {
-          this.setLightRGB(i, fadedColor.r, fadedColor.g, fadedColor.b);
-        }
-
-        // Right side (mirrored)
-        const mirrorStart = NUM_LIGHTS - drumMapping.endLight + 1;
-        const mirrorEnd = NUM_LIGHTS - drumMapping.startLight + 1;
-        for (let i = mirrorStart; i <= mirrorEnd; i++) {
-          this.setLightRGB(i, fadedColor.r, fadedColor.g, fadedColor.b);
-        }
-      }
-    }, 40); // Update every 40ms
-
-    this.fadeIntervals.set(drumMapping.name, fadeInterval);
-  }
 
   private setMasterDimmer(intensity: number): void {
     this.dmxData[0] = Math.max(0, Math.min(255, Math.floor(intensity)));
@@ -300,18 +358,22 @@ export default class DMXLightingModule {
   }
 
   public turnOffAllLights(): void {
-    this.setMasterDimmer(0);
-    for (let i = 1; i <= NUM_LIGHTS; i++) {
-      this.setLightRGB(i, 0, 0, 0);
-    }
+    // Clear all active waves
+    this.activeWaves = [];
+    this.setMasterDimmer(255); // Keep master at full for ripple effects
   }
 
   public close(): void {
     log('Closing DMX connection...');
 
-    // Clear all fade intervals
-    this.fadeIntervals.forEach(interval => clearInterval(interval));
-    this.fadeIntervals.clear();
+    // Stop ripple engine
+    if (this.rippleInterval) {
+      clearInterval(this.rippleInterval);
+      this.rippleInterval = null;
+    }
+
+    // Clear all active waves
+    this.activeWaves = [];
 
     if (this.transmissionInterval) {
       clearInterval(this.transmissionInterval);
