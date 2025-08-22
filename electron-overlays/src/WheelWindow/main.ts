@@ -66,10 +66,7 @@ const CONFETTI_CONFIG = {
   CLEANUP_DELAY_MS: 8000
 } as const;
 
-const GRAY_SHADES = [
-  '#888888', '#666666', '#777777', '#555555',
-  '#999999', '#444444', '#6a6a6a', '#7a7a7a'
-] as const;
+
 
 const CONFETTI_COLORS = [
   '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24',
@@ -224,6 +221,8 @@ function generateConsistentPastelColor(username: string): string {
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
+
+
 
 function generateBrighterPastelColor(originalPastel: string): string {
   // Extract HSL values from the original pastel color
@@ -585,10 +584,10 @@ function calculateSliceScale(song: SongRequestData): number {
   // Start with base scale of 1.0 (100%)
   let scale = 1.0;
 
-  // Apply fulfilled request penalty: 10% smaller per fulfilled request
-  // Minimum scale is 50% (0.5)
-  const fulfilledPenalty = (song.fulfilledToday || 0) * 0.1;
-  scale = Math.max(0.5, scale - fulfilledPenalty);
+  // Apply fulfilled request penalty: 15% smaller per fulfilled request
+  // Minimum scale is 35% (0.5)
+  const fulfilledPenalty = (song.fulfilledToday || 0) * 0.15;
+  scale = Math.max(0.35, scale - fulfilledPenalty);
 
   // Apply bump bonus: 50% larger per bump
   const bumpBonus = (song.bumpCount || 0) * 0.5;
@@ -808,8 +807,11 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
 
   const numElements = songs.length;
 
-  // Store base colors globally so highlighting can use brighter versions
-  sliceColors = basePastelColors.map(color => generateBrighterPastelColor(color));
+  // Get user colors for each song
+  const songColors = songs.map(song => getUserColor(song.requester));
+
+  // Store highlight colors globally for highlighting
+  sliceColors = songColors.map(colors => colors.highlightColor);
 
   // Calculate scale factors for each song
   const scaleFactors = songs.map(song => calculateSliceScale(song));
@@ -1021,6 +1023,16 @@ window.ipcRenderer.on('wheel_spin', () => {
 
 window.ipcRenderer.on('song_played', () => {
   globalContainer.classList.remove('wheel-visible');
+});
+
+window.ipcRenderer.on('viewers_update', (_, payload) => {
+  // Update user color mapping from viewer data
+  userColors.clear();
+  payload.viewers.forEach((viewer: any) => {
+    if (viewer.login && viewer.color) {
+      userColors.set(viewer.login.toLowerCase(), viewer.color);
+    }
+  });
 });
 
 // =============================================================================
