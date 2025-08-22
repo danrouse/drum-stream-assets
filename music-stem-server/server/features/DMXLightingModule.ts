@@ -20,6 +20,7 @@ interface DrumMapping {
   color: { r: number; g: number; b: number };
   altColor: { r: number; g: number; b: number }; // Alternating color
   centerPosition: number; // Center position for ripple effect
+  mirrorPosition?: number; // Optional mirror position for symmetric drums
 }
 
 interface RippleWave {
@@ -42,52 +43,57 @@ export default class DMXLightingModule {
   private activeWaves: RippleWave[] = [];
   private drumHitCounts: Map<string, number> = new Map(); // Track alternating hits
 
-  // Define drum-to-light mappings with ripple centers and alternating colors (highly saturated)
+  // Define drum-to-light mappings with ripple centers and alternating colors (max 50% white saturation)
   private drumMappings: DrumMapping[] = [
     {
       name: 'Kick',
       startLight: 1,
       endLight: 4,
-      centerPosition: 2.5, // Center of kick section
+      centerPosition: 2.5, // Left kick section
+      mirrorPosition: 37.5, // Right kick section (40-2.5)
       midiKeys: midiNoteKeysByName.Kick,
-      color: this.parseColor('rgb(255, 255, 255)'), // Pure white for kick
-      altColor: this.parseColor('rgb(200, 200, 255)') // Light blue-white for alternating hits
+      color: this.parseColor('rgb(127, 127, 127)'), // Neutral gray for kick (50% white)
+      altColor: this.parseColor('rgb(127, 127, 255)') // Blue-gray for alternating hits
     },
     {
       name: 'Tom4',
       startLight: 5,
       endLight: 7,
-      centerPosition: 6, // Center of tom4 section
+      centerPosition: 6, // Left tom4 section
+      mirrorPosition: 35, // Right tom4 section
       midiKeys: midiNoteKeysByName.Tom4,
       color: this.parseColor('rgb(0, 255, 0)'), // Pure saturated green
-      altColor: this.parseColor('rgb(100, 255, 0)') // Yellow-green
+      altColor: this.parseColor('rgb(127, 255, 0)') // Yellow-green
     },
     {
       name: 'Tom3',
       startLight: 8,
       endLight: 10,
-      centerPosition: 9, // Center of tom3 section
+      centerPosition: 9, // Left tom3 section
+      mirrorPosition: 32, // Right tom3 section
       midiKeys: midiNoteKeysByName.Tom3,
-      color: this.parseColor('rgb(0, 255, 150)'), // Saturated cyan-green
-      altColor: this.parseColor('rgb(50, 255, 200)') // Brighter cyan-green
+      color: this.parseColor('rgb(0, 255, 127)'), // Saturated cyan-green
+      altColor: this.parseColor('rgb(0, 255, 255)') // Pure cyan
     },
     {
       name: 'Tom2',
       startLight: 11,
       endLight: 13,
-      centerPosition: 12, // Center of tom2 section
+      centerPosition: 12, // Left tom2 section
+      mirrorPosition: 29, // Right tom2 section
       midiKeys: midiNoteKeysByName.Tom2,
-      color: this.parseColor('rgb(0, 150, 255)'), // Saturated sky blue
-      altColor: this.parseColor('rgb(100, 200, 255)') // Brighter sky blue
+      color: this.parseColor('rgb(0, 127, 255)'), // Saturated sky blue
+      altColor: this.parseColor('rgb(0, 200, 255)') // Brighter sky blue
     },
     {
       name: 'Tom1',
       startLight: 14,
       endLight: 16,
-      centerPosition: 15, // Center of tom1 section
+      centerPosition: 15, // Left tom1 section
+      mirrorPosition: 26, // Right tom1 section
       midiKeys: midiNoteKeysByName.Tom1,
       color: this.parseColor('rgb(0, 0, 255)'), // Pure saturated blue
-      altColor: this.parseColor('rgb(100, 100, 255)') // Brighter blue
+      altColor: this.parseColor('rgb(127, 0, 255)') // Purple-blue
     },
     {
       name: 'Snare',
@@ -96,38 +102,79 @@ export default class DMXLightingModule {
       centerPosition: 20.5, // Center of snare section (middle of the bar)
       midiKeys: midiNoteKeysByName.Snare,
       color: this.parseColor('rgb(255, 0, 0)'), // Pure saturated red
-      altColor: this.parseColor('rgb(255, 100, 0)') // Orange-red
+      altColor: this.parseColor('rgb(255, 0, 127)') // Red-magenta
+    },
+    // Cymbals - positioned around the sides of the kit with small tom-like sizes
+    {
+      name: 'Crash1',
+      startLight: 25,
+      endLight: 27,
+      centerPosition: 26, // Near snare, left of Tom1 mirror
+      midiKeys: midiNoteKeysByName.Crash1,
+      color: this.parseColor('rgb(255, 255, 0)'), // Pure yellow
+      altColor: this.parseColor('rgb(255, 127, 0)') // Orange
+    },
+    {
+      name: 'Crash2',
+      startLight: 28,
+      endLight: 30,
+      centerPosition: 29, // Between Tom2 and Tom1 mirrors
+      midiKeys: midiNoteKeysByName.Crash2,
+      color: this.parseColor('rgb(255, 0, 255)'), // Pure magenta
+      altColor: this.parseColor('rgb(255, 127, 255)') // Light magenta
+    },
+    {
+      name: 'Crash3',
+      startLight: 7,
+      endLight: 9,
+      centerPosition: 8, // Between Tom4 and Tom3 on left
+      midiKeys: midiNoteKeysByName.Crash3,
+      color: this.parseColor('rgb(127, 255, 255)'), // Light cyan
+      altColor: this.parseColor('rgb(0, 255, 255)') // Pure cyan
+    },
+    {
+      name: 'Ride',
+      startLight: 34,
+      endLight: 36,
+      centerPosition: 35, // Between Tom4 mirror and Tom3 mirror
+      midiKeys: midiNoteKeysByName.Ride,
+      color: this.parseColor('rgb(255, 127, 0)'), // Orange
+      altColor: this.parseColor('rgb(255, 200, 0)') // Yellow-orange
+    },
+    {
+      name: 'Ride2',
+      startLight: 37,
+      endLight: 39,
+      centerPosition: 38, // Near kick mirror
+      midiKeys: midiNoteKeysByName.Ride2,
+      color: this.parseColor('rgb(200, 100, 0)'), // Dark orange
+      altColor: this.parseColor('rgb(255, 150, 0)') // Bright orange
+    },
+    {
+      name: 'Splash',
+      startLight: 4,
+      endLight: 6,
+      centerPosition: 5, // Between kick and Tom4 on left
+      midiKeys: midiNoteKeysByName.Splash,
+      color: this.parseColor('rgb(127, 0, 255)'), // Purple
+      altColor: this.parseColor('rgb(200, 0, 255)') // Bright purple
+    },
+    {
+      name: 'Splash2',
+      startLight: 31,
+      endLight: 33,
+      centerPosition: 32, // Between Tom3 and Tom2 mirrors
+      midiKeys: midiNoteKeysByName.Splash2,
+      color: this.parseColor('rgb(0, 127, 127)'), // Dark cyan
+      altColor: this.parseColor('rgb(0, 200, 200)') // Bright cyan
     }
   ];
 
-  constructor(private webSocketCoordinatorServer: WebSocketCoordinatorServer) {
+    constructor(private webSocketCoordinatorServer: WebSocketCoordinatorServer) {
     this.dmxData = new Uint8Array(DMX_UNIVERSE_SIZE);
     this.initializeDMX();
     this.setupMIDIListeners();
     this.startRippleEngine();
-
-    // Test lights after initialization
-    setTimeout(() => {
-      this.testLights();
-    }, 3000);
-  }
-
-  private testLights(): void {
-    log('🧪 Testing lights...');
-    this.setMasterDimmer(255);
-
-    // Light up first few lights in red for 2 seconds
-    for (let i = 1; i <= 5; i++) {
-      this.setLightRGB(i, 255, 0, 0);
-    }
-
-    setTimeout(() => {
-      // Turn off test lights
-      for (let i = 1; i <= 5; i++) {
-        this.setLightRGB(i, 0, 0, 0);
-      }
-      log('🧪 Light test complete');
-    }, 2000);
   }
 
   private parseColor(colorString: string): { r: number; g: number; b: number } {
@@ -306,14 +353,7 @@ export default class DMXLightingModule {
       }
     }
 
-    // Debug logging every 60 frames (about once per second)
-    if (this.activeWaves.length > 0 && Date.now() % 1000 < 50) {
-      log(`🔍 Rendering: ${this.activeWaves.length} waves, ${lightsSet} lights set`);
-      if (this.activeWaves.length > 0) {
-        const wave = this.activeWaves[0];
-        log(`🔍 First wave: ${wave.drumName} at ${wave.centerPosition}, radius ${wave.radius.toFixed(1)}, intensity ${wave.intensity.toFixed(2)}`);
-      }
-    }
+
   }
 
   private calculateWaveInfluence(distance: number, wave: RippleWave): number {
@@ -340,7 +380,6 @@ export default class DMXLightingModule {
       return; // Not a drum we're interested in
     }
 
-    log(`🥁 ${drumMapping.name} hit (note ${note}, velocity ${velocity})`);
     this.createRippleWave(drumMapping, velocity);
   }
 
@@ -356,7 +395,7 @@ export default class DMXLightingModule {
     // Calculate intensity based on velocity (0-127 MIDI range) - ensure minimum brightness
     const baseIntensity = Math.max(0.3, velocity / 127); // Minimum 30% intensity
 
-    // Create ripple wave
+    // Create primary ripple wave
     const wave: RippleWave = {
       drumName: drumMapping.name,
       centerPosition: drumMapping.centerPosition,
@@ -374,8 +413,25 @@ export default class DMXLightingModule {
 
     this.activeWaves.push(wave);
 
-    log(`🌊 ${useAltColor ? 'Alt' : 'Base'} ${drumMapping.name} ripple created at position ${drumMapping.centerPosition}, intensity: ${baseIntensity}`);
-    log(`🌊 Active waves: ${this.activeWaves.length}`);
+    // Create mirror wave if this drum has a mirror position
+    if (drumMapping.mirrorPosition !== undefined) {
+      const mirrorWave: RippleWave = {
+        drumName: drumMapping.name + '_mirror',
+        centerPosition: drumMapping.mirrorPosition,
+        color: {
+          r: color.r,
+          g: color.g,
+          b: color.b
+        },
+        intensity: baseIntensity,
+        radius: 0,
+        maxRadius: NUM_LIGHTS,
+        speed: 0.8,
+        age: 0
+      };
+
+      this.activeWaves.push(mirrorWave);
+    }
   }
 
 
