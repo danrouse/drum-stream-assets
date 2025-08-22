@@ -585,9 +585,9 @@ function calculateSliceScale(song: SongRequestData): number {
   let scale = 1.0;
 
   // Apply fulfilled request penalty: 15% smaller per fulfilled request
-  // Minimum scale is 35% (0.5)
+  // Minimum scale is 25% (5 songs fulfilled)
   const fulfilledPenalty = (song.fulfilledToday || 0) * 0.15;
-  scale = Math.max(0.35, scale - fulfilledPenalty);
+  scale = Math.max(0.25, scale - fulfilledPenalty);
 
   // Apply bump bonus: 50% larger per bump
   const bumpBonus = (song.bumpCount || 0) * 0.5;
