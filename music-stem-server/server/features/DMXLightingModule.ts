@@ -105,6 +105,29 @@ export default class DMXLightingModule {
     this.initializeDMX();
     this.setupMIDIListeners();
     this.startRippleEngine();
+
+    // Test lights after initialization
+    setTimeout(() => {
+      this.testLights();
+    }, 3000);
+  }
+
+  private testLights(): void {
+    log('🧪 Testing lights...');
+    this.setMasterDimmer(255);
+
+    // Light up first few lights in red for 2 seconds
+    for (let i = 1; i <= 5; i++) {
+      this.setLightRGB(i, 255, 0, 0);
+    }
+
+    setTimeout(() => {
+      // Turn off test lights
+      for (let i = 1; i <= 5; i++) {
+        this.setLightRGB(i, 0, 0, 0);
+      }
+      log('🧪 Light test complete');
+    }, 2000);
   }
 
   private parseColor(colorString: string): { r: number; g: number; b: number } {
@@ -236,10 +259,19 @@ export default class DMXLightingModule {
   }
 
   private renderLights(): void {
+    // Set master dimmer to full
+    this.setMasterDimmer(255);
+
     // Clear all lights first
     for (let i = 1; i <= NUM_LIGHTS; i++) {
       this.setLightRGB(i, 0, 0, 0);
     }
+
+    if (this.activeWaves.length === 0) {
+      return; // No waves to render
+    }
+
+    let lightsSet = 0;
 
     // Calculate combined color for each light from all active waves
     for (let lightPos = 1; lightPos <= NUM_LIGHTS; lightPos++) {
@@ -263,13 +295,23 @@ export default class DMXLightingModule {
       }
 
       // Clamp colors to valid range
-      combinedR = Math.min(255, combinedR);
-      combinedG = Math.min(255, combinedG);
-      combinedB = Math.min(255, combinedB);
+      combinedR = Math.min(255, Math.floor(combinedR));
+      combinedG = Math.min(255, Math.floor(combinedG));
+      combinedB = Math.min(255, Math.floor(combinedB));
 
       // Set the light if it has any color
       if (combinedR > 0 || combinedG > 0 || combinedB > 0) {
         this.setLightRGB(lightPos, combinedR, combinedG, combinedB);
+        lightsSet++;
+      }
+    }
+
+    // Debug logging every 60 frames (about once per second)
+    if (this.activeWaves.length > 0 && Date.now() % 1000 < 50) {
+      log(`🔍 Rendering: ${this.activeWaves.length} waves, ${lightsSet} lights set`);
+      if (this.activeWaves.length > 0) {
+        const wave = this.activeWaves[0];
+        log(`🔍 First wave: ${wave.drumName} at ${wave.centerPosition}, radius ${wave.radius.toFixed(1)}, intensity ${wave.intensity.toFixed(2)}`);
       }
     }
   }
@@ -298,7 +340,7 @@ export default class DMXLightingModule {
       return; // Not a drum we're interested in
     }
 
-    // log(`🥁 ${drumMapping.name} hit (note ${note}, velocity ${velocity})`);
+    log(`🥁 ${drumMapping.name} hit (note ${note}, velocity ${velocity})`);
     this.createRippleWave(drumMapping, velocity);
   }
 
@@ -311,17 +353,17 @@ export default class DMXLightingModule {
     const useAltColor = (currentHits % 2) === 1;
     const color = useAltColor ? drumMapping.altColor : drumMapping.color;
 
-    // Calculate intensity based on velocity (0-127 MIDI range)
-    const baseIntensity = (velocity / 127);
+    // Calculate intensity based on velocity (0-127 MIDI range) - ensure minimum brightness
+    const baseIntensity = Math.max(0.3, velocity / 127); // Minimum 30% intensity
 
     // Create ripple wave
     const wave: RippleWave = {
       drumName: drumMapping.name,
       centerPosition: drumMapping.centerPosition,
       color: {
-        r: color.r * baseIntensity,
-        g: color.g * baseIntensity,
-        b: color.b * baseIntensity
+        r: color.r, // Use full color intensity, apply velocity in wave influence
+        g: color.g,
+        b: color.b
       },
       intensity: baseIntensity,
       radius: 0,
@@ -332,7 +374,8 @@ export default class DMXLightingModule {
 
     this.activeWaves.push(wave);
 
-    // log(`🌊 ${useAltColor ? 'Alt' : 'Base'} ${drumMapping.name} ripple created at position ${drumMapping.centerPosition}`);
+    log(`🌊 ${useAltColor ? 'Alt' : 'Base'} ${drumMapping.name} ripple created at position ${drumMapping.centerPosition}, intensity: ${baseIntensity}`);
+    log(`🌊 Active waves: ${this.activeWaves.length}`);
   }
 
 
