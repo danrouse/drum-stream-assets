@@ -387,8 +387,9 @@ export default class SongRequestModule {
           .where('id', '=', user.id)
           .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
           .execute();
-        await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
-          `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
+        await this.client.sendTwitchMessage(`@${payload.userName} Thank you for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ❤️💚💙`);
+        // await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
+        //   `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
       }
     });
 
