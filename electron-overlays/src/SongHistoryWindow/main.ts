@@ -33,19 +33,13 @@ window.ipcRenderer.on('song_changed', (_, payload) => {
     Math.min(3, payload.nextSongs?.length || 0) :
     Math.min(payload.nextSongs?.length || 0, 6 - payload.previousSongs?.length);
   currentSongElem.classList[numPrevSongs === 0 ? 'add' : 'remove']('no-prev');
-  currentSongElem.classList[numNextSongs === 0 && !payload.queue ? 'add' : 'remove']('no-next');
+  currentSongElem.classList[numNextSongs === 0 ? 'add' : 'remove']('no-next');
 
   for (let song of payload.previousSongs.slice(-1 * numPrevSongs)) {
     previousSongsElem.appendChild(renderSong(song));
   }
   for (let song of payload.nextSongs.slice(0, numNextSongs)) {
     nextSongsElem.appendChild(renderSong(song));
-  }
-  if (payload.queue) {
-    const queueLengthElem = document.createElement('li');
-    queueLengthElem.innerHTML = `Queue Length: ${payload.queue.songs} song${payload.queue.songs === 1 ? '' : 's'} (${formatTime(payload.queue.duration)})`; 
-    queueLengthElem.classList.add('queue-length');
-    nextSongsElem.appendChild(queueLengthElem);
   }
   currentSongElem.appendChild(renderSong(payload.song, 'DIV'));
 });

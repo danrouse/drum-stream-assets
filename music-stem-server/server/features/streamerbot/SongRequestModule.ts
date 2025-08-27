@@ -164,12 +164,12 @@ export default class SongRequestModule {
         type: 'song_request_removed',
         songRequestId: songRequest.id,
       });
-      await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been removed from the queue.`);
+      await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been removed.`);
     });
     this.client.registerCommandHandler('!songs', async (payload) => {
       const songRequests = await queries.songRequestsByUser(payload.user);
       if (!songRequests.length) {
-        await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs in the request queue!`);
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any songs on the wheel!`);
       } else {
         const songList = songRequests.map((sr, i) =>
           `${i + 1}: ${[sr.artist, sr.title].filter(s => s).join(' - ')}`
@@ -183,22 +183,26 @@ export default class SongRequestModule {
       }
     });
     this.client.registerCommandHandler('!songlist', async (payload) => {
-      const MAX_RESPONSE_SONGS = 5;
       const res = await queries.songRequestQueue();
-      if (res.length === 0) {
-        await this.client.sendTwitchMessage(`@${payload.user} The song request queue is empty.`);
-      } else {
-        await this.client.sendTwitchMessage(
-          `There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
-          res.slice(0, MAX_RESPONSE_SONGS).map(s =>
-            `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
-            ` [${formatTime(s.duration)}]`
-          ).join(', ') +
-          (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
-        );
-        const totalTime = res.reduce((acc, cur) => acc + cur.duration, 0);
-        await this.client.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
-      }
+      await this.client.sendTwitchMessage(
+        `@${payload.user} There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} on the wheel. Which one will be next?! PauseChampies ` +
+        `(Use !songs to see which are yours)`
+      );
+      // const MAX_RESPONSE_SONGS = 5;
+      // if (res.length === 0) {
+      //   await this.client.sendTwitchMessage(`@${payload.user} The song request queue is empty.`);
+      // } else {
+      //   await this.client.sendTwitchMessage(
+      //     `There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
+      //     res.slice(0, MAX_RESPONSE_SONGS).map(s =>
+      //       `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
+      //       ` [${formatTime(s.duration)}]`
+      //     ).join(', ') +
+      //     (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
+      //   );
+      //   const totalTime = res.reduce((acc, cur) => acc + cur.duration, 0);
+      //   await this.client.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
+      // }
     });
     this.client.registerCommandHandler('!bump', async (payload) => {
       const { songRequest, isAmbiguous } = await this.disambiguate(
@@ -383,8 +387,9 @@ export default class SongRequestModule {
           .where('id', '=', user.id)
           .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
           .execute();
-        await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
-          `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
+        await this.client.sendTwitchMessage(`@${payload.userName} Thank you for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ❤️💚💙`);
+        // await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
+        //   `dannyt75Heart You've been given ${giftedCount === 1 ? 'one song !bump' : giftedCount + ' !bumps'} to use whenever you want.`);
       }
     });
 
@@ -426,7 +431,7 @@ export default class SongRequestModule {
         const requestNames = songRequests
           .map((sr, i) => `${i + 1}: ${[sr.artist, sr.title].filter(s => s).join(' - ')}`)
           .join(', ');
-        await this.client.sendTwitchMessage(`@${user} You have multiple songs in the queue! ${helpString}`);
+        await this.client.sendTwitchMessage(`@${user} You have multiple songs on the wheel! ${helpString}`);
         await this.client.sendTwitchMessage(`@${user} ${requestNames}`)
         isAmbiguous = true;
       } else {
@@ -717,7 +722,7 @@ export default class SongRequestModule {
             .execute();
           await this.client.sendTwitchMessage(`@${requesterName} Your request has been replaced with ${songTitle}!`);
         } else {
-          await this.client.sendTwitchMessage(`@${requesterName} ${songTitle} was added to the queue!`);
+          await this.client.sendTwitchMessage(`@${requesterName} ${songTitle} was added to the wheel!`);
         }
         hasResponded = true;
       },
