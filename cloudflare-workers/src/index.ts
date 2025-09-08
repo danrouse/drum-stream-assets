@@ -26,6 +26,25 @@ interface RequestWithDetails {
   chronologicalNumber?: number;
 }
 
+interface SongHistoryWithDetails {
+  historyId: number;
+  startedAt: string;
+  endedAt: string;
+  songId: number;
+  songRequestId: number | null;
+  query: string | null;
+  requester: string | null;
+  requestCreatedAt: string | null;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  duration: number | null;
+  streamId: number | null;
+  streamStartedAt: string | null;
+  streamEndedAt: string | null;
+  chronologicalNumber?: number;
+}
+
 interface StreamGroup {
   streamId: number | null;
   streamStartedAt: string | null;
@@ -33,9 +52,21 @@ interface StreamGroup {
   requests: RequestWithDetails[];
 }
 
+interface HistoryStreamGroup {
+  streamId: number | null;
+  streamStartedAt: string | null;
+  streamEndedAt: string | null;
+  songs: SongHistoryWithDetails[];
+}
+
 interface RequestsData {
   readyRequests: RequestWithDetails[];
   fulfilledRequests: StreamGroup[];
+}
+
+interface HistoryData {
+  readyRequests: RequestWithDetails[];
+  playedSongs: HistoryStreamGroup[];
 }
 
 export default {
@@ -84,16 +115,15 @@ export default {
       }
 
       if (url.pathname === '/api/requests') {
-        const requests = await getAllSongRequestsWithDetails(db);
-        return new Response(JSON.stringify(requests), {
+        const history = await getAllSongHistoryWithDetails(db);
+        return new Response(JSON.stringify(history), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       // Handle main webapp (only allow GET for webapp)
       if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {
-        const requests = await getAllSongRequestsWithDetails(db);
-        const html = generateHTML(requests);
+        const html = generateHTML();
         return new Response(html, {
           headers: { 'Content-Type': 'text/html' },
         });
@@ -256,12 +286,12 @@ async function getStats(db: Kysely<Database>) {
   };
 }
 
-async function getAllSongRequestsWithDetails(db: Kysely<Database>): Promise<RequestsData> {
-  // Get all ready and fulfilled requests with song details
-  const requests = await db
+async function getAllSongHistoryWithDetails(db: Kysely<Database>): Promise<HistoryData> {
+  // Get ready requests (still from songRequests for current queue)
+  const readyRequests = await db
     .selectFrom('songRequests')
     .leftJoin('songs', 'songRequests.songId', 'songs.id')
-    .where('songRequests.status', 'in', ['ready', 'fulfilled'])
+    .where('songRequests.status', '=', 'ready')
     .select([
       'songRequests.id',
       'songRequests.query',
@@ -278,28 +308,89 @@ async function getAllSongRequestsWithDetails(db: Kysely<Database>): Promise<Requ
     .orderBy('songRequests.createdAt', 'desc')
     .execute();
 
-  // Get stream history to associate requests with streams
+  // Get stream history to associate songs with streams
   const streams = await db
     .selectFrom('streamHistory')
     .select(['id', 'createdAt', 'endedAt'])
     .orderBy('createdAt', 'desc')
     .execute();
 
-  // Sort streams by createdAt ascending for proper stream association
-  const sortedStreams = [...streams].sort((a, b) =>
-    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  );
+  // Get all song history entries with song details and optional request details
+  // We'll filter these after retrieving them based on individual stream proximity
+  const allSongHistory = await db
+    .selectFrom('songHistory')
+    .leftJoin('songs', 'songHistory.songId', 'songs.id')
+    .leftJoin('songRequests', 'songHistory.songRequestId', 'songRequests.id')
+    .select([
+      'songHistory.id as historyId',
+      'songHistory.startedAt',
+      'songHistory.endedAt',
+      'songHistory.songId',
+      'songHistory.songRequestId',
+      'songRequests.query',
+      'songRequests.requester',
+      'songRequests.createdAt as requestCreatedAt',
+      'songs.title',
+      'songs.artist',
+      'songs.album',
+      'songs.duration',
+    ])
+    .orderBy('songHistory.startedAt', 'desc')
+    .execute();
 
-  // Associate each request with its stream
-  const requestsWithStreams = requests.map(request => {
-    // Find the stream this request belongs to
-    // A request belongs to the most recent stream that started before or at the request time
-    const requestTime = new Date(request.createdAt);
+  // Filter songs based on 24-hour buffer from their most recent preceding stream
+  // Also include songs played up to 5 minutes before any stream starts
+  const songHistory = allSongHistory.filter(song => {
+    const songTime = new Date(song.startedAt);
 
-    // Find all streams that started before or at the request time
+    // First, check if this song is within 5 minutes before any stream
+    const withinPreStreamBuffer = streams.some(stream => {
+      const streamStart = new Date(stream.createdAt);
+      const fiveMinutesBefore = new Date(streamStart.getTime() - 5 * 60 * 1000); // 5 minutes before
+      return songTime >= fiveMinutesBefore && songTime <= streamStart;
+    });
+
+    if (withinPreStreamBuffer) {
+      return true;
+    }
+
+    // Find the most recent stream that started before or at this song's time
+    const precedingStreams = streams.filter(stream => {
+      const streamStart = new Date(stream.createdAt);
+      return streamStart <= songTime;
+    });
+
+    if (precedingStreams.length === 0) {
+      // No preceding stream found, include the song
+      return true;
+    }
+
+    // Get the most recent preceding stream by sorting and taking the latest
+    const mostRecentPrecedingStream = precedingStreams.sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+
+    // Check if song was played within 24 hours of the preceding stream
+    const streamStart = new Date(mostRecentPrecedingStream.createdAt);
+    const twentyFourHoursLater = new Date(streamStart.getTime() + 24 * 60 * 60 * 1000);
+    const isWithin24Hours = songTime <= twentyFourHoursLater;
+
+    if (!isWithin24Hours) {
+      const hoursDiff = ((songTime.getTime() - streamStart.getTime()) / (1000 * 60 * 60)).toFixed(1);
+    }
+
+    return isWithin24Hours;
+  });
+
+  // Associate each song history entry with its stream
+  const historyWithStreams = songHistory.map(song => {
+    // A song belongs to the most recent stream that started before or at the song start time
+    const songTime = new Date(song.startedAt);
+
+    // Find all streams that started before or at the song time
     const validStreams = streams.filter(stream => {
       const streamStart = new Date(stream.createdAt);
-      return streamStart <= requestTime;
+      return streamStart <= songTime;
     });
 
     // Get the most recent valid stream (latest createdAt)
@@ -309,35 +400,32 @@ async function getAllSongRequestsWithDetails(db: Kysely<Database>): Promise<Requ
     }, null as typeof streams[0] | null);
 
     return {
-      ...request,
-      createdAt: request.createdAt.toString(),
-      fulfilledAt: request.fulfilledAt ? request.fulfilledAt.toString() : null,
+      ...song,
+      startedAt: song.startedAt.toString(),
+      endedAt: song.endedAt.toString(),
+      requestCreatedAt: song.requestCreatedAt ? song.requestCreatedAt.toString() : null,
       streamId: associatedStream?.id || null,
       streamStartedAt: associatedStream?.createdAt ? associatedStream.createdAt.toString() : null,
       streamEndedAt: associatedStream?.endedAt ? associatedStream.endedAt.toString() : null,
     };
   });
 
-  // Separate ready and fulfilled requests
-  const readyRequests = requestsWithStreams.filter(r => r.status === 'ready');
-  const fulfilledRequestsFlat = requestsWithStreams.filter(r => r.status === 'fulfilled');
+  // Group song history by stream
+  const streamMap = new Map<number | null, HistoryStreamGroup>();
 
-  // Group fulfilled requests by stream
-  const streamMap = new Map<number | null, StreamGroup>();
-
-  fulfilledRequestsFlat.forEach(request => {
-    const streamId = request.streamId;
+  historyWithStreams.forEach(song => {
+    const streamId = song.streamId;
 
     if (!streamMap.has(streamId)) {
       streamMap.set(streamId, {
         streamId,
-        streamStartedAt: request.streamStartedAt,
-        streamEndedAt: request.streamEndedAt,
-        requests: []
+        streamStartedAt: song.streamStartedAt,
+        streamEndedAt: song.streamEndedAt,
+        songs: []
       });
     }
 
-    streamMap.get(streamId)!.requests.push(request);
+    streamMap.get(streamId)!.songs.push(song);
   });
 
   // Convert to array and sort streams by start date (newest first)
@@ -348,55 +436,54 @@ async function getAllSongRequestsWithDetails(db: Kysely<Database>): Promise<Requ
     return new Date(b.streamStartedAt).getTime() - new Date(a.streamStartedAt).getTime();
   });
 
-  // Sort requests within each stream chronologically for numbering, then reverse for display
+  // Sort songs within each stream chronologically for numbering, then reverse for display
   streamGroups.forEach(stream => {
     // First sort chronologically (earliest first) to establish correct numbering
-    const chronologicallySorted = stream.requests.sort((a: any, b: any) => {
-      if (!a.fulfilledAt || !b.fulfilledAt) {
-        // If no fulfilledAt, fall back to createdAt for ordering
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      }
-      return new Date(a.fulfilledAt).getTime() - new Date(b.fulfilledAt).getTime();
+    const chronologicallySorted = stream.songs.sort((a: any, b: any) => {
+      return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
     });
 
-    // Add chronological numbers to each request
-    chronologicallySorted.forEach((request: any, index: number) => {
-      request.chronologicalNumber = index + 1;
+    // Add chronological numbers to each song
+    chronologicallySorted.forEach((song: any, index: number) => {
+      song.chronologicalNumber = index + 1;
     });
 
-    // Then reverse for display (latest fulfilled first) while keeping the numbers
-    stream.requests = chronologicallySorted.reverse();
+    // Then reverse for display (latest played first) while keeping the numbers
+    stream.songs = chronologicallySorted.reverse();
   });
 
+  // Convert ready requests to the expected format
+  const readyRequestsFormatted = readyRequests.map(request => ({
+    id: request.id,
+    query: request.query || '',
+    requester: request.requester,
+    createdAt: request.createdAt.toString(),
+    status: request.status,
+    fulfilledAt: request.fulfilledAt ? request.fulfilledAt.toString() : null,
+    songId: request.songId,
+    title: request.title,
+    artist: request.artist,
+    album: request.album,
+    duration: request.duration,
+    streamId: null,
+    streamStartedAt: null,
+    streamEndedAt: null,
+  }));
+
   return {
-    readyRequests,
-    fulfilledRequests: streamGroups
+    readyRequests: readyRequestsFormatted,
+    playedSongs: streamGroups
   };
 }
 
-function generateHTML(requests: RequestsData): string {
+function generateHTML(): string {
   const template = loadTemplate();
   const css = loadCSS();
   const js = loadJavaScript();
 
-  // Calculate counts
-  const readyCount = requests.readyRequests.length;
-  const fulfilledCount = requests.fulfilledRequests.reduce(
-    (total, stream) => total + stream.requests.length,
-    0
-  );
-
-  // Safely serialize the requests data for embedding in HTML
-  const serializedData = JSON.stringify(requests)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
-
   return template
     .replace('{{CSS_CONTENT}}', css)
-    .replace('{{READY_COUNT}}', readyCount.toString())
-    .replace('{{FULFILLED_COUNT}}', fulfilledCount.toString())
-    .replace('{{REQUESTS_DATA}}', serializedData)
+    .replace('{{READY_COUNT}}', '...')
+    .replace('{{FULFILLED_COUNT}}', '...')
     .replace('{{JS_CONTENT}}', js);
 }

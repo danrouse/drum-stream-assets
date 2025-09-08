@@ -18,7 +18,13 @@ export function loadTemplate(): string {
             </div>
             <div class="stat-item">
                 <div class="stat-number">{{FULFILLED_COUNT}}</div>
-                <div class="stat-label">Total Requests Played</div>
+                <div class="stat-label">Total Songs Played</div>
+            </div>
+            <div class="refresh-section">
+                <button id="refresh-btn" class="refresh-button" onclick="refreshData()">
+                    <span class="refresh-icon">🔄</span>
+                    <span class="refresh-text">Refresh</span>
+                </button>
             </div>
         </div>
     </div>
@@ -28,7 +34,7 @@ export function loadTemplate(): string {
             <div class="filter-row">
                 <div class="filter-group">
                     <label for="search">Search</label>
-                    <input type="text" id="search" placeholder="Search request text, song title, or artist...">
+                    <input type="text" id="search" placeholder="Search song title, artist, or request text...">
                 </div>
                 <div class="filter-group">
                     <label for="requester">Requester</label>
@@ -45,12 +51,11 @@ export function loadTemplate(): string {
         </div>
 
         <div id="no-results" class="no-results" style="display: none;">
-            No song requests match your current filters.
+            No songs match your current filters.
         </div>
     </div>
 
     <script>
-        window.requestsData = {{REQUESTS_DATA}};
         {{JS_CONTENT}}
     </script>
 </body>
@@ -91,6 +96,7 @@ body {
 .stats-summary {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 3rem;
     margin-top: 1rem;
     -webkit-text-stroke: 4px black;
@@ -109,6 +115,58 @@ body {
 .stat-label {
     font-size: 0.9rem;
     opacity: 0.9;
+}
+
+.refresh-section {
+    display: flex;
+    align-items: center;
+}
+
+.refresh-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    -webkit-text-stroke: 2px black;
+    paint-order: stroke fill;
+}
+
+.refresh-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
+}
+
+.refresh-button:active {
+    transform: translateY(0);
+}
+
+.refresh-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.refresh-button.refreshing .refresh-icon {
+    animation: spin 1s linear infinite;
+}
+
+.refresh-icon {
+    font-size: 1rem;
+    display: inline-block;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .container {
@@ -315,22 +373,27 @@ body {
     .filter-group input, .filter-group select { min-width: auto; }
     .requests-table { font-size: 0.8rem; }
     .requests-table th, .requests-table td { padding: 0.75rem; }
+    .refresh-button {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+        gap: 0.3rem;
+    }
 }`;
 }
 
 // JavaScript Content
 export function loadJavaScript(): string {
   return `
-function initializeApp(requestsData) {
+function initializeApp(historyData) {
     // Validate data structure
-    if (!requestsData || !requestsData.readyRequests || !requestsData.fulfilledRequests) {
+    if (!historyData || !historyData.readyRequests || !historyData.playedSongs) {
         console.error('Invalid data structure received');
         document.getElementById('results').innerHTML = '<div class="error">Error loading data</div>';
         return;
     }
 
     // Generate the HTML for both sections
-    generateResults(requestsData);
+    generateResults(historyData);
 
     // Load filters from URL hash
     loadFiltersFromUrl();
@@ -410,8 +473,8 @@ function generateResults(data) {
     // Generate Active Queue section
     html += generateActiveQueue(data.readyRequests);
 
-    // Generate Fulfilled Requests History section
-    html += generateStreamSections(data.fulfilledRequests);
+    // Generate Song History section
+    html += generateStreamSections(data.playedSongs);
 
     resultsContainer.innerHTML = html;
 }
@@ -465,7 +528,7 @@ function generateActiveQueue(readyRequests) {
 
 function generateStreamSections(streamGroups) {
     if (!streamGroups || streamGroups.length === 0) {
-        return '<div class="no-results">No fulfilled song requests found.</div>';
+        return '<div class="no-results">No played songs found.</div>';
     }
 
     // Add history header
@@ -474,7 +537,7 @@ function generateStreamSections(streamGroups) {
 
     // Generate each stream section
     streamGroups.forEach(stream => {
-        if (!stream.requests || stream.requests.length === 0) return;
+        if (!stream.songs || stream.songs.length === 0) return;
 
         const streamTitle = stream.streamStartedAt
             ? \`Stream - \${formatDate(stream.streamStartedAt)}\`
@@ -489,27 +552,33 @@ function generateStreamSections(streamGroups) {
         // Check if this is an unknown stream (no chronological meaning)
         const isUnknownStream = !stream.streamStartedAt;
 
-        const requestRows = stream.requests.map((request, index) => {
+        const songRows = stream.songs.map((song, index) => {
             const songNumberCell = isUnknownStream
                 ? ''
-                : \`<td class="song-number">#\${request.chronologicalNumber || index + 1}</td>\`;
+                : \`<td class="song-number">#\${song.chronologicalNumber || index + 1}</td>\`;
+
+            // Handle case where song has no corresponding request
+            const searchText = [song.query || '', song.title || '', song.artist || ''].join(' ').trim();
+            const requestText = song.query
+                ? formatRequestText(song.query)
+                : '<em style="color: #999;">No request (played by streamer)</em>';
 
             return \`
                 <tr class="request-row"
-                    data-search="\${escapeHtml(request.query)} \${escapeHtml(request.title)} \${escapeHtml(request.artist)}"
-                    data-requester="\${escapeHtml(request.requester)}"
-                    data-song-number="\${request.chronologicalNumber || index + 1}">
+                    data-search="\${escapeHtml(searchText)}"
+                    data-requester="\${escapeHtml(song.requester || '')}"
+                    data-song-number="\${song.chronologicalNumber || index + 1}">
                     \${songNumberCell}
-                    <td class="timestamp">\${formatDate(request.fulfilledAt || request.createdAt)}</td>
-                    <td class="request-text">\${formatRequestText(request.query)}</td>
+                    <td class="timestamp">\${formatDate(song.startedAt)}</td>
+                    <td class="request-text">\${requestText}</td>
                     <td>
-                        \${request.title ? \`
-                            <div class="song-info">\${escapeHtml(request.title)}</div>
-                            <div class="song-artist">\${escapeHtml(request.artist)}</div>
-                            <div class="song-duration">\${request.duration ? formatDuration(request.duration) : ''}</div>
+                        \${song.title ? \`
+                            <div class="song-info">\${escapeHtml(song.title)}</div>
+                            <div class="song-artist">\${escapeHtml(song.artist)}</div>
+                            <div class="song-duration">\${song.duration ? formatDuration(song.duration) : ''}</div>
                         \` : '<em style="color: #999;">No song data</em>'}
                     </td>
-                    <td class="requester">\${escapeHtml(request.requester) || 'Unknown'}</td>
+                    <td class="requester">\${escapeHtml(song.requester) || (song.query ? 'Unknown' : 'Streamer')}</td>
                 </tr>
             \`;
         }).join('');
@@ -522,8 +591,8 @@ function generateStreamSections(streamGroups) {
             <div class="stream-section">
                 <div class="stream-header">
                     <div class="stream-date">\${streamTitle}</div>
-                    <div class="stream-info" data-original-count="\${stream.requests.length}" data-section-type="history">
-                        \${stream.requests.length} request\${stream.requests.length !== 1 ? 's' : ''}
+                    <div class="stream-info" data-original-count="\${stream.songs.length}" data-section-type="history">
+                        \${stream.songs.length} song\${stream.songs.length !== 1 ? 's' : ''}
                     </div>
                 </div>
                 <table class="requests-table">
@@ -533,7 +602,7 @@ function generateStreamSections(streamGroups) {
                         </tr>
                     </thead>
                     <tbody>
-                        \${requestRows}
+                        \${songRows}
                     </tbody>
                 </table>
             </div>
@@ -609,14 +678,14 @@ function filterResults() {
                 if (sectionType === 'queue') {
                     countElement.textContent = \`\${visibleRowsInSection} of \${originalCount} song\${originalCount !== 1 ? 's' : ''} in queue\`;
                 } else {
-                    countElement.textContent = \`\${visibleRowsInSection} of \${originalCount} request\${originalCount !== 1 ? 's' : ''}\`;
+                    countElement.textContent = \`\${visibleRowsInSection} of \${originalCount} song\${originalCount !== 1 ? 's' : ''}\`;
                 }
             } else {
                 // Show original count
                 if (sectionType === 'queue') {
                     countElement.textContent = \`\${originalCount} song\${originalCount !== 1 ? 's' : ''} in queue\`;
                 } else {
-                    countElement.textContent = \`\${originalCount} request\${originalCount !== 1 ? 's' : ''}\`;
+                    countElement.textContent = \`\${originalCount} song\${originalCount !== 1 ? 's' : ''}\`;
                 }
             }
         }
@@ -631,7 +700,7 @@ function filterResults() {
     // Update filter results count display
     const filterCountElement = document.getElementById('filter-results-count');
     if (hasFilters) {
-        filterCountElement.textContent = \`\${totalVisibleCount} total song request\${totalVisibleCount !== 1 ? 's' : ''} match these filters\`;
+        filterCountElement.textContent = \`\${totalVisibleCount} total song\${totalVisibleCount !== 1 ? 's' : ''} match these filters\`;
         filterCountElement.style.display = 'block';
     } else {
         filterCountElement.style.display = 'none';
@@ -651,13 +720,130 @@ window.addEventListener('hashchange', function() {
     filterResults();
 });
 
+// Fetch data from API
+async function fetchHistoryData() {
+    try {
+        const response = await fetch('/api/requests');
+        if (!response.ok) {
+            throw new Error(\`HTTP error! status: \${response.status}\`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching history data:', error);
+        throw error;
+    }
+}
+
+// Show loading state
+function showLoadingState() {
+    document.getElementById('results').innerHTML = \`
+        <div style="text-align: center; padding: 3rem; color: #666;">
+            <div style="font-size: 1.2rem; margin-bottom: 1rem;">Loading song history...</div>
+            <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        </div>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    \`;
+}
+
+// Update header counts
+function updateHeaderCounts(readyCount, playedCount) {
+    const readyCountElement = document.querySelector('.stats-summary .stat-item:nth-child(1) .stat-number');
+    const playedCountElement = document.querySelector('.stats-summary .stat-item:nth-child(2) .stat-number');
+
+    if (readyCountElement) readyCountElement.textContent = readyCount;
+    if (playedCountElement) playedCountElement.textContent = playedCount;
+}
+
+// Refresh data function
+async function refreshData() {
+    const refreshBtn = document.getElementById('refresh-btn');
+    const refreshIcon = refreshBtn.querySelector('.refresh-icon');
+    const refreshText = refreshBtn.querySelector('.refresh-text');
+
+    try {
+        // Set refreshing state
+        refreshBtn.disabled = true;
+        refreshBtn.classList.add('refreshing');
+        refreshText.textContent = 'Refreshing...';
+
+        // Fetch new data
+        const historyData = await fetchHistoryData();
+
+        // Update header counts
+        const readyCount = historyData.readyRequests.length;
+        const playedCount = historyData.playedSongs.reduce(
+            (total, stream) => total + stream.songs.length,
+            0
+        );
+        updateHeaderCounts(readyCount, playedCount);
+
+        // Regenerate the results
+        generateResults(historyData);
+
+        // Reapply current filters
+        filterResults();
+
+        // Show success feedback briefly
+        refreshText.textContent = 'Updated!';
+        setTimeout(() => {
+            refreshText.textContent = 'Refresh';
+        }, 1000);
+
+    } catch (error) {
+        console.error('Failed to refresh data:', error);
+
+        // Show error feedback
+        refreshText.textContent = 'Error';
+        setTimeout(() => {
+            refreshText.textContent = 'Refresh';
+        }, 2000);
+    } finally {
+        // Reset button state
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove('refreshing');
+    }
+}
+
 // Initialize the app when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    if (window.requestsData) {
-        initializeApp(window.requestsData);
-    } else {
-        console.error('No requests data found on window object');
-        document.getElementById('results').innerHTML = '<div class="error">Error: No data available</div>';
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        showLoadingState();
+
+        const historyData = await fetchHistoryData();
+
+        // Update header counts
+        const readyCount = historyData.readyRequests.length;
+        const playedCount = historyData.playedSongs.reduce(
+            (total, stream) => total + stream.songs.length,
+            0
+        );
+        updateHeaderCounts(readyCount, playedCount);
+
+        // Initialize the app with fetched data
+        initializeApp(historyData);
+
+        // Apply any filters from URL hash that were loaded before data arrived
+        if (window.location.hash) {
+            loadFiltersFromUrl();
+            filterResults();
+        }
+    } catch (error) {
+        console.error('Failed to load history data:', error);
+        document.getElementById('results').innerHTML = \`
+            <div style="text-align: center; padding: 3rem; color: #e74c3c;">
+                <div style="font-size: 1.2rem; margin-bottom: 1rem;">Failed to load song history</div>
+                <div style="color: #666; margin-bottom: 1rem;">Please try refreshing the page</div>
+                <button onclick="location.reload()" style="padding: 0.5rem 1rem; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Refresh Page
+                </button>
+            </div>
+        \`;
     }
 });
 `;
