@@ -11,10 +11,9 @@ import {
   Selectable,
   Insertable,
   Updateable,
-  SqliteDialect,
-  sql,
 } from 'kysely';
-import SQLite from 'better-sqlite3';
+import { D1Dialect } from 'kysely-d1';
+import { HttpD1Dialect } from './HttpD1Dialect';
 
 type CreatedAtType = ColumnType<string, string | undefined, string>;
 
@@ -150,116 +149,9 @@ export interface Database {
   users: UsersTable;
 }
 
-const dialect = new SqliteDialect({
-  database: new SQLite('db.sqlite'),
-});
-
 export const db = new Kysely<Database>({
-  dialect,
+  dialect: new HttpD1Dialect({
+    workerUrl: process.env.CLOUDFLARE_WORKER_URL || 'https://songs.dannytheliar.com',
+    apiKey: process.env.DATABASE_API_KEY || '',
+  }),
 });
-
-export async function initializeDatabase() {
-  await db.executeQuery(sql`PRAGMA foreign_keys = OFF;`.compile(db));
-  await db.schema.dropTable('songTags').ifExists().execute();
-  await db.schema.dropTable('songVotes').ifExists().execute();
-  await db.schema.dropTable('songs').ifExists().execute();
-  await db.schema.dropTable('downloads').ifExists().execute();
-  await db.schema.dropTable('songRequests').ifExists().execute();
-  await db.schema.dropTable('songHistory').ifExists().execute();
-  await db.schema.dropTable('streamHistory').ifExists().execute();
-  await db.schema.dropTable('nameThatTuneScores').ifExists().execute();
-  await db.executeQuery(sql`PRAGMA foreign_keys = ON;`.compile(db));
-
-  await db.schema.createTable('songRequests')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('effectiveCreatedAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('fulfilledAt', 'timestamp')
-    .addColumn('query', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('requester', 'varchar(255)')
-    .addColumn('twitchRewardId', 'varchar(255)')
-    .addColumn('twitchRedemptionId', 'varchar(255)')
-    .addColumn('status', 'varchar(32)', (cb) => cb.notNull())
-    .addColumn('priority', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('noShenanigans', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('songId', 'integer', (cb) => cb.references('songs.id'))
-    .addColumn('bumpCount', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .execute();
-
-  await db.schema.createTable('downloads')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('path', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('lyricsPath', 'varchar(255)')
-    .addColumn('isVideo', 'boolean', (cb) => cb.notNull().defaultTo(false))
-    .addColumn('songRequestId', 'integer', (cb) => cb.notNull().references('songRequests.id'))
-    .execute();
-
-  await db.schema.createTable('songs')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('artist', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('title', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('album', 'varchar(255)')
-    .addColumn('track', 'integer')
-    .addColumn('duration', 'real', (cb) => cb.notNull())
-    .addColumn('stemsPath', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('downloadId', 'integer', (cb) => cb.notNull().references('downloads.id'))
-    .execute();
-
-  await db.schema.createTable('songTags')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('tag', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
-    .execute();
-
-  await db.schema.createTable('songVotes')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('value', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
-    .addColumn('voterName', 'varchar(255)', (cb) => cb.notNull())
-    .execute();
-
-  await db.schema.createTable('songHistory')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('startedAt', 'timestamp', (cb) => cb.notNull())
-    .addColumn('endedAt', 'timestamp')
-    .addColumn('songId', 'integer', (cb) => cb.notNull().references('songs.id'))
-    .addColumn('songRequestId', 'integer', (cb) => cb.references('songRequests.id'))
-    .execute();
-
-  await db.schema.createTable('streamHistory')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('endedAt', 'timestamp')
-    .execute();
-
-  await db.schema.createTable('nameThatTuneScores')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('name', 'varchar(255)', (cb) => cb.notNull())
-    .addColumn('placement', 'integer', (cb) => cb.notNull())
-    .execute();
-
-  await db.schema.createTable('users')
-    .ifNotExists()
-    .addColumn('id', 'integer', (cb) => cb.primaryKey().autoIncrement().notNull())
-    .addColumn('createdAt', 'timestamp', (cb) => cb.notNull().defaultTo(sql`current_timestamp`))
-    .addColumn('name', 'varchar(255)', (cb) => cb.notNull().unique())
-    .addColumn('nameThatTunePoints', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('availableBumps', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('lastFreeBumpStreamHistoryId', 'integer', (cb) => cb.references('streamHistory.id'))
-    .addColumn('availableLongSongs', 'integer', (cb) => cb.notNull().defaultTo(0))
-    .addColumn('lastLongSongStreamHistoryId', 'integer', (cb) => cb.references('streamHistory.id'))
-    .execute();
-}

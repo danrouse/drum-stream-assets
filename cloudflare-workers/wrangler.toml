@@ -1,0 +1,22 @@
+name = "drum-stream-song-counter"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "songs.dannytheliar.com", custom_domain = true }
+]
+
+# D1 Database configuration (using the same database as music-stem-server)
+[[d1_databases]]
+binding = "DB"
+database_name = "music-stem-server-db"
+database_id = "bd01bc60-9e3e-422e-b8f2-175b5f4c0d4a"
+
+# Environment variables
+[env.production.vars]
+NODE_ENV = "production"
+# DATABASE_API_KEY = "your-secret-api-key-here"  # Set this via: wrangler secret put DATABASE_API_KEY
+
+[observability.logs]
+enabled = true
