@@ -182,28 +182,6 @@ export default class SongRequestModule {
         }
       }
     });
-    this.client.registerCommandHandler('!songlist', async (payload) => {
-      const res = await queries.songRequestQueue();
-      await this.client.sendTwitchMessage(
-        `@${payload.user} There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} on the wheel. Which one will be next?! PauseChampies ` +
-        `(Use !songs to see which are yours)`
-      );
-      // const MAX_RESPONSE_SONGS = 5;
-      // if (res.length === 0) {
-      //   await this.client.sendTwitchMessage(`@${payload.user} The song request queue is empty.`);
-      // } else {
-      //   await this.client.sendTwitchMessage(
-      //     `There ${res.length > 1 ? 'are' : 'is'} ${res.length} song${res.length > 1 ? 's' : ''} in queue: ` +
-      //     res.slice(0, MAX_RESPONSE_SONGS).map(s =>
-      //       `${s.artist} - ${s.title}`.substring(0, 32) + (`${s.artist} - ${s.title}`.length > 32 ? '...' : '') +
-      //       ` [${formatTime(s.duration)}]`
-      //     ).join(', ') +
-      //     (res.length > MAX_RESPONSE_SONGS ? ` (+ ${res.length - MAX_RESPONSE_SONGS} more)` : '')
-      //   );
-      //   const totalTime = res.reduce((acc, cur) => acc + cur.duration, 0);
-      //   await this.client.sendTwitchMessage(`The queue has ${res.length} song${res.length > 1 ? 's' : ''} and a length of ${formatTime(totalTime)}.`)
-      // }
-    });
     this.client.registerCommandHandler('!bump', async (payload) => {
       const { songRequest, isAmbiguous } = await this.disambiguate(
         payload.user, payload.message, 'Use !bump <number> to select which song to get more wheel entries for.'
