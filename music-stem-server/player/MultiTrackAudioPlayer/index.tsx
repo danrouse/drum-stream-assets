@@ -232,14 +232,14 @@ export default function MultiTrackAudioPlayer({
               disabled={!isLoaded}
               onClick={() => seek(0)}
             >
-              <i className="fa-solid fa-backward-step" />
+              <i className="fa-solid fa-backward-fast" />
             </button>
             <button
               className="MultiTrackAudioPlayer__seek-back"
               disabled={!isLoaded}
               onClick={() => seek(Math.max(0, position - 5))}
             >
-              <i className="fa-solid fa-backward" />
+              <i className="fa-solid fa-backward-step" />
             </button>
             <button
               className="MultiTrackAudioPlayer__stop"
