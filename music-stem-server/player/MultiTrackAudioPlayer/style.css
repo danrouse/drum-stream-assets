@@ -57,7 +57,7 @@
 .MultiTrackAudioPlayer__progress__slider::-webkit-slider-thumb {
   transform: scale(3);
 }
-.MultiTrackAudioPlayer__playpause {
+.MultiTrackAudioPlayer__controls button {
   font-size: 24px;
   margin: 4px;
 }
