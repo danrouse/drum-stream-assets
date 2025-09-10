@@ -427,8 +427,8 @@ export default class SongRequestModule {
 
   private async songRequestMaxDurationForUser(userName: string) {
     const viewer = await this.client.getViewer(userName);
-    let maxDuration = SONG_REQUEST_MAX_DURATION; // 7 mins default max
-    if (viewer?.role.toUpperCase() === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
+    let maxDuration = SONG_REQUEST_MAX_DURATION;
+    // if (viewer?.role.toUpperCase() === 'VIP') maxDuration = 60 * 10; // 10 mins for VIP
     if (viewer?.role === 'Moderator') maxDuration = 60 * 20; // 20 mins for mod
     if (viewer?.role === 'Broadcaster') maxDuration = 12000;
     return maxDuration;

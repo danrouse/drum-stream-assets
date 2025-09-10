@@ -372,7 +372,10 @@ body {
     .filter-row { grid-template-columns: 1fr; }
     .filter-group input, .filter-group select { min-width: auto; }
     .requests-table { font-size: 0.8rem; }
-    .requests-table th, .requests-table td { padding: 0.75rem; }
+    .requests-table th { display: none; }
+    .requests-table tr { display: flex; flex-direction: column; }
+    .requests-table td { padding: 0.75rem; }
+    .request-row:nth-child(odd) { background:rgb(250, 250, 250); }
     .refresh-button {
         font-size: 0.8rem;
         padding: 0.4rem 0.8rem;
@@ -561,7 +564,7 @@ function generateStreamSections(streamGroups) {
             const searchText = [song.query || '', song.title || '', song.artist || ''].join(' ').trim();
             const requestText = song.query
                 ? formatRequestText(song.query)
-                : '<em style="color: #999;">No request (played by streamer)</em>';
+                : '<em style="color: #999;">-</em>';
 
             return \`
                 <tr class="request-row"
@@ -578,7 +581,7 @@ function generateStreamSections(streamGroups) {
                             <div class="song-duration">\${song.duration ? formatDuration(song.duration) : ''}</div>
                         \` : '<em style="color: #999;">No song data</em>'}
                     </td>
-                    <td class="requester">\${escapeHtml(song.requester) || (song.query ? 'Unknown' : 'Streamer')}</td>
+                    <td class="requester">\${escapeHtml(song.requester) || ('Streamer')}</td>
                 </tr>
             \`;
         }).join('');
