@@ -43,7 +43,7 @@ export default class DMXLightingModule {
   private activeWaves: RippleWave[] = [];
   private drumHitCounts: Map<string, number> = new Map(); // Track alternating hits
 
-  // Define drum-to-light mappings with ripple centers and alternating colors (max 50% white saturation)
+  // Define drum-to-light mappings with ripple centers and alternating colors (reduced brightness to prevent oversaturation)
   private drumMappings: DrumMapping[] = [
     {
       name: 'Kick',
@@ -52,8 +52,8 @@ export default class DMXLightingModule {
       centerPosition: 2.5, // Left kick section
       mirrorPosition: 37.5, // Right kick section (40-2.5)
       midiKeys: midiNoteKeysByName.Kick,
-      color: this.parseColor('rgb(127, 127, 127)'), // Neutral gray for kick (50% white)
-      altColor: this.parseColor('rgb(127, 127, 255)') // Blue-gray for alternating hits
+      color: this.parseColor('rgb(80, 80, 80)'), // Neutral gray for kick (reduced brightness)
+      altColor: this.parseColor('rgb(80, 80, 160)') // Blue-gray for alternating hits
     },
     {
       name: 'Tom4',
@@ -62,8 +62,8 @@ export default class DMXLightingModule {
       centerPosition: 6, // Left tom4 section
       mirrorPosition: 35, // Right tom4 section
       midiKeys: midiNoteKeysByName.Tom4,
-      color: this.parseColor('rgb(0, 255, 0)'), // Pure saturated green
-      altColor: this.parseColor('rgb(127, 255, 0)') // Yellow-green
+      color: this.parseColor('rgb(0, 160, 0)'), // Green (reduced brightness)
+      altColor: this.parseColor('rgb(80, 160, 0)') // Yellow-green
     },
     {
       name: 'Tom3',
@@ -72,8 +72,8 @@ export default class DMXLightingModule {
       centerPosition: 9, // Left tom3 section
       mirrorPosition: 32, // Right tom3 section
       midiKeys: midiNoteKeysByName.Tom3,
-      color: this.parseColor('rgb(0, 255, 127)'), // Saturated cyan-green
-      altColor: this.parseColor('rgb(0, 255, 255)') // Pure cyan
+      color: this.parseColor('rgb(0, 160, 80)'), // Cyan-green (reduced brightness)
+      altColor: this.parseColor('rgb(0, 160, 160)') // Cyan
     },
     {
       name: 'Tom2',
@@ -82,8 +82,8 @@ export default class DMXLightingModule {
       centerPosition: 12, // Left tom2 section
       mirrorPosition: 29, // Right tom2 section
       midiKeys: midiNoteKeysByName.Tom2,
-      color: this.parseColor('rgb(0, 127, 255)'), // Saturated sky blue
-      altColor: this.parseColor('rgb(0, 200, 255)') // Brighter sky blue
+      color: this.parseColor('rgb(0, 80, 160)'), // Sky blue (reduced brightness)
+      altColor: this.parseColor('rgb(0, 120, 160)') // Brighter sky blue
     },
     {
       name: 'Tom1',
@@ -92,8 +92,8 @@ export default class DMXLightingModule {
       centerPosition: 15, // Left tom1 section
       mirrorPosition: 26, // Right tom1 section
       midiKeys: midiNoteKeysByName.Tom1,
-      color: this.parseColor('rgb(0, 0, 255)'), // Pure saturated blue
-      altColor: this.parseColor('rgb(127, 0, 255)') // Purple-blue
+      color: this.parseColor('rgb(0, 0, 160)'), // Blue (reduced brightness)
+      altColor: this.parseColor('rgb(80, 0, 160)') // Purple-blue
     },
     {
       name: 'Snare',
@@ -101,8 +101,17 @@ export default class DMXLightingModule {
       endLight: 24,
       centerPosition: 20.5, // Center of snare section (middle of the bar)
       midiKeys: midiNoteKeysByName.Snare,
-      color: this.parseColor('rgb(255, 0, 0)'), // Pure saturated red
-      altColor: this.parseColor('rgb(255, 0, 127)') // Red-magenta
+      color: this.parseColor('rgb(160, 0, 0)'), // Red (reduced brightness)
+      altColor: this.parseColor('rgb(160, 0, 80)') // Red-magenta
+    },
+    {
+      name: 'HiHat',
+      startLight: 40,
+      endLight: 40,
+      centerPosition: 40, // Far right end of the bar
+      midiKeys: midiNoteKeysByName.HiHat,
+      color: this.parseColor('rgb(130, 110, 36)'), // Golden yellow (from midiNoteDefinitions, reduced brightness)
+      altColor: this.parseColor('rgb(160, 140, 50)') // Brighter golden yellow
     },
     // Cymbals - positioned around the sides of the kit with small tom-like sizes
     {
@@ -111,8 +120,8 @@ export default class DMXLightingModule {
       endLight: 27,
       centerPosition: 26, // Near snare, left of Tom1 mirror
       midiKeys: midiNoteKeysByName.Crash1,
-      color: this.parseColor('rgb(255, 255, 0)'), // Pure yellow
-      altColor: this.parseColor('rgb(255, 127, 0)') // Orange
+      color: this.parseColor('rgb(160, 160, 0)'), // Yellow (reduced brightness)
+      altColor: this.parseColor('rgb(160, 80, 0)') // Orange
     },
     {
       name: 'Crash2',
@@ -120,8 +129,8 @@ export default class DMXLightingModule {
       endLight: 30,
       centerPosition: 29, // Between Tom2 and Tom1 mirrors
       midiKeys: midiNoteKeysByName.Crash2,
-      color: this.parseColor('rgb(255, 0, 255)'), // Pure magenta
-      altColor: this.parseColor('rgb(255, 127, 255)') // Light magenta
+      color: this.parseColor('rgb(160, 0, 160)'), // Magenta (reduced brightness)
+      altColor: this.parseColor('rgb(160, 80, 160)') // Light magenta
     },
     {
       name: 'Crash3',
@@ -129,8 +138,8 @@ export default class DMXLightingModule {
       endLight: 9,
       centerPosition: 8, // Between Tom4 and Tom3 on left
       midiKeys: midiNoteKeysByName.Crash3,
-      color: this.parseColor('rgb(127, 255, 255)'), // Light cyan
-      altColor: this.parseColor('rgb(0, 255, 255)') // Pure cyan
+      color: this.parseColor('rgb(80, 160, 160)'), // Light cyan (reduced brightness)
+      altColor: this.parseColor('rgb(0, 160, 160)') // Cyan
     },
     {
       name: 'Ride',
@@ -138,8 +147,8 @@ export default class DMXLightingModule {
       endLight: 36,
       centerPosition: 35, // Between Tom4 mirror and Tom3 mirror
       midiKeys: midiNoteKeysByName.Ride,
-      color: this.parseColor('rgb(255, 127, 0)'), // Orange
-      altColor: this.parseColor('rgb(255, 200, 0)') // Yellow-orange
+      color: this.parseColor('rgb(160, 80, 0)'), // Orange (reduced brightness)
+      altColor: this.parseColor('rgb(160, 120, 0)') // Yellow-orange
     },
     {
       name: 'Ride2',
@@ -147,8 +156,8 @@ export default class DMXLightingModule {
       endLight: 39,
       centerPosition: 38, // Near kick mirror
       midiKeys: midiNoteKeysByName.Ride2,
-      color: this.parseColor('rgb(200, 100, 0)'), // Dark orange
-      altColor: this.parseColor('rgb(255, 150, 0)') // Bright orange
+      color: this.parseColor('rgb(120, 60, 0)'), // Dark orange (reduced brightness)
+      altColor: this.parseColor('rgb(160, 90, 0)') // Bright orange
     },
     {
       name: 'Splash',
@@ -156,8 +165,8 @@ export default class DMXLightingModule {
       endLight: 6,
       centerPosition: 5, // Between kick and Tom4 on left
       midiKeys: midiNoteKeysByName.Splash,
-      color: this.parseColor('rgb(127, 0, 255)'), // Purple
-      altColor: this.parseColor('rgb(200, 0, 255)') // Bright purple
+      color: this.parseColor('rgb(80, 0, 160)'), // Purple (reduced brightness)
+      altColor: this.parseColor('rgb(120, 0, 160)') // Bright purple
     },
     {
       name: 'Splash2',
@@ -165,8 +174,8 @@ export default class DMXLightingModule {
       endLight: 33,
       centerPosition: 32, // Between Tom3 and Tom2 mirrors
       midiKeys: midiNoteKeysByName.Splash2,
-      color: this.parseColor('rgb(0, 127, 127)'), // Dark cyan
-      altColor: this.parseColor('rgb(0, 200, 200)') // Bright cyan
+      color: this.parseColor('rgb(0, 80, 80)'), // Dark cyan (reduced brightness)
+      altColor: this.parseColor('rgb(0, 120, 120)') // Bright cyan
     }
   ];
 
