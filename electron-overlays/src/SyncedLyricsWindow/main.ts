@@ -40,6 +40,7 @@ function renderLyrics(timestamp: number = 0) {
 }
 
 let isPlaying = false;
+let isSeeking = false;
 let currentTimestamp = 0;
 let lastFrameTime = 0;
 let hasVideo = false;
@@ -77,8 +78,15 @@ window.ipcRenderer.on('song_changed', (_, payload: { song: SongData, lyrics: Lyr
   renderLyrics();
 });
 window.ipcRenderer.on('song_progress', (_, payload) => {
-  if (hasVideo && Math.abs(videoElem.currentTime - payload.timestamp) > (1 * playbackRate)) {
+  if (
+    hasVideo &&
+    !isSeeking &&
+    Math.abs(videoElem.currentTime - payload.timestamp) > (1 * playbackRate)
+  ) {
     videoElem.currentTime = payload.timestamp;
+    isSeeking = true;
+  } else {
+    isSeeking = false;
   }
   currentTimestamp = payload.timestamp;
 });
