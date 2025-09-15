@@ -75,4 +75,5 @@ if __name__ == "__main__":
     NON_BMP_RE = re.compile(u"[^\U00000000-\U0000d7ff\U0000e000-\U0000ffff]", flags=re.UNICODE)
     stripped_text = NON_BMP_RE.sub(u'', sys.argv[1])
     stripped_text = stripped_text.replace('\\', '')
-    asyncio.run(text_to_speech(stripped_text[0:MAX_LEN]))
+    if stripped_text:
+        asyncio.run(text_to_speech(stripped_text[0:MAX_LEN]))
