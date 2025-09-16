@@ -27,6 +27,10 @@ export default async function getSongTags(songPath: string) {
     }
     if (hasMetadata) {
       const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      // Emerson South override because of how YouTube credits artists
+      if (metadata.artist.startsWith('Emerson South,')) {
+        metadata.artist = 'Emerson South';
+      }
       tags.common.artist = metadata.artist || '';
       tags.common.title = metadata.fulltitle || metadata.track;
       tags.common.album = `YouTube [${metadata.id}]`;
