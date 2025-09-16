@@ -3,10 +3,10 @@ import { existsSync } from 'fs';
 import { join, basename } from 'path';
 
 type DemucsModel =
-  'htdemucs' | 'htdemucs_ft' | 'htdemucs_6s' | 'hdemucs_mmi' | 
+  'htdemucs' | 'htdemucs_ft' | 'htdemucs_6s' | 'hdemucs_mmi' |
   'mdx' | 'mdx_extra' | 'mdx_q' | 'mdx_extra_q';
 
-export const DEFAULT_DEMUCS_MODEL: DemucsModel = 'htdemucs';
+export const DEFAULT_DEMUCS_MODEL: DemucsModel = 'htdemucs_ft';
 
 export default function demucs(
   inputPath: string,
