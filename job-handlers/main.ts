@@ -24,6 +24,7 @@ await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
     id: msg.id,
     path: downloadedSongPath,
     ignoreDuplicates: msg.ignoreDuplicates,
+    requester: msg.requester,
 
     artist: String(tags.common?.artist) || '',
     title: String(tags.common?.title) || '',
@@ -55,5 +56,6 @@ await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
     lyricsPath: lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
     stemsPath: stemsPath.replace(Paths.STEMS_PATH, '').replace(/^[/\\]+/, ''),
     isVideo,
+    requester: msg.requester,
   });
 });

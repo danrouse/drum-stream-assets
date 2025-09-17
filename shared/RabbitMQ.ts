@@ -9,6 +9,7 @@ export type Payloads = {
     maxDuration?: number,
     minViews?: number,
     ignoreDuplicates?: boolean,
+    requester?: string,
   },
   'song_request_downloaded': {
     id: number,
@@ -19,6 +20,7 @@ export type Payloads = {
     album: string,
     track: number,
     duration: number,
+    requester?: string,
   },
   'song_request_complete': {
     id: number,
@@ -31,6 +33,7 @@ export type Payloads = {
     album: string,
     track: number,
     duration: number,
+    requester?: string,
   },
   'song_request_error': {
     id: number,

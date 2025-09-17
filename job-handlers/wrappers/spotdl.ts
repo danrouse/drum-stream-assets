@@ -1,6 +1,6 @@
-import { execSync, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import { join, resolve as resolvePath } from 'path';
-import { existsSync, readFileSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { sleep } from '../../shared/util';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
@@ -26,7 +26,10 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
         '--generate-lrc',
         'download', `"${query}"`,
       ],
-      { shell: true }
+      {
+        shell: true,
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+      }
     );
     let resolveTo: string | undefined;
     let buf: string = '';
