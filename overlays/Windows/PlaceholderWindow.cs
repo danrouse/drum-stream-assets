@@ -50,14 +50,6 @@ public class NowPlayingWindow : PlaceholderWindow
     }
 }
 
-// SyncedLyricsWindow is now implemented in its own file
-
-public class AudioDisplayWindow : PlaceholderWindow
-{
-    public AudioDisplayWindow() : base("audio-display", "Audio Display")
-    {
-    }
-}
 
 public class SongHistoryWindow : PlaceholderWindow
 {

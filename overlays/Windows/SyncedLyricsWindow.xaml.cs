@@ -159,6 +159,11 @@ public partial class SyncedLyricsWindow : BaseOverlayWindow
                     HandleSongSpeed(speed);
                     break;
 
+                case SongPlaybackCompletedMessage:
+                    Console.WriteLine($"[SyncedLyricsWindow] Song playback completed");
+                    HandleSongStopped(); // Same behavior as song stopped
+                    break;
+
                 default:
                     Console.WriteLine($"[SyncedLyricsWindow] Unhandled message type: {message.GetType().Name}");
                     break;
@@ -240,6 +245,10 @@ public partial class SyncedLyricsWindow : BaseOverlayWindow
         _currentTimestamp = 0;
         _isPlaying = false;
 
+        // Show the window when a new song starts
+        Console.WriteLine("[SyncedLyricsWindow] Showing window - new song loaded");
+        Visibility = Visibility.Visible;
+
         // Update display based on what content is available
         UpdateDisplay();
 
@@ -280,6 +289,10 @@ public partial class SyncedLyricsWindow : BaseOverlayWindow
         VideoPlayer.Visibility = Visibility.Hidden;
         _hasVideo = false;
         RenderLyrics(_currentTimestamp);
+
+        // Hide the entire window when song is stopped
+        Console.WriteLine("[SyncedLyricsWindow] Hiding window - song stopped");
+        Visibility = Visibility.Hidden;
     }
 
     private void HandleSongPlayed(SongPlayedMessage message)

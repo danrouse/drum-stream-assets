@@ -43,7 +43,7 @@ public class WindowManager : INotifyPropertyChanged
     {
         var definitions = new[]
         {
-            // Only implemented windows for now
+            // Implemented windows
             new WindowDefinition
             {
                 Key = "synced-lyrics",
@@ -51,6 +51,14 @@ public class WindowManager : INotifyPropertyChanged
                 WindowType = typeof(SyncedLyricsWindow),
                 Width = 640,
                 Height = 400
+            },
+            new WindowDefinition
+            {
+                Key = "audio-display",
+                DisplayName = "Audio Display",
+                WindowType = typeof(AudioDisplayWindow),
+                Width = 1920,
+                Height = 100
             }
 
             // TODO: Uncomment as windows are implemented
@@ -270,6 +278,11 @@ public class WindowManager : INotifyPropertyChanged
         if (definition.WindowType == typeof(SyncedLyricsWindow))
         {
             return new SyncedLyricsWindow();
+        }
+
+        if (definition.WindowType == typeof(AudioDisplayWindow))
+        {
+            return new AudioDisplayWindow();
         }
 
         return Activator.CreateInstance(definition.WindowType) as IOverlayWindow;

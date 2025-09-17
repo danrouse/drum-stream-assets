@@ -1,0 +1,43 @@
+<local:BaseOverlayWindow x:Class="DrumStreamOverlays.AudioDisplayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DrumStreamOverlays"
+        Title="Audio Display" Width="1920" Height="100">
+
+    <Grid Background="Transparent">
+        <!-- Waveform Canvas -->
+        <Canvas Name="WaveformCanvas"
+                Background="Transparent"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ClipToBounds="True">
+
+            <!-- Progress indicator line -->
+            <Line Name="ProgressLine"
+                  X1="0" Y1="0"
+                  X2="0" Y2="100"
+                  Stroke="#B3E1DCC1"
+                  StrokeThickness="2"
+                  Visibility="Visible"/>
+
+        </Canvas>
+
+        <!-- Loading indicator -->
+        <TextBlock Name="LoadingText"
+                   Text="Loading audio..."
+                   FontFamily="Bahnschrift"
+                   FontSize="16"
+                   Foreground="White"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Visibility="Hidden">
+            <TextBlock.Effect>
+                <DropShadowEffect Color="Black"
+                                Direction="315"
+                                ShadowDepth="2"
+                                BlurRadius="1"
+                                Opacity="0.8"/>
+            </TextBlock.Effect>
+        </TextBlock>
+    </Grid>
+</local:BaseOverlayWindow>
