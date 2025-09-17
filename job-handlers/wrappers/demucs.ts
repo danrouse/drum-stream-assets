@@ -15,10 +15,11 @@ export default function demucs(
   model: DemucsModel = DEFAULT_DEMUCS_MODEL
 ) {
   const songBasename = basename(inputPath).replace(/\..{3,4}$/i, '');
+  const modelOutputDir = model === 'htdemucs_ft' ? 'htdemucs' : model;
 
   return new Promise<string>((resolve, reject) => {
     // check to see if it's not already been processed first
-    const dstPath = join(outputPath, model, songBasename.replace(/\.$/, ''));
+    const dstPath = join(outputPath, modelOutputDir, songBasename.replace(/\.$/, ''));
     if (existsSync(dstPath) && ignoreDuplicates) {
       console.log('demucs output already exists, skipping');
       return resolve(dstPath);
@@ -54,7 +55,7 @@ export default function demucs(
       }
     });
     child.on('close', () => {
-      return resolve(dstPath.replace(join(outputPath, model), '').replace(/^[/\\]+/, ''));
+      return resolve(dstPath.replace(join(outputPath, modelOutputDir), '').replace(/^[/\\]+/, ''));
     });
     child.on('error', (err) => {
       return reject(err.message);
