@@ -1,0 +1,114 @@
+<Window x:Class="DrumStreamOverlays.ManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Drum Stream Overlays Manager" Height="800" Width="1200"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style x:Key="StatusOpenStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Green"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style x:Key="StatusClosedStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Red"/>
+        </Style>
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="MinWidth" Value="60"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title and Connection Status -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
+            <TextBlock Text="Drum Stream Overlays Manager" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+            <Border Margin="20,0,0,0" Padding="8,4" Background="LightGray" CornerRadius="3">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Name="ConnectionIndicator" Width="8" Height="8" Fill="Red" VerticalAlignment="Center"/>
+                    <TextBlock Name="ConnectionStatus" Text="Disconnected" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Global Controls -->
+        <GroupBox Grid.Row="1" Header="Global Controls" Margin="10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Name="OpenAllButton" Content="Open All" Style="{StaticResource ButtonStyle}" Click="OpenAllButton_Click"/>
+                <Button Name="CloseAllButton" Content="Close All" Style="{StaticResource ButtonStyle}" Click="CloseAllButton_Click"/>
+                <Button Name="RestartAllButton" Content="Restart All" Style="{StaticResource ButtonStyle}" Click="RestartAllButton_Click"/>
+                <Separator Margin="10,0"/>
+                <Button Name="ReconnectButton" Content="Reconnect WebSocket" Style="{StaticResource ButtonStyle}" Click="ReconnectButton_Click"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Window List -->
+        <GroupBox Grid.Row="2" Header="Overlay Windows" Margin="10">
+            <DataGrid Name="WindowsDataGrid"
+                      ItemsSource="{Binding WindowStatuses}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserReorderColumns="False"
+                      CanUserResizeRows="False"
+                      GridLinesVisibility="Horizontal"
+                      AlternatingRowBackground="LightGray">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Window" Binding="{Binding DisplayName}" Width="200" IsReadOnly="True"/>
+                    <DataGridTemplateColumn Header="Status" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding IsOpen}" HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Include in Open All" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IncludeInOpenAll, UpdateSourceTrigger=PropertyChanged}"
+                                          HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Actions" Width="*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Open"
+                                            Style="{StaticResource ButtonStyle}"
+                                            Click="OpenWindow_Click"
+                                            Tag="{Binding WindowKey}"/>
+                                    <Button Content="Close"
+                                            Style="{StaticResource ButtonStyle}"
+                                            Click="CloseWindow_Click"
+                                            Tag="{Binding WindowKey}"/>
+                                    <Button Content="Restart"
+                                            Style="{StaticResource ButtonStyle}"
+                                            Click="RestartWindow_Click"
+                                            Tag="{Binding WindowKey}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="3">
+            <StatusBarItem>
+                <TextBlock Name="StatusText" Text="Ready"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Name="MessageCountText" Text="Messages: 0"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
