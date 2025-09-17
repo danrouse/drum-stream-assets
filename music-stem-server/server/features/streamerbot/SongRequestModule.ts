@@ -13,7 +13,7 @@ import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';
 import { db } from '../../database';
 import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
-import { createLogger, isURL, formatTime } from '../../../../shared/util';
+import { createLogger, isURL, formatTime, getOrdinal } from '../../../../shared/util';
 import { WebSocketMessage } from '../../../../shared/messages';
 import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
@@ -34,7 +34,9 @@ export default class SongRequestModule {
   private client: StreamerbotWebSocketClient;
   private wss: WebSocketCoordinatorServer;
   private jobs: JobInterface;
-  private successCallbacks: { [id: number]: (songTitle: string) => void } = {};
+  private successCallbacks: {
+    [id: number]: (songTitle: string, numPreviousRequests: number, numPreviousRequestsBySameRequester: number) => void
+  } = {};
   private failureCallbacks: { [id: number]: (errorType: string) => void } = {};
   private userCommandHistory: { [username: string]: [string, number][] } = {};
 
@@ -483,7 +485,7 @@ export default class SongRequestModule {
   private async execute(
     query: string,
     options: Partial<SongRequestOptions> = {},
-    onSuccess?: (songTitle: string) => void,
+    onSuccess?: (songTitle: string, numPreviousRequests: number, numPreviousRequestsBySameRequester: number) => void,
     onFailure?: (errorType: string) => void,
   ) {
     // remove unnecessary query params from URLs to help with duplicate detection
@@ -539,6 +541,7 @@ export default class SongRequestModule {
           album: priorSongRequest.album!,
           track: priorSongRequest.track!,
           duration: priorSongRequest.duration!,
+          requester: options.requesterName,
         });
       });
     } else {
@@ -547,6 +550,7 @@ export default class SongRequestModule {
         query,
         maxDuration: options.maxDuration,
         minViews: options.minViews,
+        requester: options.requesterName,
       });
     }
     return songRequest.id;
@@ -596,9 +600,23 @@ export default class SongRequestModule {
         .where('id', '=', payload.id)
         .execute();
 
+      const previousRequests = await db
+        .selectFrom('songRequests')
+        .select([
+          db.fn.countAll<number>().as('total'),
+          db.fn.count<number>('id').filterWhere(sql`lower(requester)`, '=', payload.requester).as('sameRequester')
+        ])
+        .where('songId', '=', song.id)
+        .where('status', '=', 'fulfilled')
+        .execute();
+
       this.wss.broadcast({ type: 'song_request_added', songRequestId: payload.id });
 
-      this.successCallbacks[payload.id]?.([payload.artist, payload.title].filter(s => s).join(' - '));
+      this.successCallbacks[payload.id]?.(
+        [payload.artist, payload.title].filter(s => s).join(' - '),
+        previousRequests[0].total,
+        previousRequests[0].sameRequester,
+      );
     } catch (e) {
       return this.handleSongRequestError({
         errorMessage: e instanceof Error ? e.message : (e as string),
@@ -677,7 +695,7 @@ export default class SongRequestModule {
 
     const minViews = await this.songRequestMinViewsForUser(requesterName);
     const songRequestId = await this.execute(
-      query,
+      query.trim(),
       {
         priority,
         noShenanigans,
@@ -687,7 +705,7 @@ export default class SongRequestModule {
         twitchRewardId,
         twitchRedemptionId,
       },
-      async (songTitle: string) => {
+      async (songTitle: string, numPreviousRequests: number, numPreviousRequestsBySameRequester: number) => {
         if (songRequestToReplaceId) {
           const oldSongRequest = await db.updateTable('songRequests')
             .where('id', '=', songRequestToReplaceId)
@@ -700,7 +718,13 @@ export default class SongRequestModule {
             .execute();
           await this.client.sendTwitchMessage(`@${requesterName} Your request has been replaced with ${songTitle}!`);
         } else {
-          await this.client.sendTwitchMessage(`@${requesterName} ${songTitle} was added to the wheel!`);
+          let message = `@${requesterName} ${songTitle} was added to the wheel!`;
+          if (numPreviousRequests === 0) {
+            message += ` It's never been requested before!`;
+          } else {
+            message += ` It's the ${getOrdinal(numPreviousRequests)} time it's been requested here.`;
+          }
+          await this.client.sendTwitchMessage(message);
         }
         hasResponded = true;
       },
