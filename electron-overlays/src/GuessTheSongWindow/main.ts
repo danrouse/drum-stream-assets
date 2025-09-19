@@ -70,11 +70,15 @@ window.ipcRenderer.on('chat_message', (_, payload) => {
   const message = payload.message.trim().replace(/dannyt75Fourrin/g, '4');
   const response = Number(message.match(/^(\d+).*/)?.[1]);
   if (!Number.isNaN(response) && response > 0 && response <= NUM_SONG_OPTIONS) {
-    responses.push({
-      user: payload.user,
-      response,
-      time: new Date(),
-    });
+    // don't overwrite previous response if it is the same
+    const previousResponse = responses.findLast(r => r.user === payload.user);
+    if (!previousResponse || previousResponse.response !== response) {
+      responses.push({
+        user: payload.user,
+        response,
+        time: new Date(),
+      });
+    }
   }
 });
 
