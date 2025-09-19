@@ -15,7 +15,6 @@ public abstract class BaseOverlayWindow : Window, IOverlayWindow
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_TRANSPARENT = 0x20;
     private const int WS_EX_LAYERED = 0x80000;
-    private const int WS_EX_TOPMOST = 0x8;
 
     protected BaseOverlayWindow()
     {
@@ -24,7 +23,6 @@ public abstract class BaseOverlayWindow : Window, IOverlayWindow
         ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true;
         Background = System.Windows.Media.Brushes.Transparent;
-        Topmost = true;
         ShowInTaskbar = false;
 
         // Subscribe to loaded event to make window click-through
@@ -40,7 +38,7 @@ public abstract class BaseOverlayWindow : Window, IOverlayWindow
     {
         var hwnd = new WindowInteropHelper(this).Handle;
         var extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_TOPMOST);
+        SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_TRANSPARENT | WS_EX_LAYERED);
     }
 
     protected void DisableClickThrough()
