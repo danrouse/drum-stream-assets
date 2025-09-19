@@ -646,10 +646,13 @@ export default class SongRequestModule {
     // Check if user already has the maximum ongoing song requests before processing
     const existingRequestCount = await queries.numOpenRequestsByUser(fromUsername);
     if (perUserLimit && Number(existingRequestCount[0].count) >= perUserLimit) {
-      await this.client.sendTwitchMessage(
-        `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), ` +
-        `please wait until one of your songs has played before requesting another!`
-      );
+      let message = `@${fromUsername} You have the maximum number of ongoing song requests (${perUserLimit}), `;
+      if (perUserLimit === 1) {
+        message += 'please wait until your song has played before requesting another! (Subs get 2 at a time!)';
+      } else {
+        message += `please wait until one of your songs has played before requesting another!`;
+      }
+      await this.client.sendTwitchMessage(message);
       throw new Error('TOO_MANY_REQUESTS');
     }
 
