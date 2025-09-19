@@ -21,14 +21,15 @@ interface SongRequestOptions {
   priority: number,
   noShenanigans: boolean,
   maxDuration: number,
-  minViews: number,
-  requesterName: string,
+  minViews?: number,
   twitchRewardId?: string,
   twitchRedemptionId?: string,
+  songRequestToReplaceId?: number,
 }
 
 const SONG_REQUEST_MAX_DURATION = 60 * 6;
 const LONG_SONG_REQUEST_MAX_DURATION = 60 * 12;
+const DEFAULT_REQUESTER_NAME = 'danny_the_liar';
 
 export default class SongRequestModule {
   private client: StreamerbotWebSocketClient;
@@ -49,25 +50,6 @@ export default class SongRequestModule {
   ) {
     this.client = client;
     this.wss = wss;
-
-    /*
-    this.client.registerCommandHandler('song request', async (payload) => {
-      try {
-        const query = await this.prepareUserSongRequest(
-          payload.message,
-          payload.user,
-          await this.songRequestMaxCountForUser(payload.user)
-        );
-        await this.handleUserSongRequest(
-          query,
-          payload.user,
-          await this.songRequestMaxDurationForUser(payload.user)
-        );
-      } catch (e) {
-        this.log('Song request error', e);
-      }
-    });
-    */
 
     this.client.registerCustomEventHandler('Song Request', async (payload) => {
       if (!payload.isFollowing && !payload.isSubscribed && !payload.isModerator) {
@@ -94,7 +76,6 @@ export default class SongRequestModule {
           await this.handleUserSongRequest(
             query,
             payload.user,
-            await this.songRequestMaxDurationForUser(payload.user)
           );
         } catch (e) {
           this.log('Song request error', e);
@@ -112,8 +93,11 @@ export default class SongRequestModule {
         await this.handleUserSongRequest(
           query,
           forUser,
-          // still use moderator's max duration, to respect global limits
-          await this.songRequestMaxDurationForUser(payload.user),
+          {
+            // use moderator's limits instead of user's
+            maxDuration: await this.songRequestMaxDurationForUser(payload.user),
+            minViews: await this.songRequestMinViewsForUser(payload.user),
+          },
         );
       } catch (e) {
         this.log('Song request !srfor error', e);
@@ -140,12 +124,11 @@ export default class SongRequestModule {
       await this.handleUserSongRequest(
         query,
         payload.user,
-        await this.songRequestMaxDurationForUser(payload.user),
-        songRequest.priority,
-        Boolean(songRequest.noShenanigans),
-        undefined,
-        undefined,
-        songRequest.id,
+        {
+          priority: songRequest.priority,
+          noShenanigans: Boolean(songRequest.noShenanigans),
+          songRequestToReplaceId: songRequest.id,
+        },
       );
     });
     this.client.registerCommandHandler('!remove', async (payload) => {
@@ -244,7 +227,9 @@ export default class SongRequestModule {
         await this.handleUserSongRequest(
           query,
           payload.user,
-          LONG_SONG_REQUEST_MAX_DURATION,
+          {
+            maxDuration: LONG_SONG_REQUEST_MAX_DURATION,
+          },
         );
         await db.updateTable('users')
           .where('id', '=', user.id)
@@ -275,11 +260,11 @@ export default class SongRequestModule {
         await this.handleUserSongRequest(
           query,
           payload.user,
-          LONG_SONG_REQUEST_MAX_DURATION,
-          0,
-          false,
-          payload.rewardId,
-          payload.redemptionId,
+          {
+            maxDuration: LONG_SONG_REQUEST_MAX_DURATION,
+            twitchRewardId: payload.rewardId,
+            twitchRedemptionId: payload.redemptionId,
+          },
         );
 
         await db.updateTable('users')
@@ -312,11 +297,11 @@ export default class SongRequestModule {
           await this.handleUserSongRequest(
             query,
             payload.user,
-            await this.songRequestMaxDurationForUser(payload.user),
-            SongRequestModule.PRIORITY_REQUEST_VALUE,
-            false,
-            payload.rewardId,
-            payload.redemptionId,
+            {
+              priority: SongRequestModule.PRIORITY_REQUEST_VALUE,
+              twitchRewardId: payload.rewardId,
+              twitchRedemptionId: payload.redemptionId,
+            }
           );
         }
       } catch (err) {
@@ -344,11 +329,11 @@ export default class SongRequestModule {
           await this.handleUserSongRequest(
             query,
             payload.user,
-            await this.songRequestMaxDurationForUser(payload.user),
-            0,
-            true,
-            payload.rewardId,
-            payload.redemptionId,
+            {
+              noShenanigans: true,
+              twitchRewardId: payload.rewardId,
+              twitchRedemptionId: payload.redemptionId,
+            },
           );
         }
       } catch (err) {
@@ -373,7 +358,7 @@ export default class SongRequestModule {
       }
     });
 
-    this.wss.registerHandler('song_request', payload => this.execute(payload.query, { maxDuration: 12000 }));
+    this.wss.registerHandler('song_request', payload => this.execute(payload.query, DEFAULT_REQUESTER_NAME, { maxDuration: 12000 }));
     this.wss.registerHandler('song_playback_completed', this.handleSongPlaybackCompleted);
     this.wss.registerHandler('song_request_removed', this.handleSongPlaybackCompleted);
     this.wss.registerHandler('song_changed', this.handleSongChanged);
@@ -484,6 +469,7 @@ export default class SongRequestModule {
 
   private async execute(
     query: string,
+    requesterName: string,
     options: Partial<SongRequestOptions> = {},
     onSuccess?: (songTitle: string, numPreviousRequests: number, numPreviousRequestsBySameRequester: number) => void,
     onFailure?: (errorType: string) => void,
@@ -520,7 +506,7 @@ export default class SongRequestModule {
       priority: options?.priority || 0,
       noShenanigans: Number(options?.noShenanigans || 0),
       status: 'processing',
-      requester: options?.requesterName,
+      requester: requesterName,
       twitchRewardId: options?.twitchRewardId,
       twitchRedemptionId: options?.twitchRedemptionId,
     }).returning('id as id').execute())[0];
@@ -541,7 +527,7 @@ export default class SongRequestModule {
           album: priorSongRequest.album!,
           track: priorSongRequest.track!,
           duration: priorSongRequest.duration!,
-          requester: options.requesterName,
+          requester: requesterName,
         });
       });
     } else {
@@ -550,7 +536,7 @@ export default class SongRequestModule {
         query,
         maxDuration: options.maxDuration,
         minViews: options.minViews,
-        requester: options.requesterName,
+        requester: requesterName,
       });
     }
     return songRequest.id;
@@ -679,12 +665,7 @@ export default class SongRequestModule {
   private async handleUserSongRequest(
     query: string,
     requesterName: string,
-    maxDuration: number,
-    priority: number = 0,
-    noShenanigans: boolean = false,
-    twitchRewardId?: string,
-    twitchRedemptionId?: string,
-    songRequestToReplaceId?: number,
+    options?: Partial<SongRequestOptions>,
   ) {
     let hasResponded = false;
     setTimeout(async () => {
@@ -693,22 +674,16 @@ export default class SongRequestModule {
       }
     }, 500);
 
-    const minViews = await this.songRequestMinViewsForUser(requesterName);
+    const maxDuration = options?.maxDuration || await this.songRequestMaxDurationForUser(requesterName);
+    const minViews = options?.minViews || await this.songRequestMinViewsForUser(requesterName);
     const songRequestId = await this.execute(
       query.trim(),
-      {
-        priority,
-        noShenanigans,
-        maxDuration,
-        minViews,
-        requesterName,
-        twitchRewardId,
-        twitchRedemptionId,
-      },
+      requesterName,
+      options,
       async (songTitle: string, numPreviousRequests: number, numPreviousRequestsBySameRequester: number) => {
-        if (songRequestToReplaceId) {
+        if (options?.songRequestToReplaceId) {
           const oldSongRequest = await db.updateTable('songRequests')
-            .where('id', '=', songRequestToReplaceId)
+            .where('id', '=', options.songRequestToReplaceId)
             .set('status', 'cancelled')
             .returning(['effectiveCreatedAt'])
             .execute();
