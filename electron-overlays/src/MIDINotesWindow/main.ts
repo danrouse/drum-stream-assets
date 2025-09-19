@@ -103,6 +103,10 @@ function triggerNote(note: number, velocity: number, animated: boolean = true, n
     return;
   }
 
+  if (!existingNoteByType[note]) {
+    existingNoteByType[note] = [];
+  }
+
   if (existingNoteByType[note].length >= MAX_ELEMS_PER_NOTE) {
     const elem = existingNoteByType[note].shift();
     elem?.remove();
