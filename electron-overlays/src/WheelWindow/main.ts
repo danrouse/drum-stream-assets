@@ -1034,12 +1034,14 @@ window.ipcRenderer.on('song_played', () => {
 
 window.ipcRenderer.on('viewers_update', (_, payload) => {
   // Update user color mapping from viewer data
-  userColors.clear();
   payload.viewers.forEach((viewer: any) => {
     if (viewer.login && viewer.color) {
       userColors.set(viewer.login.toLowerCase(), viewer.color);
     }
   });
+  if (!isSpinning && globalContainer.classList.contains('wheel-visible')) {
+    initializeWheel();
+  }
 });
 
 // =============================================================================

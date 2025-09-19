@@ -52,7 +52,7 @@ export default class StreamerbotWebSocketClient {
   private twitchDebounceQueue: { [key: string]: number } = {};
   private streamerbotActionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private updateViewersTimer?: NodeJS.Timeout;
-  private viewers: Array<StreamerbotViewer & { online: boolean }> = [];
+  private viewers: Array<StreamerbotViewer & { online: boolean, color?: string }> = [];
   private commandHandlers: { [command in Streamerbot.CommandName]?: (payload: CommandPayload) => void } = {};
   private twitchRedemptionHandlers: { [reward in Streamerbot.TwitchRewardName]?: (payload: TwitchRedemptionPayload) => void } = {};
   private customEventHandlers: { [event: string]: (payload: any) => void } = {};
@@ -345,6 +345,10 @@ export default class StreamerbotWebSocketClient {
 
   public async handleTwitchChatMessage(payload: StreamerbotEventPayload<"Twitch.ChatMessage">) {
     if (payload.data.message.userId === StreamerbotWebSocketClient.BOT_TWITCH_USER_ID) return;
+    const viewer = this.viewers.find(v => v.id === payload.data.message.userId);
+    if (viewer) {
+      viewer.color = payload.data.message.color;
+    }
     this.wss.broadcast({
       type: 'chat_message',
       user: payload.data.message.displayName,
