@@ -13,7 +13,7 @@ import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';
 import { db } from '../../database';
 import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
-import { createLogger, isURL, formatTime, getOrdinal } from '../../../../shared/util';
+import { createLogger, isURL, formatTime } from '../../../../shared/util';
 import { WebSocketMessage } from '../../../../shared/messages';
 import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
@@ -695,9 +695,7 @@ export default class SongRequestModule {
         } else {
           let message = `@${requesterName} ${songTitle} was added to the wheel!`;
           if (numPreviousRequests === 0) {
-            message += ` It's never been requested before!`;
-          } else {
-            message += ` It's the ${getOrdinal(numPreviousRequests)} time it's been requested here.`;
+            message += ` It's never been requested before! OOOO`;
           }
           await this.client.sendTwitchMessage(message);
         }
