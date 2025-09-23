@@ -2,14 +2,25 @@ using System.Text.Json.Serialization;
 
 namespace DrumStreamOverlays.Messages;
 
-// Partial from Streamerbot, since these definitions are in a place without dependencies
 public class StreamerbotViewer
 {
-    [JsonPropertyName("login")]
-    public string Login { get; set; } = string.Empty;
+    [JsonPropertyName("channelPointsUsed")]
+    public int ChannelPointsUsed { get; set; }
 
     [JsonPropertyName("display")]
     public string Display { get; set; } = string.Empty;
+
+    [JsonPropertyName("exempt")]
+    public bool Exempt { get; set; }
+
+    [JsonPropertyName("groups")]
+    public string[] Groups { get; set; } = Array.Empty<string>();
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("login")]
+    public string Login { get; set; } = string.Empty;
 
     [JsonPropertyName("previousActive")]
     public string PreviousActive { get; set; } = string.Empty;
@@ -22,6 +33,9 @@ public class StreamerbotViewer
 
     [JsonPropertyName("online")]
     public bool Online { get; set; }
+
+    [JsonPropertyName("color")]
+    public string? Color { get; set; }
 }
 
 public abstract class WebSocketServerMessage

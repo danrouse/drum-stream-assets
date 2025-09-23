@@ -63,7 +63,7 @@ public class WebSocketClient : IDisposable
 
     private async Task ListenForMessages()
     {
-        var buffer = new byte[4096];
+        var buffer = new byte[1024*64];
 
         try
         {
