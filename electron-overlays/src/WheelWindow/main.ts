@@ -845,9 +845,9 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
     const path = createSVGElement('path', {
       class: 'slice',
       d: createPieSlice(startAngle, endAngle),
-      'data-song-id': song.id.toString(),
       fill: baseColor,
-      'data-original-color': baseColor
+      'data-original-color': baseColor,
+      'data-requester': song.requester?.toLowerCase() || '',
     });
     wheelGroup.appendChild(path);
 
@@ -980,8 +980,7 @@ async function fetchSongRequests(): Promise<SongRequestData[]> {
         expandedRequests.push(request);
       }
     }
-
-    return expandedRequests.sort(() => Math.random() - 0.5);
+    return expandedRequests.toSorted(() => Math.random() - 0.5);
   } catch (error) {
     console.error('Failed to fetch song requests:', error);
     return [];
@@ -1036,11 +1035,11 @@ window.ipcRenderer.on('viewers_update', (_, payload) => {
   payload.viewers.forEach((viewer: any) => {
     if (viewer.login && viewer.color) {
       userColors.set(viewer.login.toLowerCase(), viewer.color);
+      document.querySelectorAll<SVGPathElement>(`[data-requester="${viewer.login.toLowerCase()}"]`).forEach(element => {
+        element.style.fill = viewer.color;
+      });
     }
   });
-  if (!isSpinning && globalContainer.classList.contains('wheel-visible')) {
-    initializeWheel();
-  }
 });
 
 // =============================================================================
