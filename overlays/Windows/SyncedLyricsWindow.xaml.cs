@@ -163,10 +163,6 @@ public partial class SyncedLyricsWindow : BaseOverlayWindow
                     Console.WriteLine($"[SyncedLyricsWindow] Song playback completed");
                     HandleSongStopped(); // Same behavior as song stopped
                     break;
-
-                default:
-                    Console.WriteLine($"[SyncedLyricsWindow] Unhandled message type: {message.GetType().Name}");
-                    break;
             }
         });
     }
@@ -404,11 +400,7 @@ public partial class SyncedLyricsWindow : BaseOverlayWindow
     private static LyricLine[] ParseLyrics(string lyricsContent, double mediaDuration)
     {
         var lines = lyricsContent.Split('\n');
-        var lyrics = new List<LyricLine>
-        {
-            // Pad start with an empty line before the first real line happens
-            new() { Timestamp = 0, Text = "" }
-        };
+        var lyrics = new List<LyricLine>();
 
         double offset = 0;
 
@@ -436,6 +428,11 @@ public partial class SyncedLyricsWindow : BaseOverlayWindow
                     Text = text
                 });
             }
+        }
+
+        if (lyrics.Count > 0) {
+            // Pad start with an empty line before the first real line happens
+            lyrics.Insert(0, new LyricLine { Timestamp = 0, Text = "" });
         }
 
         return lyrics.ToArray();
