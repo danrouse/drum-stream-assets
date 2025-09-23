@@ -117,6 +117,8 @@ export type WebSocketMessage<T = WebSocketServerMessage['type'] | WebSocketPlaye
 export type WebSocketBroadcaster = (payload: WebSocketServerMessage) => void;
 export type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
 
+type SongRequestStatus = 'processing' | 'ready' | 'fulfilled' | 'cancelled' | 'playing';
+
 export interface SongData {
   id: number;
   createdAt: string | null;
@@ -131,7 +133,7 @@ export interface SongData {
   requester?: string | null;
   priority?: number | null;
   noShenanigans?: number | null;
-  status?: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | null;
+  status?: SongRequestStatus | null;
   songRequestId?: number | null;
   fulfilledToday?: number;
 }
@@ -143,7 +145,7 @@ export interface SongRequestData extends SongData {
   requester: string | null;
   priority: number;
   noShenanigans?: number | null;
-  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
+  status: SongRequestStatus;
   songRequestId: number;
   createdAt: string;
   bumpCount: number;

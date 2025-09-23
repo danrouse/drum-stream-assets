@@ -359,6 +359,7 @@ export default class SongRequestModule {
     });
 
     this.wss.registerHandler('song_request', payload => this.execute(payload.query, DEFAULT_REQUESTER_NAME, { maxDuration: 12000 }));
+    this.wss.registerHandler('song_playback_started', this.handleSongPlaybackStarted);
     this.wss.registerHandler('song_playback_completed', this.handleSongPlaybackCompleted);
     this.wss.registerHandler('song_request_removed', this.handleSongPlaybackCompleted);
     this.wss.registerHandler('song_changed', this.handleSongChanged);
@@ -366,6 +367,14 @@ export default class SongRequestModule {
     this.jobs = new JobInterface();
     this.jobs.listen(Queues.SONG_REQUEST_COMPLETE, this.handleSongRequestComplete);
     this.jobs.listen(Queues.SONG_REQUEST_ERROR, this.handleSongRequestError);
+  }
+
+  private handleSongPlaybackStarted = async (payload: WebSocketMessage<'song_playback_started'>) => {
+    if (!payload.songRequestId) return;
+    await db.updateTable('songRequests')
+      .set({ status: 'playing' })
+      .where('id', '=', payload.songRequestId)
+      .execute();
   }
 
   private handleSongPlaybackCompleted = async (payload: WebSocketMessage<'song_playback_completed' | 'song_request_removed'>) => {

@@ -25,7 +25,7 @@ interface SongRequestsTable {
   requester: string | null;
   twitchRewardId: string | null;
   twitchRedemptionId: string | null;
-  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled';
+  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | 'playing';
   priority: number;
   noShenanigans: number | null;
   songId: number | null;
