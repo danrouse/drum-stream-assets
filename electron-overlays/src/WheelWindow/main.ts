@@ -172,8 +172,7 @@ globalContainer.appendChild(svg);
 
 function formatRequestTime(createdAt: string): string {
   try {
-    const isoString = createdAt.replace(' ', 'T') + 'Z';
-    const date = new Date(isoString);
+    const date = new Date(createdAt);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -596,7 +595,7 @@ function calculateSliceScale(song: SongRequestData): number {
   // Apply age bonus: 50% larger per hour
   // Maximum of 300% size
   const ageBonus = song.createdAt
-    ? (new Date().getTime() - new Date(song.createdAt + 'Z').getTime()) / (1000 * 60 * 60) * 0.5
+    ? (new Date().getTime() - new Date(song.createdAt).getTime()) / (1000 * 60 * 60) * 0.5
     : 0;
   scale = Math.min(3.0, scale + ageBonus);
 

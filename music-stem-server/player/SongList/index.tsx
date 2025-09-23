@@ -14,7 +14,7 @@ interface SongListProps {
 
 const intl = new Intl.RelativeTimeFormat('en');
 const getTimeDiff = (ts: string) => {
-  const sec = (new Date().getTime() - new Date(ts + 'Z').getTime()) / 1000;
+  const sec = (new Date().getTime() - new Date(ts).getTime()) / 1000;
   if (sec > 60 * 60 * 24) {
     return intl.format(Math.round(-1 * sec / (60 * 60)), 'hours');
   }

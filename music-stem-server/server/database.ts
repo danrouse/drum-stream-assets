@@ -12,7 +12,6 @@ import {
   Insertable,
   Updateable,
 } from 'kysely';
-import { D1Dialect } from 'kysely-d1';
 import { HttpD1Dialect } from './HttpD1Dialect';
 
 type CreatedAtType = ColumnType<string, string | undefined, string>;

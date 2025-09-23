@@ -37,7 +37,7 @@ export default class SongVotingModule {
     const existingVote = await queries.existingSongVoteForUser(this.client.currentSong.id, payload.user);
     if (existingVote.length > 0) {
       await db.updateTable('songVotes')
-        .set({ value, createdAt: sql`current_timestamp` })
+        .set({ value, createdAt: sql`strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` })
         .where('id', '=', existingVote[0].id)
         .execute();
     } else {

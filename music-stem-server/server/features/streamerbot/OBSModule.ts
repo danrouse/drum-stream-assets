@@ -102,7 +102,7 @@ export default class OBSModule {
   private handleOBSStreamingStopped = async (payload: StreamerbotEventPayload<"Obs.StreamingStopped">) => {
     const record = await queries.currentStreamHistory();
     await db.updateTable('streamHistory')
-      .set('endedAt', sql`current_timestamp`)
+      .set('endedAt', sql`strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`)
       .where('id', '=', record[0].id)
       .execute();
   };
