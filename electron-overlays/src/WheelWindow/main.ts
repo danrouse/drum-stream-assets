@@ -846,6 +846,7 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
       class: 'slice',
       d: createPieSlice(startAngle, endAngle),
       fill: baseColor,
+      stroke: 'black',
       'data-original-color': baseColor,
       'data-requester': song.requester?.toLowerCase() || '',
     });
