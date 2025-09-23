@@ -5,7 +5,7 @@ import { sleep } from '../../shared/util';
 
 const TMP_OUTPUT_FILENAME = 'tmp.spotdl';
 
-export async function downloadFromSpotDL(query: string, outputPath: string): Promise<string> {
+export async function downloadFromSpotDL(query: string, outputPath: string, uuid: string): Promise<string> {
   return new Promise(async (resolve, reject) => {
     while (existsSync(TMP_OUTPUT_FILENAME)) {
       try {
@@ -15,7 +15,7 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
     };
     const cmd = spawn('spotdl',
       [
-        '--output', `"${join(outputPath, '{artist} - {title}.{output-ext}')}"`,
+        '--output', `"${join(outputPath, `${uuid}.{output-ext}`)}"`,
         '--skip-album-art',
         // m4a + bitrate disable + YouTube Premium cookies
         // result in highest quality output
@@ -39,13 +39,7 @@ export async function downloadFromSpotDL(query: string, outputPath: string): Pro
       const alreadyExists = buf.match(/Skipping (.+) \(file already exists\)/i);
 
       if (wasDownloaded || alreadyExists) {
-        const basename = (wasDownloaded || alreadyExists)![1]
-          .replace(/:/g, '-')
-          .replace(/\?/g, '')
-          .replace(/"/g, "'")
-          .replace(/\//g, '')
-          .replace(/\*/g, '');
-        const dstPath = join(outputPath, `${basename}.m4a`);
+        const dstPath = join(outputPath, `${uuid}.m4a`);
         // Double check that the expected path exists first!
         if (existsSync(dstPath)) {
           resolveTo = dstPath;

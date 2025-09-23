@@ -6,7 +6,7 @@ interface YouTubeDownloadOptions {
   minViews: number,
 }
 
-export function downloadFromYouTube(url: URL, outputPath: string, options: Partial<YouTubeDownloadOptions>) {
+export function downloadFromYouTube(url: URL, outputPath: string, uuid: string, options: Partial<YouTubeDownloadOptions>) {
   if (url.pathname.startsWith('/channel/') || url.pathname.startsWith('/playlist')) {
     throw new Error('NO_PLAYLISTS');
   }
@@ -25,7 +25,7 @@ export function downloadFromYouTube(url: URL, outputPath: string, options: Parti
         '--write-info-json',
         '-f', '"bv[height<=?720]+ba"',
         '-S', '"filesize:50M"',
-        '--output', `"${join(outputPath, '%%(artist|YouTube)s - %%(fulltitle)s.%%(ext)s')}"`,
+        '--output', `"${join(outputPath, `${uuid}.%%(ext)s`)}"`,
         `"${url.toString()}"`
       ],
       { shell: true }

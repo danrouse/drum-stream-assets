@@ -1,22 +1,27 @@
 import 'dotenv/config';
-import { execSync, spawn } from 'child_process';
+import { execSync } from 'child_process';
 import { existsSync } from 'fs';
+import { randomUUID } from 'crypto';
 import downloadSong from './downloadSong';
 import getSongTags from './getSongTags';
 import demucs from './wrappers/demucs';
 import * as Paths from '../shared/paths';
 import { Queues, JobInterface } from '../shared/RabbitMQ';
 
+const VIDEO_EXTENSIONS = ['mkv', 'mp4', 'webm'];
+
 const i = new JobInterface();
+
 await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
   console.log('SONG_REQUEST_CREATED', msg);
+  const uuid = randomUUID();
 
-  const downloadedSongPath = await downloadSong(msg.query, Paths.DOWNLOADS_PATH, {
+  const downloadedSongPath = await downloadSong(msg.query, Paths.DOWNLOADS_PATH, uuid, {
     maxDuration: msg.maxDuration,
     minViews: msg.minViews,
   });
   const tags = await getSongTags(downloadedSongPath);
-  if (msg.maxDuration && tags.format?.duration > msg.maxDuration) {
+  if (msg.maxDuration && tags.duration > msg.maxDuration) {
     throw new Error('TOO_LONG');
   }
 
@@ -26,14 +31,13 @@ await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
     ignoreDuplicates: msg.ignoreDuplicates,
     requester: msg.requester,
 
-    artist: String(tags.common?.artist) || '',
-    title: String(tags.common?.title) || '',
-    album: String(tags.common?.album) || '',
-    track: Number(tags.common?.track.no),
-    duration: Number(tags.format!.duration),
+    artist: String(tags.artist) || '',
+    title: String(tags.title) || '',
+    album: String(tags.album) || '',
+    track: Number(tags.track.no),
+    duration: Number(tags.duration),
   });
 });
-
 
 await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
   console.log('SONG_REQUEST_DOWNLOADED', msg);
@@ -48,7 +52,7 @@ await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
   if (!existsSync(lyricsPath)) lyricsPath = undefined;
 
   const extension = dstPath.substring(dstPath.lastIndexOf('.') + 1);
-  const isVideo = ['mkv', 'mp4', 'webm'].includes(extension.toLowerCase());
+  const isVideo = VIDEO_EXTENSIONS.includes(extension.toLowerCase());
 
   await i.publish(Queues.SONG_REQUEST_COMPLETE, {
     ...msg,
