@@ -35,16 +35,16 @@ function createAdjustmentButtons(
     createAdjustmentButton('h+', 'h', h => h + 1),
     createAdjustmentButton('h-', 'h', h => h - 1),
 
-    createAdjustmentButton('←', 'x', x => x - 1),
-    createAdjustmentButton('→', 'x', x => x + 1),
-    createAdjustmentButton('↓', 'y', y => y + 1),
-    createAdjustmentButton('↑', 'y', y => y - 1),
+    createAdjustmentButton('←', 'x', x => x - 3),
+    createAdjustmentButton('→', 'x', x => x + 3),
+    createAdjustmentButton('↓', 'y', y => y + 3),
+    createAdjustmentButton('↑', 'y', y => y - 3),
   ];
   const frameHandler = () => {
     for (let button of buttons) {
       const framesHeldDown = Number(button.dataset.isActive);
       if (!isNaN(framesHeldDown)) {
-        if (framesHeldDown > 30) {
+        if (framesHeldDown > 20) {
           button.dispatchEvent(new Event('click'));
         }
         button.dataset.isActive = String(framesHeldDown + 1);
