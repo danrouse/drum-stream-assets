@@ -494,6 +494,7 @@ export default class SongRequestModule {
       url.searchParams.delete('ab_channel');
       url.searchParams.delete('list');
       url.searchParams.delete('pp');
+      url.searchParams.delete('start_radio');
       url.search = url.searchParams.toString();
       query = url.toString();
     }
