@@ -1,6 +1,7 @@
 import ffprobe from 'ffprobe';
 import ffprobeStatic from 'ffprobe-static';
-import { basename } from 'path';
+// @ts-expect-error
+import { parseFile } from 'music-metadata';
 import { parseTime } from '../shared/util';
 import { existsSync, readFileSync } from 'fs';
 
@@ -14,17 +15,18 @@ interface SongTags {
 
 export default async function getSongTags(songPath: string): Promise<SongTags> {
   // most metadata can come from analyzing the media file directly with ffprobe
-  const res = await ffprobe(songPath, { path: ffprobeStatic.path });
+  const ffprobeResult = await ffprobe(songPath, { path: ffprobeStatic.path });
+  const id3Tags = await parseFile(songPath);
   // check for metadata downloaded from yt-dlp
   // this allows sanitized filenames, and yt-dlp downloads are
   // seldom well-tagged, so still try to get that info
   const metadataPath = songPath.replace(/\..{3,}$/, '.info.json');
   const hasYouTubeMetadata = existsSync(metadataPath);
   let duration = 0;
-  if (res.streams[0].duration) {
-    duration = Number(res.streams[0].duration);
-  } else if (res.streams[0].tags.DURATION) {
-    duration = parseTime(res.streams[0].tags.DURATION);
+  if (ffprobeResult.streams[0].duration) {
+    duration = Number(ffprobeResult.streams[0].duration);
+  } else if (ffprobeResult.streams[0].tags.DURATION) {
+    duration = parseTime(ffprobeResult.streams[0].tags.DURATION);
   }
   if (hasYouTubeMetadata) {
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
@@ -33,23 +35,23 @@ export default async function getSongTags(songPath: string): Promise<SongTags> {
       metadata.artist = 'Emerson South';
     }
     return {
-      artist: metadata.artist || '',
-      title: metadata.fulltitle || metadata.track,
-      album: `YouTube [${metadata.id}]`,
+      artist: metadata.artist || id3Tags.common.artist || '',
+      title: metadata.fulltitle || metadata.track || id3Tags.common.title || '',
+      album: id3Tags.common.album || `YouTube [${metadata.id}]`,
       track: {
-        no: Number(res.streams[0].tags.TRACK) || 1,
-        of: Number(res.streams[0].tags.TRACKS) || 1,
+        no: Number(ffprobeResult.streams[0].tags.TRACK) || id3Tags.common.track?.no || 1,
+        of: Number(ffprobeResult.streams[0].tags.TRACKS) || id3Tags.common.track?.of || 1,
       },
       duration,
     };
   } else {
     return {
-      artist: '',
-      title: 'Unknown',
-      album: '',
+      artist: id3Tags.common.artist || '',
+      title: id3Tags.common.title || 'Unknown',
+      album: id3Tags.common.album || '',
       track: {
-        no: Number(res.streams[0].tags.TRACK) || 1,
-        of: Number(res.streams[0].tags.TRACKS) || 1,
+        no: Number(ffprobeResult.streams[0].tags.TRACK) || id3Tags.common.track?.no || 1,
+        of: Number(ffprobeResult.streams[0].tags.TRACKS) || id3Tags.common.track?.of || 1,
       },
       duration,
     };
