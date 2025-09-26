@@ -707,9 +707,9 @@ export default class SongRequestModule {
           await this.client.sendTwitchMessage(`@${requesterName} Your request has been replaced with ${songTitle}!`);
         } else {
           let message = `@${requesterName} ${songTitle} was added to the wheel!`;
-          if (numPreviousRequests === 0) {
-            message += ` It's never been requested before! OOOO`;
-          }
+          // if (numPreviousRequests === 0) {
+          //   message += ` It's never been requested before! OOOO`;
+          // }
           await this.client.sendTwitchMessage(message);
         }
         hasResponded = true;
