@@ -767,7 +767,7 @@ function createPointer() {
   svg.appendChild(pointer);
 }
 
-function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
+function createWheel(songs: SongRequestData[]) {
   currentSongs = songs;
 
   // Remove existing wheel content except pointer
@@ -794,19 +794,12 @@ function createWheel(songs: SongRequestData[], preserveSpinningState = false) {
 
   wheelGroup.style.transformOrigin = `${WHEEL_CONFIG.CENTER_X}px ${WHEEL_CONFIG.CENTER_Y}px`;
   wheelGroup.style.cursor = 'pointer';
-
-  if (!preserveSpinningState) {
-    wheelGroup.style.transform = 'rotate(0deg)';
-    wheelGroup.style.transition = 'none';
-    clearAllAnimationsAndTimeouts();
-    isSpinning = false;
-    selectedSliceIndex = -1;
-    currentRotation = 0;
-  } else {
-    wheelGroup.style.transform = `rotate(${currentRotation}deg)`;
-    const averageDuration = (ANIMATION_CONFIG.MIN_SPIN_DURATION_MS + ANIMATION_CONFIG.MAX_SPIN_DURATION_MS) / 2;
-    wheelGroup.style.transition = `transform ${averageDuration / 1000}s ${ANIMATION_CONFIG.TIMING_FUNCTION}`;
-  }
+  wheelGroup.style.transform = 'rotate(0deg)';
+  wheelGroup.style.transition = 'none';
+  clearAllAnimationsAndTimeouts();
+  isSpinning = false;
+  selectedSliceIndex = -1;
+  currentRotation = 0;
 
   svg.appendChild(wheelGroup);
   wheelGroup.addEventListener('click', spinWheel);
@@ -893,7 +886,9 @@ async function spinWheel() {
       return;
     }
 
-    createWheel(latestSongs, true);
+    if (latestSongs.length !== currentSongs.length) {
+      createWheel(latestSongs);
+    }
 
     currentHighlightedSlice = -1;
 
@@ -1036,9 +1031,11 @@ window.ipcRenderer.on('viewers_update', (_, payload) => {
   payload.viewers.forEach((viewer: any) => {
     if (viewer.login && viewer.color) {
       userColors.set(viewer.login.toLowerCase(), viewer.color);
-      document.querySelectorAll<SVGPathElement>(`[data-requester="${viewer.login.toLowerCase()}"]`).forEach(element => {
-        element.style.fill = viewer.color;
-      });
+      if (!isSpinning) {
+        document.querySelectorAll<SVGPathElement>(`[data-requester="${viewer.login.toLowerCase()}"]`).forEach(element => {
+          element.style.fill = dimUserColor(viewer.color);
+        });
+      }
     }
   });
 });
