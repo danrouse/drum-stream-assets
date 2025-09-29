@@ -17,6 +17,9 @@ export async function downloadFromSpotDL(query: string, outputPath: string, uuid
       [
         '--output', `"${join(outputPath, `${uuid}.{output-ext}`)}"`,
         '--skip-album-art',
+        '--client-id', process.env.SPOTIFY_CLIENT_ID!,
+        '--client-secret', process.env.SPOTIFY_CLIENT_SECRET!,
+        '--yt-dlp-args', '"--extractor-args \\"youtube:player-client=tv\\""',
         // m4a + bitrate disable + YouTube Premium cookies
         // result in highest quality output
         '--format', 'm4a',
