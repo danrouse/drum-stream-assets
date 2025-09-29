@@ -67,6 +67,8 @@ export type WebSocketServerMessage = {
 } | {
   type: 'wheel_toggle_visibility',
 } | {
+  type: 'wheel_toggle_mode',
+} | {
   type: 'wheel_spin',
 } | {
   type: 'wheel_selection',

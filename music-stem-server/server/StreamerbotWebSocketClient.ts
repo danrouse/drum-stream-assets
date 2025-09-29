@@ -7,10 +7,10 @@ import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/m
 import * as Streamerbot from '../../shared/streamerbot';
 
 export const TwitchRewardDurations: Streamerbot.TwitchRewardMeta<number> = {
-  'Motorcycle Helmet': 300000,
-  'Pick ONE Hat': 180000,
-  'Pick TWO Hats': 180000,
-  'Pick THREE Hats': 180000,
+  'Hat Wheel': 300000,
+  'Pick ONE Hat': 300000,
+  'Pick TWO Hats': 300000,
+  'Pick THREE Hats': 300000,
 
   // TODO: Relocate into EmotesModule
   'Pin an Emote': 30000,

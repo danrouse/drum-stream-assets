@@ -13,12 +13,19 @@ export default class WheelModule {
     this.wss = wss;
 
     this.client.registerCustomEventHandler('WheelToggleVisibility', this.toggleWheelVisibility);
+    this.client.registerCustomEventHandler('WheelToggleMode', this.toggleWheelMode);
     this.client.registerCustomEventHandler('WheelSpin', this.spinWheel);
   }
 
   private toggleWheelVisibility = async () => {
     this.wss.broadcast({
       type: 'wheel_toggle_visibility',
+    });
+  };
+
+  private toggleWheelMode = async () => {
+    this.wss.broadcast({
+      type: 'wheel_toggle_mode',
     });
   };
 

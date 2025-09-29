@@ -88,6 +88,35 @@ let spinTimeoutId: NodeJS.Timeout | null = null;
 let winnerTimeoutId: NodeJS.Timeout | null = null;
 let confettiTimeoutId: NodeJS.Timeout | null = null;
 
+// Wheel mode state
+let isFixedItemsMode = false;
+const FIXED_ITEMS: string[] = [
+  'Sloth',
+  'Cow (NOT MILKERS STOP IT CHAT)',
+  'Bun Bun',
+  'Yoshi',
+  'Penguin',
+  'Fedora',
+  'White Bucket Hat',
+  'Ramen Bucket Hat',
+  'Cat Bucket Hat',
+  'Red Beret',
+  'RainbowPoop',
+  'Propeller',
+  'Danny Crockett',
+  'Cat Ears Beanie',
+  'Blue Beanie',
+  'Kirby',
+  'Black Cat Ears',
+  'White Cat Ears',
+  '½',
+  'Cowboy Hat',
+  'Pink Sparkly Cowboy Hat',
+  'Queen',
+  'Taco',
+  'Tiara',
+];
+
 // Store slice angles for non-uniform slice sizes
 let currentSliceAngles: { startAngle: number; endAngle: number; scaleFactor: number }[] = [];
 
@@ -359,17 +388,6 @@ function truncateTextByWidth(textElement: SVGTextElement, text: string, maxWidth
   return bestFit || '...';
 }
 
-function getMaxTextWidth(numSlices: number): number {
-  const baseWidth = WHEEL_CONFIG.RADIUS * 0.8;
-  const { MAX_TEXT_WIDTH_MULTIPLIERS } = WHEEL_CONFIG;
-
-  if (numSlices <= 4) return baseWidth * MAX_TEXT_WIDTH_MULTIPLIERS.lessThanOrEqual4;
-  if (numSlices <= 6) return baseWidth * MAX_TEXT_WIDTH_MULTIPLIERS.lessThanOrEqual6;
-  if (numSlices <= 8) return baseWidth * MAX_TEXT_WIDTH_MULTIPLIERS.lessThanOrEqual8;
-  if (numSlices <= 12) return baseWidth * MAX_TEXT_WIDTH_MULTIPLIERS.lessThanOrEqual12;
-  return baseWidth * MAX_TEXT_WIDTH_MULTIPLIERS.default;
-}
-
 // =============================================================================
 // ANIMATION AND CLEANUP FUNCTIONS
 // =============================================================================
@@ -484,6 +502,21 @@ function showWinnerAnnouncement(song: SongRequestData) {
   container.appendChild(announcement);
 }
 
+function showFixedItemWinnerAnnouncement(item: string) {
+  const container = document.querySelector('#app')!;
+
+  container.querySelector('.winner-announcement')?.remove();
+
+  const announcement = document.createElement('div');
+  announcement.className = 'winner-announcement';
+
+  announcement.innerHTML = `
+    <div class="winner-song">${item}</div>
+  `;
+
+  container.appendChild(announcement);
+}
+
 // =============================================================================
 // ROTATION AND HIGHLIGHTING
 // =============================================================================
@@ -511,7 +544,7 @@ function getCurrentRotationFromDOM(): number {
 }
 
 function getCurrentSliceUnderIndicator(): number {
-  if (currentSongs.length === 0 || currentSliceAngles.length === 0) return -1;
+  if (currentSliceAngles.length === 0) return -1;
 
   const currentDOMRotation = getCurrentRotationFromDOM();
   const effectiveRotation = currentDOMRotation % 360;
@@ -529,7 +562,7 @@ function getCurrentSliceUnderIndicator(): number {
 }
 
 function updateRealtimeHighlighting() {
-  if (!isSpinning || currentSongs.length === 0) return;
+  if (!isSpinning) return;
 
   const currentSliceIndex = getCurrentSliceUnderIndicator();
 
@@ -540,10 +573,6 @@ function updateRealtimeHighlighting() {
     const slices = svg.querySelectorAll('.slice');
 
     slices.forEach(slice => {
-      const originalColor = slice.getAttribute('data-original-color');
-      if (originalColor) {
-        slice.setAttribute('fill', originalColor);
-      }
       slice.classList.remove('selected');
     });
 
@@ -551,8 +580,6 @@ function updateRealtimeHighlighting() {
       const currentSlice = slices[currentSliceIndex] as SVGElement;
       if (currentSlice) {
         currentSlice.classList.add('selected');
-        const selectedPastelColor = sliceColors[currentSliceIndex];
-        currentSlice.setAttribute('fill', selectedPastelColor);
       }
     }
 
@@ -568,9 +595,6 @@ function highlightSelectedSlice() {
     const selectedSlice = slices[selectedSliceIndex] as SVGElement;
     if (selectedSlice) {
       selectedSlice.classList.add('selected');
-      const selectedPastelColor = sliceColors[selectedSliceIndex] || generateRandomPastelColor();
-      selectedSlice.setAttribute('fill', selectedPastelColor);
-      selectedSlice.setAttribute('data-selected-color', selectedPastelColor);
     }
   }
 }
@@ -712,45 +736,33 @@ function stopWinnerLightShow() {
 // WHEEL CREATION
 // =============================================================================
 
-function createSliceText(wheelGroup: SVGElement, song: SongRequestData, textX: number, textY: number, midAngle: number, maxTextWidth: number) {
-  const combinedText = createSVGElement('text', {
+function createSliceText(
+  wheelGroup: SVGElement,
+  item: string,
+  textX: number,
+  textY: number,
+  midAngle: number,
+) {
+  const text = createSVGElement('text', {
     x: textX.toString(),
     y: textY.toString(),
     transform: `rotate(${midAngle - 90}, ${textX}, ${textY})`,
     'text-anchor': 'middle',
-    'dominant-baseline': 'middle'
-  });
-  wheelGroup.appendChild(combinedText);
-
-  // Song title
-  const songTspan = createSVGElement('tspan', {
-    class: 'slice-text song-info',
-    x: textX.toString(),
-    dy: '-0.6em'
+    'dominant-baseline': 'middle',
+    class: 'slice-text fixed-item-info'
   });
 
-  const fullSongText = song.artist ? `${song.artist} - ${song.title}` : song.title;
-  const tempText = createTemporaryTextElement('slice-text song-info');
+  const tempText = createTemporaryTextElement('slice-text fixed-item-info');
   wheelGroup.appendChild(tempText);
-  songTspan.textContent = truncateTextByWidth(tempText, fullSongText, maxTextWidth);
+  tempText.textContent = item;
+  const baseWidth = tempText.getComputedTextLength();
   wheelGroup.removeChild(tempText);
-  combinedText.appendChild(songTspan);
+  const maxWidth = WHEEL_CONFIG.RADIUS * 0.8;
+  const fontSize = baseWidth < maxWidth ? '100%' : (maxWidth / baseWidth) * 100 + '%';
+  text.style.fontSize = fontSize;
 
-  // Requester name
-  if (song.requester) {
-    const requesterTspan = createSVGElement('tspan', {
-      class: 'slice-text requester-info',
-      x: textX.toString(),
-      dy: '1.4em',
-      'font-style': 'italic'
-    });
-
-    const tempRequesterText = createTemporaryTextElement('slice-text requester-info', { 'font-style': 'italic' });
-    wheelGroup.appendChild(tempRequesterText);
-    requesterTspan.textContent = truncateTextByWidth(tempRequesterText, song.requester, maxTextWidth * 0.9);
-    wheelGroup.removeChild(tempRequesterText);
-    combinedText.appendChild(requesterTspan);
-  }
+  text.textContent = item;
+  wheelGroup.appendChild(text);
 }
 
 function createPointer() {
@@ -765,6 +777,86 @@ function createPointer() {
   });
 
   svg.appendChild(pointer);
+}
+
+function createFixedItemWheel(items: string[]) {
+  // Remove existing wheel content except pointer
+  Array.from(svg.children)
+    .filter(child => !child.classList.contains('pointer'))
+    .forEach(element => svg.removeChild(element));
+
+  if (items.length === 0) {
+    const text = createSVGElement('text', {
+      class: 'no-songs-text',
+      x: WHEEL_CONFIG.CENTER_X.toString(),
+      y: WHEEL_CONFIG.CENTER_Y.toString(),
+      'text-anchor': 'middle',
+      'dominant-baseline': 'middle'
+    });
+    text.textContent = 'No fixed items available';
+    svg.appendChild(text);
+    return;
+  }
+
+  const wheelGroup = createSVGElement('g', {
+    class: 'wheel-group'
+  }) as SVGGElement;
+
+  wheelGroup.style.transformOrigin = `${WHEEL_CONFIG.CENTER_X}px ${WHEEL_CONFIG.CENTER_Y}px`;
+  wheelGroup.style.cursor = 'pointer';
+  wheelGroup.style.transform = 'rotate(0deg)';
+  wheelGroup.style.transition = 'none';
+  clearAllAnimationsAndTimeouts();
+  isSpinning = false;
+  selectedSliceIndex = -1;
+  currentRotation = 0;
+
+  svg.appendChild(wheelGroup);
+  wheelGroup.addEventListener('click', spinWheel);
+
+  const numElements = items.length;
+
+  // Store base colors globally for highlighting
+  sliceColors = items.map(() => generateRandomPastelColor());
+
+  // Calculate equal angles for fixed items (no scaling)
+  const anglePerSlice = 360 / numElements;
+  currentSliceAngles = []; // Store globally for highlighting/selection logic
+
+  for (let i = 0; i < numElements; i++) {
+    const startAngle = i * anglePerSlice;
+    const endAngle = (i + 1) * anglePerSlice;
+    currentSliceAngles.push({ startAngle, endAngle, scaleFactor: 1 });
+  }
+
+  for (let i = 0; i < numElements; i++) {
+    const item = items[i];
+    const { startAngle, endAngle } = currentSliceAngles[i];
+    const baseColor = sliceColors[i];
+
+    // Create slice (opacity controlled by CSS)
+    const path = createSVGElement('path', {
+      class: 'slice',
+      d: createPieSlice(startAngle, endAngle),
+      fill: baseColor,
+      stroke: 'black',
+      'data-original-color': baseColor,
+      'data-requester': '', // No requester for fixed items
+    });
+    wheelGroup.appendChild(path);
+
+    // Create text - positioned at the normal text radius
+    const midAngle = (startAngle + endAngle) / 2;
+    const textRadius = WHEEL_CONFIG.RADIUS * WHEEL_CONFIG.TEXT_RADIUS_MULTIPLIER;
+    const textAngleRad = ((midAngle - 90) * Math.PI) / 180;
+    const textX = WHEEL_CONFIG.CENTER_X + textRadius * Math.cos(textAngleRad);
+    const textY = WHEEL_CONFIG.CENTER_Y + textRadius * Math.sin(textAngleRad);
+
+    createSliceText(wheelGroup, item, textX, textY, midAngle);
+  }
+
+  createWheelBorders();
+  createPointer();
 }
 
 function createWheel(songs: SongRequestData[]) {
@@ -809,7 +901,7 @@ function createWheel(songs: SongRequestData[]) {
   // Get user colors for each song
   const songColors = songs.map(song => getUserColor(song.requester));
 
-  // Store highlight colors globally for highlighting
+  // Store base colors globally for highlighting
   sliceColors = songColors.map(colors => colors.highlightColor);
 
   // Calculate scale factors for each song
@@ -832,9 +924,9 @@ function createWheel(songs: SongRequestData[]) {
   for (let i = 0; i < numElements; i++) {
     const song = songs[i];
     const { startAngle, endAngle } = currentSliceAngles[i];
-    const baseColor = songColors[i].baseColor;
+    const baseColor = sliceColors[i];
 
-    // Create slice
+    // Create slice (opacity controlled by CSS)
     const path = createSVGElement('path', {
       class: 'slice',
       d: createPieSlice(startAngle, endAngle),
@@ -851,9 +943,13 @@ function createWheel(songs: SongRequestData[]) {
     const textAngleRad = ((midAngle - 90) * Math.PI) / 180;
     const textX = WHEEL_CONFIG.CENTER_X + textRadius * Math.cos(textAngleRad);
     const textY = WHEEL_CONFIG.CENTER_Y + textRadius * Math.sin(textAngleRad);
-    const maxTextWidth = getMaxTextWidth(numElements);
-
-    createSliceText(wheelGroup, song, textX, textY, midAngle, maxTextWidth);
+    createSliceText(
+      wheelGroup,
+      song.artist ? `${song.artist} - ${song.title}` : song.title,
+      textX,
+      textY,
+      midAngle
+    );
   }
 
   createWheelBorders();
@@ -879,15 +975,23 @@ async function spinWheel() {
     Math.random() * (ANIMATION_CONFIG.MAX_SPIN_DURATION_MS - ANIMATION_CONFIG.MIN_SPIN_DURATION_MS);
 
   try {
-    const latestSongs = await fetchSongRequests();
-    if (latestSongs.length === 0) {
-      isSpinning = false;
-      clearAllAnimationsAndTimeouts();
-      return;
-    }
+    if (isFixedItemsMode) {
+      // For fixed items mode, ensure we have the fixed items wheel
+      if (currentSliceAngles.length === 0) {
+        createFixedItemWheel(FIXED_ITEMS);
+      }
+    } else {
+      // For song requests mode, fetch latest songs
+      const latestSongs = await fetchSongRequests();
+      if (latestSongs.length === 0) {
+        isSpinning = false;
+        clearAllAnimationsAndTimeouts();
+        return;
+      }
 
-    if (latestSongs.length !== currentSongs.length) {
-      createWheel(latestSongs);
+      if (latestSongs.length !== currentSongs.length) {
+        createWheel(latestSongs);
+      }
     }
 
     currentHighlightedSlice = -1;
@@ -905,7 +1009,7 @@ async function spinWheel() {
       updateRealtimeHighlighting();
     }
   } catch (error) {
-    console.error('Failed to fetch latest songs before spinning:', error);
+    console.error('Failed to prepare wheel before spinning:', error);
     isSpinning = false;
     clearAllAnimationsAndTimeouts();
     return;
@@ -931,13 +1035,22 @@ async function spinWheel() {
     isSpinning = false;
     spinTimeoutId = null;
 
-    const selectedSong = currentSongs[selectedSliceIndex];
-    const logSongDisplay = selectedSong.artist ? `${selectedSong.artist} - ${selectedSong.title}` : selectedSong.title;
-    console.log('Selected song:', logSongDisplay, selectedSong.requester ? `(requested by ${selectedSong.requester})` : '');
+    // Handle selection based on mode
+    if (isFixedItemsMode) {
+      const selectedItem = FIXED_ITEMS[selectedSliceIndex];
+      console.log('Selected fixed item:', selectedItem);
 
-    // Broadcast wheel selection via websocket
-    if (selectedSong.songRequestId) {
-      window.ipcRenderer.send('wheel_selection', selectedSong.songRequestId);
+      // Broadcast fixed item selection via websocket (no songRequestId for fixed items)
+      window.ipcRenderer.send('wheel_selection', null);
+    } else {
+      const selectedSong = currentSongs[selectedSliceIndex];
+      const logSongDisplay = selectedSong.artist ? `${selectedSong.artist} - ${selectedSong.title}` : selectedSong.title;
+      console.log('Selected song:', logSongDisplay, selectedSong.requester ? `(requested by ${selectedSong.requester})` : '');
+
+      // Broadcast wheel selection via websocket
+      if (selectedSong.songRequestId) {
+        window.ipcRenderer.send('wheel_selection', selectedSong.songRequestId);
+      }
     }
 
     // Trigger winner light show with the selected slice color
@@ -945,7 +1058,11 @@ async function spinWheel() {
     triggerWinnerLightShow(winnerColor);
 
     winnerTimeoutId = setTimeout(() => {
-      showWinnerAnnouncement(selectedSong);
+      if (isFixedItemsMode) {
+        showFixedItemWinnerAnnouncement(FIXED_ITEMS[selectedSliceIndex]);
+      } else {
+        showWinnerAnnouncement(currentSongs[selectedSliceIndex]);
+      }
       winnerTimeoutId = null;
 
       confettiTimeoutId = setTimeout(() => {
@@ -985,11 +1102,19 @@ async function fetchSongRequests(): Promise<SongRequestData[]> {
 
 async function initializeWheel() {
   try {
-    const songs = await fetchSongRequests();
-    createWheel(songs);
+    if (isFixedItemsMode) {
+      createFixedItemWheel(FIXED_ITEMS);
+    } else {
+      const songs = await fetchSongRequests();
+      createWheel(songs);
+    }
   } catch (error) {
     console.error('Failed to initialize wheel:', error);
-    createWheel([]);
+    if (isFixedItemsMode) {
+      createFixedItemWheel(FIXED_ITEMS);
+    } else {
+      createWheel([]);
+    }
   }
 }
 
@@ -1001,24 +1126,51 @@ window.ipcRenderer.on('wheel_toggle_visibility', async () => {
   const isCurrentlyVisible = globalContainer.classList.contains('wheel-visible');
   globalContainer.classList.toggle('wheel-visible');
 
-  // If wheel is now visible (was hidden, now shown), update song list and hide winner message
+  // If wheel is now visible (was hidden, now shown), update wheel content and hide winner message
   if (!isCurrentlyVisible) {
     // Hide any previous winner message
     document.querySelector('.winner-announcement')?.remove();
 
-    // Update the song list
+    // Update the wheel based on current mode
     try {
-      const songs = await fetchSongRequests();
-      createWheel(songs);
+      if (isFixedItemsMode) {
+        createFixedItemWheel(FIXED_ITEMS);
+      } else {
+        const songs = await fetchSongRequests();
+        createWheel(songs);
+      }
     } catch (error) {
       console.error('Failed to update wheel when showing:', error);
     }
   }
 });
 
+window.ipcRenderer.on('wheel_toggle_mode', async () => {
+  isFixedItemsMode = !isFixedItemsMode;
+
+  // Hide any previous winner message
+  document.querySelector('.winner-announcement')?.remove();
+
+  // Update the wheel based on the new mode
+  try {
+    if (isFixedItemsMode) {
+      createFixedItemWheel(FIXED_ITEMS);
+    } else {
+      const songs = await fetchSongRequests();
+      createWheel(songs);
+    }
+  } catch (error) {
+    console.error('Failed to update wheel when toggling mode:', error);
+  }
+});
+
 window.ipcRenderer.on('wheel_spin', () => {
-  if (!isSpinning && currentSongs.length > 0) {
-    spinWheel();
+  if (!isSpinning) {
+    if (isFixedItemsMode && FIXED_ITEMS.length > 0) {
+      spinWheel();
+    } else if (!isFixedItemsMode && currentSongs.length > 0) {
+      spinWheel();
+    }
   }
 });
 
