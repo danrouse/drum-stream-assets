@@ -91,8 +91,7 @@ export class JobInterface {
 
   async publish<Q extends keyof Payloads>(queueName: Q, payload: Payloads[Q]) {
     if (!this.channel) await this.connect();
-    const id = await this.channel!.sendToQueue(queueName, Buffer.from(JSON.stringify(payload)));
-    console.info(`Published message ID ${id} to queue "${queueName}"`);
-    return id;
+    this.channel!.sendToQueue(queueName, Buffer.from(JSON.stringify(payload)));
+    console.info(`Published message to queue "${queueName}"`);
   }
 }
