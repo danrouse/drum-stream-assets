@@ -616,10 +616,11 @@ function calculateSliceScale(song: SongRequestData): number {
   const bumpBonus = (song.bumpCount || 0) * 0.5;
   scale = scale + bumpBonus;
 
-  // Apply age bonus: 50% larger per hour
+  // Apply age bonus: 100% larger per hour
   // Maximum of 300% size
+  const PER_HOUR_BONUS = 1.0;
   const ageBonus = song.createdAt
-    ? (new Date().getTime() - new Date(song.createdAt).getTime()) / (1000 * 60 * 60) * 0.5
+    ? (new Date().getTime() - new Date(song.createdAt).getTime()) / (1000 * 60 * 60) * PER_HOUR_BONUS
     : 0;
   scale = Math.min(3.0, scale + ageBonus);
 
