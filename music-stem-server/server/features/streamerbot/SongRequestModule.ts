@@ -40,6 +40,7 @@ export default class SongRequestModule {
   } = {};
   private failureCallbacks: { [id: number]: (errorType: string) => void } = {};
   private userCommandHistory: { [username: string]: [string, number][] } = {};
+  private rejectedSongRequests: { [username: string]: string } = {};
 
   public static MINIMUM_QUERY_LENGTH = 4;
   public static PRIORITY_REQUEST_VALUE = 5;
@@ -51,35 +52,55 @@ export default class SongRequestModule {
     this.client = client;
     this.wss = wss;
 
+    const beginSongRequest = async (payload: {
+      rawInput: string,
+      user: string,
+    }) => {
+      try {
+        const query = await this.prepareUserSongRequest(
+          payload.rawInput,
+          payload.user,
+          await this.songRequestMaxCountForUser(payload.user)
+        );
+
+        const danceOfEternityURLs = [
+          'https://www.youtube.com/watch?v=eYCYGpu0OxM',
+          'https://open.spotify.com/track/7FTf3bJuCq5UYHjUwggKNB',
+        ];
+        if (query.match(/dance of eternity/i) || danceOfEternityURLs.includes(query)) {
+          await this.client.doAction('!danceofeternity');
+          await this.client.sendTwitchMessage(`@${payload.user} probably not`);
+          return;
+        }
+
+        await this.handleUserSongRequest(
+          query,
+          payload.user,
+        );
+      } catch (e) {
+        this.log('Song request error', e);
+      }
+    };
+
     this.client.registerCustomEventHandler('Song Request', async (payload) => {
       if (!payload.isFollowing && !payload.isSubscribed && !payload.isModerator) {
         await this.client.sendTwitchMessage(`@${payload.user} Song requests are available to anyone following the channel!`);
         await this.client.doAction('!srrules');
+        this.rejectedSongRequests[payload.user] = payload.rawInput;
       } else {
-        try {
-          const query = await this.prepareUserSongRequest(
-            payload.rawInput,
-            payload.user,
-            await this.songRequestMaxCountForUser(payload.user)
-          );
+        await beginSongRequest(payload);
+      }
+    });
 
-          const danceOfEternityURLs = [
-            'https://www.youtube.com/watch?v=eYCYGpu0OxM',
-            'https://open.spotify.com/track/7FTf3bJuCq5UYHjUwggKNB',
-          ];
-          if (query.match(/dance of eternity/i) || danceOfEternityURLs.includes(query)) {
-            await this.client.doAction('!danceofeternity');
-            await this.client.sendTwitchMessage(`@${payload.user} probably not`);
-            return;
-          }
-
-          await this.handleUserSongRequest(
-            query,
-            payload.user,
-          );
-        } catch (e) {
-          this.log('Song request error', e);
-        }
+    this.client.on('Twitch.Follow', async (payload) => {
+      const user = payload.data.user_name;
+      if (this.rejectedSongRequests[user]) {
+        await this.client.sendTwitchMessage(`@${user} Processing your song request now!`);
+        await beginSongRequest({
+          rawInput: this.rejectedSongRequests[user],
+          user,
+        });
+        delete this.rejectedSongRequests[user];
       }
     });
 
