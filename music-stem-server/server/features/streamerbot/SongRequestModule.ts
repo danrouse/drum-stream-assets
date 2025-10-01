@@ -87,7 +87,7 @@ export default class SongRequestModule {
       // Allow a moderator to request a song for someone else
       // Bypass most of the checks, since it's a moderator privilege
       try {
-        const parts = payload.message.split(' ');
+        const parts = payload.message.replace(/^\s*for\s+/, '').split(' ');
         const forUser = parts[0].replace(/^@/, '');
         const query = parts.slice(1).join(' ');
         await this.handleUserSongRequest(
@@ -513,8 +513,8 @@ export default class SongRequestModule {
     const songRequest = (await db.insertInto('songRequests').values({
       songId: existingSongId,
       query,
-      priority: options?.priority || 0,
-      noShenanigans: Number(options?.noShenanigans || 0),
+      priority: options.priority || 0,
+      noShenanigans: Number(options.noShenanigans || 0),
       status: 'processing',
       requester: requesterName,
       twitchRewardId: options?.twitchRewardId,
@@ -678,7 +678,7 @@ export default class SongRequestModule {
   private async handleUserSongRequest(
     query: string,
     requesterName: string,
-    options?: Partial<SongRequestOptions>,
+    options: Partial<SongRequestOptions> = {},
   ) {
     let hasResponded = false;
     setTimeout(async () => {
@@ -687,8 +687,8 @@ export default class SongRequestModule {
       }
     }, 500);
 
-    const maxDuration = options?.maxDuration || await this.songRequestMaxDurationForUser(requesterName);
-    const minViews = options?.minViews || await this.songRequestMinViewsForUser(requesterName);
+    options.maxDuration ||= await this.songRequestMaxDurationForUser(requesterName);
+    options.minViews ||= await this.songRequestMinViewsForUser(requesterName);
     const songRequestId = await this.execute(
       query.trim(),
       requesterName,
