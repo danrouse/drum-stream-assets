@@ -41,6 +41,7 @@ export default class SongRequestModule {
   private failureCallbacks: { [id: number]: (errorType: string) => void } = {};
   private userCommandHistory: { [username: string]: [string, number][] } = {};
   private rejectedSongRequests: { [username: string]: string } = {};
+  private removedSongRequests: { [username: string]: string } = {};
 
   public static MINIMUM_QUERY_LENGTH = 4;
   public static PRIORITY_REQUEST_VALUE = 5;
@@ -161,6 +162,9 @@ export default class SongRequestModule {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any queued song requests to remove!`);
         return;
       }
+
+      const effectiveCreatedAt = songRequest.effectiveCreatedAt;
+      this.removedSongRequests[payload.user] = effectiveCreatedAt;
 
       await db.updateTable('songRequests')
         .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
@@ -731,6 +735,15 @@ export default class SongRequestModule {
           // if (numPreviousRequests === 0) {
           //   message += ` It's never been requested before! OOOO`;
           // }
+          // If someone removed their request and re-requested (instead of using !edit),
+          // set the effectiveCreatedAt to the time of the original request
+          if (this.removedSongRequests[requesterName]) {
+            await db.updateTable('songRequests')
+              .where('id', '=', songRequestId)
+              .set('effectiveCreatedAt', this.removedSongRequests[requesterName])
+              .execute();
+            delete this.removedSongRequests[requesterName];
+          }
           await this.client.sendTwitchMessage(message);
         }
         hasResponded = true;
