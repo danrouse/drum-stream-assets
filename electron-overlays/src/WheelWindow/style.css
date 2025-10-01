@@ -53,7 +53,7 @@ html, body, #app {
    ============================================================================= */
 
 .slice {
-  fill-opacity: 0.5;
+  fill-opacity: 0.66;
 }
 
 .slice.selected {
@@ -195,10 +195,10 @@ html, body, #app {
   }
 }
 
-.wheel-light.winner-celebration-even {
+.wheel-light.winner-celebration:nth-child(even) {
   animation: winner-celebration-even 0.5s ease-in-out infinite !important;
 }
 
-.wheel-light.winner-celebration-odd {
+.wheel-light.winner-celebration:nth-child(odd) {
   animation: winner-celebration-odd 0.5s ease-in-out infinite !important;
 }
