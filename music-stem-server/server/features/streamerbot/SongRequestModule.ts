@@ -754,9 +754,9 @@ export default class SongRequestModule {
         if (errorMessage === 'UNSUPPORTED_DOMAIN') message = 'Only Spotify or YouTube links are supported.';
         if (errorMessage === 'DOWNLOAD_FAILED') message = 'I wasn\'t able to download that link.';
         if (errorMessage === 'NO_PLAYLISTS') message = 'Playlists aren\'t supported, request a single song instead.';
-        if (errorMessage === 'TOO_LONG') message = `That song is too long! The limit is ${formatTime(maxDuration)}.`;
+        if (errorMessage === 'TOO_LONG') message = `That song is too long! The limit is ${formatTime(options.maxDuration)}.`;
         if (errorMessage === 'AGE_RESTRICTED') message = 'The song downloader doesn\'t currently support age-restricted videos.';
-        if (errorMessage === 'MINIMUM_VIEWS') message = `Videos with under ${minViews} views are not allowed.`;
+        if (errorMessage === 'MINIMUM_VIEWS') message = `Videos with under ${options.minViews} views are not allowed.`;
         if (errorMessage === 'REQUEST_ALREADY_EXISTS') message = 'That song is already in the song request queue.';
         await this.client.sendTwitchMessage(`@${requesterName} ${message}`);
         hasResponded = true;
