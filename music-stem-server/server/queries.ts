@@ -74,7 +74,7 @@ export const allSongRequests = () => db.selectFrom('songRequests')
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
     'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-    'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.bumpCount',
+    'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.bumpCount', 'songRequests.effectiveCreatedAt',
     'fulfilledCounts.fulfilledToday',
   ])
   .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
