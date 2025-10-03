@@ -11,9 +11,7 @@
   },
   "dependencies": {
     "@spotify/web-api-ts-sdk": "^1.2.0",
-    "@streamerbot/client": "^1.5.1",
-    "@twurple/api": "^7.2.1",
-    "@twurple/auth": "^7.2.1",
+    "@streamerbot/client": "^1.12.2",
     "@vitejs/plugin-react": "^4.3.1",
     "amqplib": "^0.10.5",
     "better-sqlite3": "^11.5.0",
@@ -21,7 +19,7 @@
     "cors": "^2.8.5",
     "cross-env": "^7.0.3",
     "discord.js": "^14.17.2",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.6.1",
     "express": "^4.21.0",
     "googleapis": "^144.0.0",
     "howler": "^2.2.4",
@@ -29,13 +27,10 @@
     "kysely-d1": "^0.3.0",
     "midi": "^2.0.0",
     "node-id3tag": "^0.9.8",
-    "open": "^10.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-jsx": "^1.0.0",
     "serialport": "^13.0.0",
-    "timing-object": "^3.1.81",
-    "timingsrc": "^1.4.20",
     "tsx": "^4.19.1",
     "vite": "^5.4.5",
     "vite-plugin-mkcert": "^1.17.6",
@@ -52,7 +47,7 @@
     "@types/react-dom": "^18.3.0",
     "@types/serialport": "^8.0.5",
     "@types/ws": "^8.5.12",
-    "concurrently": "^9.1.2",
+    "concurrently": "^9.2.1",
     "typescript": "^5.6.3"
   }
 }
