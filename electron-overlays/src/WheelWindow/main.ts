@@ -86,7 +86,7 @@ const ALL_HATS: string[] = [
   'Taco',
   'Tiara',
 ];
-const HAT_TIMEOUT_MS = 1000 * 60 * 60; // one hour
+const HAT_TIMEOUT_MS = 1000 * 60 * 60 * 12; // 12 hours
 const selectionHistory: { item: string, time: Date }[] = [];
 
 let currentSliceAngles: { startAngle: number; endAngle: number; scaleFactor: number }[] = [];
@@ -136,29 +136,6 @@ globalContainer.appendChild(svg);
 // =============================================================================
 // UTILITY FUNCTIONS
 // =============================================================================
-
-function formatRequestTime(createdAt: string): string {
-  try {
-    const date = new Date(createdAt);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-
-    const diffHours = Math.floor(diffMins / 60);
-    const remainingMins = diffMins % 60;
-
-    if (diffHours < 24) {
-      return remainingMins === 0 ? `${diffHours}h ago` : `${diffHours}h${remainingMins}m ago`;
-    }
-
-    return date.toLocaleDateString();
-  } catch {
-    return '';
-  }
-}
 
 function simpleStringHash(str: string): number {
   let hash = 0;
@@ -696,10 +673,9 @@ async function spinWheel() {
       selectionHistory.push({ item: label, time: new Date() });
     } else {
       const request = currentRequests[selectedSliceIndex];
-      const timeAgo = formatRequestTime(request.createdAt);
       label = request.artist ? `${request.artist} - ${request.title}` : request.title;
-      if (request.requester || timeAgo) {
-        sublabel = `Requested ${request.requester ? `by ${request.requester}` : ''}${timeAgo ? ` • ${timeAgo}` : ''}`;
+      if (request.requester) {
+        sublabel = `Requested by ${request.requester}`;
       }
 
       if (request.songRequestId) {
