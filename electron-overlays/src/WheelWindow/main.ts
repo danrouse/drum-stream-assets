@@ -291,6 +291,8 @@ function calculateSliceScale(song: SongRequestData): number {
   const REDUCTION_PER_FULFILLED_REQUEST = 0.15;
   const INCREASE_PER_BUMP = 0.5;
   const INCREASE_PER_HOUR = 1.0;
+  const INCREASE_FIRST_REQUEST = 1.0;
+  const INCREASE_FIRST_REQUEST_TIME_MINS = 20;
 
   let scale = 1.0;
 
@@ -299,8 +301,14 @@ function calculateSliceScale(song: SongRequestData): number {
   const ageBonus = song.effectiveCreatedAt
     ? (new Date().getTime() - new Date(song.effectiveCreatedAt).getTime()) / (1000 * 60 * 60) * INCREASE_PER_HOUR
     : 0;
+  const firstRequestBonus = (
+    song.fulfilledToday === 0 &&
+    new Date(song.effectiveCreatedAt).getTime() < new Date().getTime() - INCREASE_FIRST_REQUEST_TIME_MINS * 60 * 1000
+  )
+    ? INCREASE_FIRST_REQUEST
+    : 0;
 
-  scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale - fulfilledPenalty + bumpBonus + ageBonus));
+  scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale - fulfilledPenalty + bumpBonus + ageBonus + firstRequestBonus));
 
   return scale;
 }
