@@ -72,8 +72,14 @@ async def text_to_speech(text, voice=voices[random.randint(0, len(voices) - 1)])
     sd.wait()
 
 if __name__ == "__main__":
+    # strip non-language characters (namely, emoji)
     NON_BMP_RE = re.compile(u"[^\U00000000-\U0000d7ff\U0000e000-\U0000ffff]", flags=re.UNICODE)
     stripped_text = NON_BMP_RE.sub(u'', sys.argv[1])
+    # remove backslashes (added before invocation for escaping)
     stripped_text = stripped_text.replace('\\', '')
+    # remove bit cheer text (like cheer100)
+    CHEER_TEXT_RE = re.compile(r"\bcheer(\d+)\b", flags=re.IGNORECASE)
+    stripped_text = CHEER_TEXT_RE.sub(u'', stripped_text)
+
     if stripped_text:
         asyncio.run(text_to_speech(stripped_text[0:MAX_LEN]))
