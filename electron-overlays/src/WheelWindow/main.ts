@@ -292,7 +292,7 @@ function calculateSliceScale(song: SongRequestData): number {
   const INCREASE_PER_BUMP = 0.5;
   const INCREASE_PER_HOUR = 1.0;
   const INCREASE_FIRST_REQUEST = 1.0;
-  const INCREASE_FIRST_REQUEST_TIME_MINS = 20;
+  const INCREASE_FIRST_REQUEST_TIME_MINS = 30;
 
   let scale = 1.0;
 
