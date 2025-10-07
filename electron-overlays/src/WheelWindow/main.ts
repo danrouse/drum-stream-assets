@@ -66,8 +66,8 @@ const ALL_HATS: string[] = [
   'Bun Bun',
   'Yoshi',
   'Penguin',
-  'Fedora',
-  'White Bucket Hat',
+  // 'Fedora',
+  // 'White Bucket Hat',
   'Ramen Bucket Hat',
   'Cat Bucket Hat',
   'Red Beret',
@@ -84,7 +84,7 @@ const ALL_HATS: string[] = [
   'Pink Sparkly Cowboy Hat',
   'Queen',
   'Taco',
-  'Tiara',
+  // 'Tiara',
 ];
 const HAT_TIMEOUT_MS = 1000 * 60 * 60 * 12; // 12 hours
 const selectionHistory: { item: string, time: Date }[] = [];
