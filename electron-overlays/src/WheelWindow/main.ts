@@ -670,6 +670,7 @@ async function spinWheel() {
     if (isHatWheelMode) {
       label = svg.querySelectorAll('.slice.selected')[0].nextElementSibling!.textContent;
       selectionHistory.push({ item: label, time: new Date() });
+      window.ipcRenderer.send('wheel_select_hat', label);
     } else {
       const request = currentRequests[selectedSliceIndex];
       label = request.artist ? `${request.artist} - ${request.title}` : request.title;
@@ -678,7 +679,7 @@ async function spinWheel() {
       }
 
       if (request.songRequestId) {
-        window.ipcRenderer.send('wheel_selection', request.songRequestId);
+        window.ipcRenderer.send('wheel_select_song_request', request.songRequestId);
       }
     }
 

@@ -176,8 +176,11 @@ function createWheelWindow() {
   });
   // win.setIgnoreMouseEvents(true);
   win.loadURL(process.env.VITE_DEV_SERVER_URL! + 'src/WheelWindow/index.html');
-  ipcMain.on('wheel_selection', (event, songRequestId) => {
-    ws.send(JSON.stringify({ type: 'wheel_selection', songRequestId }));
+  ipcMain.on('wheel_select_song_request', (event, songRequestId) => {
+    ws.send(JSON.stringify({ type: 'wheel_select_song_request', songRequestId }));
+  });
+  ipcMain.on('wheel_select_hat', (event, hat) => {
+    ws.send(JSON.stringify({ type: 'wheel_select_hat', hat }));
   });
   return win;
 }

@@ -173,7 +173,7 @@ export default function SongBrowserUI() {
       handleClientRemoteControl(message.action, message.duration, message.amount);
     } else if (message?.type === 'viewers_update') {
       setActiveViewers(message.viewers);
-    } else if (message?.type === 'wheel_selection') {
+    } else if (message?.type === 'wheel_select_song_request') {
       // Find and select the song in the Requests playlist
       const requestsPlaylistIndex = playlists.findIndex(p => p.title === SONG_REQUEST_PLAYLIST_NAME);
       if (requestsPlaylistIndex !== -1) {

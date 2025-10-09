@@ -71,8 +71,11 @@ export type WebSocketServerMessage = {
 } | {
   type: 'wheel_spin',
 } | {
-  type: 'wheel_selection',
+  type: 'wheel_select_song_request',
   songRequestId: number,
+} | {
+  type: 'wheel_select_hat',
+  hat: string,
 };
 
 export type WebSocketPlayerMessage = {
