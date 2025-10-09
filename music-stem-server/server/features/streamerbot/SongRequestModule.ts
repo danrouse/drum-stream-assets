@@ -154,6 +154,29 @@ export default class SongRequestModule {
       );
     });
     this.client.registerCommandHandler('!remove', async (payload) => {
+      if (payload.message.toLowerCase() === 'all') {
+        const songRequests = await queries.songRequestsByUser(payload.user);
+        if (songRequests.length > 0) {
+          const effectiveCreatedAt = songRequests[0].effectiveCreatedAt;
+          this.removedSongRequests[payload.user] = effectiveCreatedAt;
+
+          await db.updateTable('songRequests')
+            .set({ status: 'cancelled', fulfilledAt: new Date().toUTCString() })
+            .where('id', 'in', songRequests.map(sr => sr.id))
+            .execute();
+
+          songRequests.forEach(songRequest =>
+            this.wss.broadcast({
+              type: 'song_request_removed',
+              songRequestId: songRequest.id,
+            })
+          );
+
+          await this.client.sendTwitchMessage(`@${payload.user} All of your song requests have been removed! o7`);
+        }
+        return;
+      }
+
       const { songRequest, isAmbiguous } = await this.disambiguate(
         payload.user, payload.message, 'Use !remove <number> to select which song to remove.'
       );
