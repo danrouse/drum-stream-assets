@@ -75,7 +75,7 @@ export default function SongBrowserUI() {
 
   // For song filtering, check word by word (order doesn't matter)
   const songSearchRegexps = songSearchQuery.split(' ').map(word => new RegExp(word, 'i'));
-  const filteredSongs = allSongs.filter(s => songSearchRegexps.every(wordRegexp => 
+  const filteredSongs = allSongs.filter(s => songSearchRegexps.every(wordRegexp =>
     s.title.match(wordRegexp) ||
     s.artist.match(wordRegexp) ||
     (s.album?.match(wordRegexp) && !s.album?.startsWith('YouTube')) ||
@@ -173,12 +173,13 @@ export default function SongBrowserUI() {
       handleClientRemoteControl(message.action, message.duration, message.amount);
     } else if (message?.type === 'viewers_update') {
       setActiveViewers(message.viewers);
-    } else if (message?.type === 'wheel_select_song_request') {
+    } else if (message?.type === 'wheel_select_song_requester') {
       // Find and select the song in the Requests playlist
       const requestsPlaylistIndex = playlists.findIndex(p => p.title === SONG_REQUEST_PLAYLIST_NAME);
       if (requestsPlaylistIndex !== -1) {
         const requestsPlaylist = playlists[requestsPlaylistIndex];
-        const selectedSongFromWheel = requestsPlaylist.songs.find(song => song.songRequestId === message.songRequestId);
+        const selectedSongFromWheel = requestsPlaylist.songs.find(song =>
+          song.requester?.toLowerCase() === message.name.toLowerCase());
         if (selectedSongFromWheel) {
           setSelectedSong(selectedSongFromWheel);
           setSelectedPlaylistIndex(requestsPlaylistIndex);

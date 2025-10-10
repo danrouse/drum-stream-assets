@@ -18,7 +18,7 @@ export default class WheelModule {
     this.client.registerCustomEventHandler('WheelToggleMode', this.toggleWheelMode);
     this.client.registerCustomEventHandler('WheelSpin', this.spinWheel);
 
-    this.wss.registerHandler('wheel_select_song_request', this.handleSongRequestSelection);
+    this.wss.registerHandler('wheel_select_song_requester', this.handleSongRequestSelection);
     this.wss.registerHandler('wheel_select_hat', this.handleHatSelection);
   }
 
@@ -40,15 +40,10 @@ export default class WheelModule {
     });
   };
 
-  private handleSongRequestSelection = async (payload: WebSocketMessage<'wheel_select_song_request'>) => {
-    // Do a roll call check if the requester is showing as offline
-    const request = await db.selectFrom('songRequests')
-      .where('id', '=', payload.songRequestId)
-      .select('requester')
-      .executeTakeFirst();
-    const viewer = request?.requester && await this.client.getViewer(request.requester);
-    if (viewer && !viewer.online) {
-      await this.client.sendTwitchMessage(`@${request.requester} are you there? Your song was selected but you don't appear online! AAAA`);
+  private handleSongRequestSelection = async (payload: WebSocketMessage<'wheel_select_song_requester'>) => {
+    const viewer = await this.client.getViewer(payload.name);
+    if (!viewer?.online) {
+      await this.client.sendTwitchMessage(`@${payload.name} are you there? Your song was selected but you don't appear to be online! AAAA`);
     }
   };
 
