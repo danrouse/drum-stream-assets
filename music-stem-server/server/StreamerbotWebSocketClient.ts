@@ -1,9 +1,9 @@
-import { StreamerbotClient, StreamerbotEventPayload, StreamerbotViewer, StreamerbotEventName } from '@streamerbot/client';
+import { StreamerbotClient, StreamerbotEventPayload, StreamerbotEventName } from '@streamerbot/client';
 import WebSocketCoordinatorServer from './WebSocketCoordinatorServer';
 import { db } from './database';
 import * as queries from './queries';
 import { createLogger } from '../../shared/util';
-import { WebSocketMessage, WebSocketBroadcaster, SongData } from '../../shared/messages';
+import { WebSocketMessage, SongData, StreamerbotViewer } from '../../shared/messages';
 import * as Streamerbot from '../../shared/streamerbot';
 
 export const TwitchRewardDurations: Streamerbot.TwitchRewardMeta<number> = {
@@ -52,7 +52,7 @@ export default class StreamerbotWebSocketClient {
   private twitchDebounceQueue: { [key: string]: number } = {};
   private streamerbotActionQueue: Array<[Streamerbot.ActionName, any]> = [];
   private updateViewersTimer?: NodeJS.Timeout;
-  private viewers: Array<StreamerbotViewer & { online: boolean, color?: string }> = [];
+  private viewers: Array<StreamerbotViewer> = [];
   private commandHandlers: { [command in Streamerbot.CommandName]?: (payload: CommandPayload) => void } = {};
   private twitchRedemptionHandlers: { [reward in Streamerbot.TwitchRewardName]?: (payload: TwitchRedemptionPayload) => void } = {};
   private customEventHandlers: { [event: string]: (payload: any) => void } = {};

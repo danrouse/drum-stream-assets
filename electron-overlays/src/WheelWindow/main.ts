@@ -1,4 +1,11 @@
-import { SongRequestData } from '../../../shared/messages';
+import { SongRequestData, StreamerbotViewer } from '../../../shared/messages';
+
+interface SongRequester {
+  name: string;
+  fulfilledToday: number;
+  oldestRequestAge: number;
+  requests: SongRequestData[];
+}
 
 // =============================================================================
 // CONFIGURATION CONSTANTS
@@ -49,7 +56,8 @@ const POINTER_CONFIG = {
 // STATE MANAGEMENT
 // =============================================================================
 
-let currentRequests: SongRequestData[] = [];
+let currentRequesters: SongRequester[] = [];
+let subscribedViewers: Set<string> = new Set();
 let isSpinning = false;
 let currentRotation = 0;
 let animationFrameId: number | null = null;
@@ -285,23 +293,29 @@ function updateRealtimeHighlighting() {
 // GEOMETRY FUNCTIONS
 // =============================================================================
 
-function calculateSliceScale(song: SongRequestData): number {
+function calculateSliceScale(requester: SongRequester): number {
   const MIN_SCALE = 0.25;
   const MAX_SCALE = 3.0;
   const REDUCTION_PER_FULFILLED_REQUEST = 0.15;
-  const INCREASE_PER_BUMP = 0.5;
+  // const INCREASE_PER_BUMP = 0.5;
   const INCREASE_PER_HOUR = 1.0;
   const INCREASE_FIRST_REQUEST_RATE_BONUS = 2.0;
+  const INCREASE_SUB_BONUS = 0.5;
 
-  const fulfilledPenalty = (song.fulfilledToday || 0) * REDUCTION_PER_FULFILLED_REQUEST;
-  const bumpBonus = (song.bumpCount || 0) * INCREASE_PER_BUMP;
-  const ageBonus = song.effectiveCreatedAt
-    ? (new Date().getTime() - new Date(song.effectiveCreatedAt).getTime()) / (1000 * 60 * 60) * INCREASE_PER_HOUR
+  const isSubscribed = subscribedViewers.has(requester.name.toLowerCase());
+
+  const fulfilledPenalty = (requester.fulfilledToday || 0) * REDUCTION_PER_FULFILLED_REQUEST;
+  // const bumpBonus = (song.bumpCount || 0) * INCREASE_PER_BUMP;
+  const ageBonus = requester.oldestRequestAge
+    ? requester.oldestRequestAge / (1000 * 60 * 60) * INCREASE_PER_HOUR
     : 0;
-  const firstRequestBonus = song.fulfilledToday === 0 ? INCREASE_FIRST_REQUEST_RATE_BONUS : 1.0;
-  const totalBonus = 1.0 - fulfilledPenalty + bumpBonus + (ageBonus * firstRequestBonus);
+  const firstRequestBonus = requester.fulfilledToday === 0 ? INCREASE_FIRST_REQUEST_RATE_BONUS : 1.0;
+  const size = 1.0
+    - fulfilledPenalty
+    + (ageBonus * firstRequestBonus)
+    + (isSubscribed ? INCREASE_SUB_BONUS : 0);
 
-  return Math.max(MIN_SCALE, Math.min(MAX_SCALE, totalBonus));
+  return Math.max(MIN_SCALE, Math.min(MAX_SCALE, size));
 }
 
 function createPieSlice(startAngle: number, endAngle: number): string {
@@ -516,27 +530,12 @@ function createHatWheel(items: string[]) {
   createPointer();
 }
 
-function createSongRequestWheel(requests: SongRequestData[]) {
-  currentRequests = requests;
-
-  // Remove existing wheel content except pointer
+function createSongRequesterWheel(requesters: SongRequester[]) {
   Array.from(svg.children)
     .filter(child => !child.classList.contains('pointer'))
     .forEach(element => svg.removeChild(element));
 
-  if (requests.length === 0) {
-    const center = WHEEL_CONFIG.VIEWBOX_SIZE / 2;
-    const text = createSVGElement('text', {
-      class: 'no-songs-text',
-      x: center.toString(),
-      y: center.toString(),
-      'text-anchor': 'middle',
-      'dominant-baseline': 'middle'
-    });
-    text.textContent = 'No song requests available';
-    svg.appendChild(text);
-    return;
-  }
+  currentRequesters = requesters;
 
   const center = WHEEL_CONFIG.VIEWBOX_SIZE / 2;
   const wheelGroup = createSVGElement('g', {
@@ -554,13 +553,13 @@ function createSongRequestWheel(requests: SongRequestData[]) {
   svg.appendChild(wheelGroup);
   wheelGroup.addEventListener('click', spinWheel);
 
-  const numElements = requests.length;
+  const numElements = requesters.length;
 
   // Get user colors for each song
-  sliceColors = requests.map(song => getUserColor(song.requester));
+  sliceColors = requesters.map(requester => getUserColor(requester.name));
 
   // Calculate scale factors for each song
-  const scaleFactors = requests.map(song => calculateSliceScale(song));
+  const scaleFactors = requesters.map(requester => calculateSliceScale(requester));
   const totalScaleFactor = scaleFactors.reduce((sum, scale) => sum + scale, 0);
 
   // Calculate proportional angles based on scale factors
@@ -568,7 +567,7 @@ function createSongRequestWheel(requests: SongRequestData[]) {
   currentSliceAngles = []; // Store globally for highlighting/selection logic
 
   for (let i = 0; i < numElements; i++) {
-    const song = requests[i];
+    const requester = requesters[i];
     const proportionalAngle = (scaleFactors[i] / totalScaleFactor) * 360;
     const startAngle = currentAngle;
     const endAngle = currentAngle + proportionalAngle;
@@ -583,7 +582,7 @@ function createSongRequestWheel(requests: SongRequestData[]) {
       d: createPieSlice(startAngle, endAngle),
       fill: baseColor,
       stroke: 'black',
-      'data-requester': song.requester?.toLowerCase() || '',
+      'data-requester': requester.name.toLowerCase() || '',
     });
     wheelGroup.appendChild(path);
 
@@ -595,7 +594,7 @@ function createSongRequestWheel(requests: SongRequestData[]) {
     const textY = center + textRadius * Math.sin(textAngleRad);
     createSliceText(
       wheelGroup,
-      song.artist ? `${song.artist} - ${song.title}` : song.title,
+      requester.name,
       textX,
       textY,
       midAngle
@@ -618,25 +617,12 @@ async function spinWheel() {
   stopWinnerLightShow();
   document.querySelector('.winner-announcement')?.remove();
 
+  await initializeWheel();
+
   const spinDurationMs = ANIMATION_CONFIG.MIN_SPIN_DURATION_MS +
     Math.random() * (ANIMATION_CONFIG.MAX_SPIN_DURATION_MS - ANIMATION_CONFIG.MIN_SPIN_DURATION_MS);
 
   try {
-    if (isHatWheelMode) {
-      createHatWheel(ALL_HATS);
-    } else {
-      const latestSongs = await fetchSongRequests();
-      if (latestSongs.length === 0) {
-        isSpinning = false;
-        clearAllAnimationsAndTimeouts();
-        return;
-      }
-
-      if (latestSongs.length !== currentRequests.length) {
-        createSongRequestWheel(latestSongs);
-      }
-    }
-
     isSpinning = true;
 
     const baseRotations = ANIMATION_CONFIG.MIN_ROTATIONS + Math.random() * ANIMATION_CONFIG.MAX_ADDITIONAL_ROTATIONS;
@@ -672,15 +658,14 @@ async function spinWheel() {
       selectionHistory.push({ item: label, time: new Date() });
       window.ipcRenderer.send('wheel_select_hat', label);
     } else {
-      const request = currentRequests[selectedSliceIndex];
-      label = request.artist ? `${request.artist} - ${request.title}` : request.title;
-      if (request.requester) {
-        sublabel = `Requested by ${request.requester}`;
+      const requester = currentRequesters[selectedSliceIndex];
+      label = requester.name;
+      if (requester.requests?.length > 0) {
+        sublabel = requester.requests.map(request =>
+          request.artist ? `${request.artist} - ${request.title}` : request.title
+        ).join('<br>');
       }
-
-      if (request.songRequestId) {
-        window.ipcRenderer.send('wheel_select_song_request', request.songRequestId);
-      }
+      window.ipcRenderer.send('wheel_select_song_requester', requester.name);
     }
 
     // Trigger winner light show with the selected slice color
@@ -718,8 +703,21 @@ async function initializeWheel() {
   if (isHatWheelMode) {
     createHatWheel(ALL_HATS);
   } else {
-    const songs = await fetchSongRequests();
-    createSongRequestWheel(songs);
+    const songRequests = await fetchSongRequests();
+    const requesters = Array.from(new Set(songRequests.map(request => request.requester)));
+    const requestersWithMeta = requesters.map(name => {
+      const requests = songRequests.filter(request => request.requester === name);
+      const earliestRequestedByDate = requests.reduce((earliest, request) => {
+        return request.effectiveCreatedAt < earliest ? request.effectiveCreatedAt : earliest;
+      }, requests[0]!.effectiveCreatedAt);
+      return {
+        name,
+        fulfilledToday: requests[0]!.fulfilledToday,
+        oldestRequestAge: new Date().getTime() - new Date(earliestRequestedByDate).getTime(),
+        requests,
+      };
+    }) as SongRequester[];
+    createSongRequesterWheel(requestersWithMeta);
   }
 }
 
@@ -754,15 +752,17 @@ window.ipcRenderer.on('song_played', () => {
 });
 
 window.ipcRenderer.on('viewers_update', (_, payload) => {
-  // Update user color mapping from viewer data
-  payload.viewers.forEach((viewer: any) => {
-    if (viewer.login && viewer.color) {
+  payload.viewers.forEach((viewer: StreamerbotViewer) => {
+    if (viewer.color) {
       userColors.set(viewer.login.toLowerCase(), viewer.color);
       if (!isSpinning) {
         document.querySelectorAll<SVGPathElement>(`[data-requester="${viewer.login.toLowerCase()}"]`).forEach(element => {
-          element.style.fill = viewer.color;
+          element.style.fill = viewer.color!;
         });
       }
+    }
+    if (viewer.subscribed) {
+      subscribedViewers.add(viewer.login.toLowerCase());
     }
   });
 });
