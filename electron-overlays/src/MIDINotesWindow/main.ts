@@ -91,66 +91,63 @@ function loadConfig(): MIDINoteDisplayDefinition[] {
 }
 const config = loadConfig();
 
-const MAX_ELEMS_PER_NOTE = 5;
-const existingNoteByType: { [key: number]: HTMLElement[] } = {};
+const existingNoteByType: { [key: number]: { elem: HTMLElement, velocity: number } } = {};
 
 const NOTE_ANIMATION_DURATION_MS = 2000;
 const LAST_EMOTE_URLS: { [key: string]: [string, number] } = {};
 function triggerNote(note: number, velocity: number, animated: boolean = true, noteConfigs = config) {
-  const selectedNoteConfigs = noteConfigs.filter(def => def.keys.includes(note));
-  if (!selectedNoteConfigs.length) {
+  const noteConfig = noteConfigs.find(def => def.keys.includes(note));
+  if (!noteConfig) {
     console.warn('Unconfigured MIDI note', note);
     return;
   }
 
-  if (!existingNoteByType[note]) {
-    existingNoteByType[note] = [];
+  if (existingNoteByType[note]?.velocity > velocity) {
+    // don't create a new note element if the existing one is more intense
+    return;
+  }
+  existingNoteByType[note]?.elem.remove();
+
+  const noteElem = document.createElement('DIV');
+  noteElem.classList.add('note');
+  noteElem.classList.add(pascalCaseToKebabCase(`note-${noteConfig.name}`));
+  noteElem.style.opacity = String((velocity + 25) / MIDI_TRIGGER_VELOCITY_MAX);
+  noteElem.style.left = `${noteConfig.x}px`;
+  noteElem.style.top = `${noteConfig.y}px`;
+  noteElem.style.width = `${noteConfig.w}px`;
+  noteElem.style.height = `${noteConfig.h}px`;
+  noteElem.style.marginLeft = `-${noteConfig.w / 2}px`;
+  noteElem.style.marginTop = `-${noteConfig.h / 2}px`;
+  noteElem.style.backgroundColor = noteConfig.color;
+  // noteElem.style.backgroundImage = `url(${selectedEmoteURL})`;
+  if (!LAST_EMOTE_URLS[noteConfig.name] || LAST_EMOTE_URLS[noteConfig.name][1] < Date.now() - (EMOTE_RANDOM_SWAP_TIME * Math.random() * 4)) {
+    LAST_EMOTE_URLS[noteConfig.name] = [getEmote(LAST_EMOTE_URLS[noteConfig.name]?.[0]), Date.now()];
+  }
+  noteElem.style.backgroundImage = `url(${LAST_EMOTE_URLS[noteConfig.name][0]})`;
+  noteElem.style.transform = `rotate(${noteConfig.r}deg)`;
+  noteElem.style.color = noteConfig.color;
+  noteElem.style.zIndex = `${noteConfig.z}`;
+  noteElem.innerText = noteConfig.name;
+  if (midiRimNotes.includes(note)) {
+    noteElem.classList.add('rim');
   }
 
-  if (existingNoteByType[note].length >= MAX_ELEMS_PER_NOTE) {
-    const elem = existingNoteByType[note].shift();
-    elem?.remove();
-  }
+  const maskContainer = document.createElement('div');
+  maskContainer.classList.add('note-container');
+  maskContainer.style.maskImage = `url('/masks/mask-${LOCAL_STORAGE_KEY}-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
+  maskContainer.appendChild(noteElem);
+  notesContainerElem.appendChild(maskContainer);
 
-  for (let noteConfig of selectedNoteConfigs) {
-    const noteElem = document.createElement('DIV');
-    noteElem.classList.add('note');
-    noteElem.classList.add(pascalCaseToKebabCase(`note-${noteConfig.name}`));
-    noteElem.style.opacity = String((velocity + 25) / MIDI_TRIGGER_VELOCITY_MAX);
-    noteElem.style.left = `${noteConfig.x}px`;
-    noteElem.style.top = `${noteConfig.y}px`;
-    noteElem.style.width = `${noteConfig.w}px`;
-    noteElem.style.height = `${noteConfig.h}px`;
-    noteElem.style.marginLeft = `-${noteConfig.w / 2}px`;
-    noteElem.style.marginTop = `-${noteConfig.h / 2}px`;
-    noteElem.style.backgroundColor = noteConfig.color;
-    // noteElem.style.backgroundImage = `url(${selectedEmoteURL})`;
-    if (!LAST_EMOTE_URLS[noteConfig.name] || LAST_EMOTE_URLS[noteConfig.name][1] < Date.now() - (EMOTE_RANDOM_SWAP_TIME * Math.random() * 4)) {
-      LAST_EMOTE_URLS[noteConfig.name] = [getEmote(LAST_EMOTE_URLS[noteConfig.name]?.[0]), Date.now()];
-    }
-    noteElem.style.backgroundImage = `url(${LAST_EMOTE_URLS[noteConfig.name][0]})`;
-    noteElem.style.transform = `rotate(${noteConfig.r}deg)`;
-    noteElem.style.color = noteConfig.color;
-    noteElem.style.zIndex = `${noteConfig.z}`;
-    noteElem.innerText = noteConfig.name;
-    if (midiRimNotes.includes(note)) {
-      noteElem.classList.add('rim');
-    }
-
-    const maskContainer = document.createElement('div');
-    maskContainer.classList.add('note-container');
-    maskContainer.style.maskImage = `url('/masks/mask-${LOCAL_STORAGE_KEY}-${Math.min(noteConfig.z + 1, Z_INDEX_MAX)}.png')`;
-    maskContainer.appendChild(noteElem);
-    notesContainerElem.appendChild(maskContainer);
-
-    const poolIndex = existingNoteByType[note].push(maskContainer) - 1;
-    if (animated) {
-      noteElem.classList.add('animated');
-      setTimeout(() => {
-        maskContainer.remove();
-        existingNoteByType[note].splice(poolIndex, 1);
-      }, NOTE_ANIMATION_DURATION_MS);
-    }
+  existingNoteByType[note] = {
+    elem: maskContainer,
+    velocity,
+  };
+  if (animated) {
+    noteElem.classList.add('animated');
+    setTimeout(() => {
+      maskContainer.remove();
+      delete existingNoteByType[note];
+    }, NOTE_ANIMATION_DURATION_MS);
   }
 }
 
