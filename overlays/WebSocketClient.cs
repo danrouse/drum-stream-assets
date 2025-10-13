@@ -35,6 +35,14 @@ public class WebSocketClient : IDisposable
 
     public async Task ConnectAsync()
     {
+        if (_webSocket.State != WebSocketState.None)
+        {
+            _webSocket?.Dispose();
+            _webSocket = new ClientWebSocket();
+        }
+
+        _shouldReconnect = true;
+
         await ConnectInternalAsync();
     }
 
@@ -82,7 +90,17 @@ public class WebSocketClient : IDisposable
                 }
                 else if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", _cancellationTokenSource.Token);
+                    try
+                    {
+                        if (_webSocket.State == WebSocketState.Open || _webSocket.State == WebSocketState.CloseReceived)
+                        {
+                            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error closing WebSocket in response to close message: {ex.Message}");
+                    }
                     break;
                 }
             }
@@ -90,11 +108,23 @@ public class WebSocketClient : IDisposable
         catch (OperationCanceledException)
         {
             // Expected when cancellation is requested
+            Console.WriteLine("WebSocket listening cancelled");
+        }
+        catch (WebSocketException ex)
+        {
+            Console.WriteLine($"WebSocket error: {ex.Message}");
+            if (_shouldReconnect && !_disposed)
+            {
+                Console.WriteLine("Connection lost unexpectedly");
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error listening for WebSocket messages: {ex.Message}");
-            _messageSubject.OnError(ex);
+            if (_shouldReconnect && !_disposed && !_cancellationTokenSource.Token.IsCancellationRequested)
+            {
+                _messageSubject.OnError(ex);
+            }
         }
         finally
         {
@@ -226,9 +256,25 @@ public class WebSocketClient : IDisposable
     {
         _shouldReconnect = false; // Stop reconnection attempts
 
-        if (_webSocket.State == WebSocketState.Open)
+        try
         {
-            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", _cancellationTokenSource.Token);
+            if (_webSocket.State == WebSocketState.Open || _webSocket.State == WebSocketState.CloseReceived)
+            {
+                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+            }
+            else if (_webSocket.State == WebSocketState.Connecting)
+            {
+                _webSocket.Abort();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during WebSocket disconnect: {ex.Message}");
+            try
+            {
+                _webSocket?.Dispose();
+            }
+            catch {}
         }
 
         // Wait for reconnection task to complete if it's running
@@ -238,9 +284,10 @@ public class WebSocketClient : IDisposable
             {
                 await _reconnectTask;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) {}
+            catch (Exception ex)
             {
-                // Expected when cancellation is requested
+                Console.WriteLine($"Error waiting for reconnection task: {ex.Message}");
             }
         }
     }
