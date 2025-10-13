@@ -43,7 +43,7 @@ export default class WheelModule {
   private handleSongRequestSelection = async (payload: WebSocketMessage<'wheel_select_song_requester'>) => {
     const viewer = await this.client.getViewer(payload.name);
     if (!viewer?.online) {
-      await this.client.sendTwitchMessage(`@${payload.name} are you there? Your song was selected but you don't appear to be online! AAAA`);
+      // await this.client.sendTwitchMessage(`@${payload.name} are you there? Your song was selected but you don't appear to be online! AAAA`);
     }
   };
 
