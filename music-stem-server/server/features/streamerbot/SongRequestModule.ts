@@ -128,7 +128,7 @@ export default class SongRequestModule {
 
     this.client.registerCommandHandler('!replace', async (payload) => {
       const { songRequest, query: strippedQuery, isAmbiguous } = await this.disambiguate(
-        payload.user, payload.message, 'Use !edit <number> <query> to select which song to replace.'
+        payload.user, payload.message, 'Use !replace <number> <query> to select which song to replace.'
       );
       if (isAmbiguous) return;
       if (!songRequest) {
@@ -710,6 +710,7 @@ export default class SongRequestModule {
       } else {
         message += `please wait until one of your songs has played before requesting another!`;
       }
+      message += ` [Use !replace to change your song]`;
       await this.client.sendTwitchMessage(message);
       throw new Error('TOO_MANY_REQUESTS');
     }
