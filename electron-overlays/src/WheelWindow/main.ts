@@ -3,6 +3,7 @@ import { SongRequestData, StreamerbotViewer } from '../../../shared/messages';
 interface SongRequester {
   name: string;
   fulfilledToday: number;
+  lastFulfilledAt: string | null;
   oldestRequestAge: number;
   requests: SongRequestData[];
 }
@@ -297,24 +298,43 @@ function calculateSliceScale(requester: SongRequester): number {
   const MIN_SCALE = 0.25;
   const MAX_SCALE = 3.0;
   const REDUCTION_PER_FULFILLED_REQUEST = 0.15;
+  const REDUCTION_RECENTLY_FULFILLED = 0.5;
+  const RECENTLY_FULFILLED_TIME_WINDOW = 1000 * 60 * 15; // 15 minutes
   // const INCREASE_PER_BUMP = 0.5;
   const INCREASE_PER_HOUR = 1.0;
   const INCREASE_FIRST_REQUEST_RATE_BONUS = 2.0;
   const INCREASE_SUB_BONUS = 0.5;
 
-  const isSubscribed = subscribedViewers.has(requester.name.toLowerCase());
+  const timeSinceLastRequest = requester.lastFulfilledAt ?
+    new Date().getTime() - new Date(requester.lastFulfilledAt).getTime() :
+    Infinity;
 
+  // reduce the size based on how many songs a requester has had fulfilled today
   const fulfilledPenalty = (requester.fulfilledToday || 0) * REDUCTION_PER_FULFILLED_REQUEST;
-  // const bumpBonus = (song.bumpCount || 0) * INCREASE_PER_BUMP;
+
+  // reduce the size for requesters that have recently had a song played
+  const recentlyFulfilledPenalty = timeSinceLastRequest < RECENTLY_FULFILLED_TIME_WINDOW
+    ? (1 - timeSinceLastRequest / RECENTLY_FULFILLED_TIME_WINDOW) * REDUCTION_RECENTLY_FULFILLED
+    : 0;
+
+  // increase the size for requests based on their age
   const ageBonus = requester.oldestRequestAge
     ? requester.oldestRequestAge / (1000 * 60 * 60) * INCREASE_PER_HOUR
     : 0;
+
+  // amplify the age bonus for someone's first request of the day
   const firstRequestBonus = requester.fulfilledToday === 0 ? INCREASE_FIRST_REQUEST_RATE_BONUS : 1.0;
+
+  // increase the size of subscribers' requests
+  const isSubscribed = subscribedViewers.has(requester.name.toLowerCase());
+
   const size = 1.0
     - fulfilledPenalty
+    - recentlyFulfilledPenalty
     + (ageBonus * firstRequestBonus)
     + (isSubscribed ? INCREASE_SUB_BONUS : 0);
 
+  // clamp the final result
   return Math.max(MIN_SCALE, Math.min(MAX_SCALE, size));
 }
 
@@ -713,6 +733,7 @@ async function initializeWheel() {
       return {
         name,
         fulfilledToday: requests[0]!.fulfilledToday,
+        lastFulfilledAt: requests[0]!.lastFulfilledAt,
         oldestRequestAge: new Date().getTime() - new Date(earliestRequestedByDate).getTime(),
         requests,
       };

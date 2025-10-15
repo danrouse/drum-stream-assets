@@ -70,12 +70,23 @@ export const allSongRequests = () => db.selectFrom('songRequests')
       .as('fulfilledCounts'),
     join => join.onRef('fulfilledCounts.requester', '=', 'songRequests.requester')
   )
+  .leftJoin(
+    db.selectFrom('songRequests as sr3')
+      .select(['sr3.requester', db.fn.max('sr3.fulfilledAt').as('lastFulfilledAt')])
+      .where('sr3.status', '=', 'fulfilled')
+      .where('sr3.createdAt', '>', sql<any>`(select createdAt from streamHistory order by id desc limit 1)`)
+      .orderBy('sr3.fulfilledAt', 'desc')
+      .groupBy('sr3.requester')
+      .as('lastFulfilled'),
+    join => join.onRef('lastFulfilled.requester', '=', 'songRequests.requester')
+  )
   .where('songRequests.status', '=', 'ready')
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
     'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
     'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.bumpCount', 'songRequests.effectiveCreatedAt',
     'fulfilledCounts.fulfilledToday',
+    'lastFulfilled.lastFulfilledAt',
   ])
   .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
   .execute();

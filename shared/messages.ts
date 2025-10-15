@@ -141,7 +141,6 @@ export interface SongData {
   noShenanigans?: number | null;
   status?: SongRequestStatus | null;
   songRequestId?: number | null;
-  fulfilledToday?: number;
 }
 
 export interface SongRequestData extends SongData {
@@ -156,6 +155,8 @@ export interface SongRequestData extends SongData {
   createdAt: string;
   effectiveCreatedAt: string;
   bumpCount: number;
+  fulfilledToday: number | null;
+  lastFulfilledAt: string | null;
 }
 
 export interface LegacySongData {
