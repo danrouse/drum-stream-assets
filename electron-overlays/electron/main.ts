@@ -262,7 +262,7 @@ setInterval(() => {
 // Window management functions
 function getWindowCreator(windowKey: string): (() => BrowserWindow) | null {
   switch (windowKey) {
-    case 'midi-ride': return () => createMIDINotesWindow('d7f1f1d39ab23b254ab99defdb308bb89e7039d032b6a6626d344eb392ef4528');
+    case 'midi-ride': return () => createMIDINotesWindow('ccdf7c3ebcfc16779dea43318f45451d3ea35c06ea9661b6a0c6d4a1f2735752');
     case 'midi-overhead': return () => createMIDINotesWindow('062081be9db82c7128351e1b1d673bee186043945ad393c63e876a200e1d59d9');
     case 'now-playing': return createNowPlayingWindow;
     case 'synced-lyrics': return createSyncedLyricsWindow;
