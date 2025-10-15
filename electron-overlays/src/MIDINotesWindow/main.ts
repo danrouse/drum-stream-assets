@@ -91,7 +91,7 @@ function loadConfig(): MIDINoteDisplayDefinition[] {
 }
 const config = loadConfig();
 
-const existingNoteByType: { [key: number]: { elem: HTMLElement, velocity: number } } = {};
+const existingNoteByType: { [key: number]: { elem: HTMLElement, velocity: number, timeout?: NodeJS.Timeout } } = {};
 
 const NOTE_ANIMATION_DURATION_MS = 2000;
 const LAST_EMOTE_URLS: { [key: string]: [string, number] } = {};
@@ -102,11 +102,13 @@ function triggerNote(note: number, velocity: number, animated: boolean = true, n
     return;
   }
 
-  if (existingNoteByType[note]?.velocity > velocity) {
-    // don't create a new note element if the existing one is more intense
-    return;
+  if (existingNoteByType[note]) {
+    const style = getComputedStyle(existingNoteByType[note].elem.firstElementChild!);
+    const dstOpacity = (velocity + 25) / MIDI_TRIGGER_VELOCITY_MAX;
+    if (Number(style.opacity) > dstOpacity) return;
   }
   existingNoteByType[note]?.elem.remove();
+  if (existingNoteByType[note]?.timeout) clearTimeout(existingNoteByType[note].timeout);
 
   const noteElem = document.createElement('DIV');
   noteElem.classList.add('note');
@@ -138,17 +140,19 @@ function triggerNote(note: number, velocity: number, animated: boolean = true, n
   maskContainer.appendChild(noteElem);
   notesContainerElem.appendChild(maskContainer);
 
-  existingNoteByType[note] = {
-    elem: maskContainer,
-    velocity,
-  };
+  let timeout: NodeJS.Timeout | undefined;
   if (animated) {
     noteElem.classList.add('animated');
-    setTimeout(() => {
+    timeout = setTimeout(() => {
       maskContainer.remove();
       delete existingNoteByType[note];
     }, NOTE_ANIMATION_DURATION_MS);
   }
+  existingNoteByType[note] = {
+    elem: maskContainer,
+    velocity,
+    timeout,
+  };
 }
 
 function clearNotes() {
