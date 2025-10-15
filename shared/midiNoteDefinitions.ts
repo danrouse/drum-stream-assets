@@ -32,7 +32,8 @@ export const midiNoteDefinitions: MIDINoteDefinition[] = [
 ];
 
 export const midiRimNotes: number[] = [
-  40, 50, 47, 58, 39
+  // 40,
+  50, 47, 58, 39
 ];
 
 export const midiNoteKeysByName = midiNoteDefinitions.reduce((acc, def) => {
