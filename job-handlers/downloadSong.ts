@@ -21,12 +21,6 @@ export default async function downloadSong(
       const youTubeMatch = host.match(/^((www|m|music)\.)?(youtube\.com|youtu.be)/);
       const spotifyMatch = host.match(/^(open\.)?spotify\.com/);
       if (youTubeMatch) {
-        const htmlText = (await fetch(url)).text();
-        const match = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(htmlText);
-        const title = match ? match[1].replace(/\s+/g, " ").trim() : "";
-        if (! /creed/i.test(title)) {
-          throw new Error('NO_CREED');
-        }
         return await downloadFromYouTube(url, outputPath, uuid, options);
       } else if (spotifyMatch) {
         if (!url.pathname.includes('/track/')) {
