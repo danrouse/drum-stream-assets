@@ -84,7 +84,7 @@ const ALL_HATS: string[] = [
   'Propeller',
   'Danny Crockett',
   'Cat Ears Beanie',
-  'Blue Beanie',
+  'Sister Beanie',
   'Kirby',
   'Black Cat Ears',
   'White Cat Ears',
