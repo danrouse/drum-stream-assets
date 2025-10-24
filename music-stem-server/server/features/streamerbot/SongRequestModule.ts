@@ -13,7 +13,7 @@ import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';
 import { db } from '../../database';
 import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
-import { createLogger, isURL, formatTime } from '../../../../shared/util';
+import { createLogger, isURL, formatTime, normalizeURL } from '../../../../shared/util';
 import { WebSocketMessage } from '../../../../shared/messages';
 import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
@@ -531,20 +531,8 @@ export default class SongRequestModule {
     onSuccess?: (songTitle: string, numPreviousRequests: number, numPreviousRequestsBySameRequester: number) => void,
     onFailure?: (errorType: string) => void,
   ) {
-    // remove unnecessary query params from URLs to help with duplicate detection
     if (isURL(query)) {
-      const url = new URL(query);
-      url.searchParams.delete('si');
-      url.searchParams.delete('index');
-      url.searchParams.delete('playlist');
-      url.searchParams.delete('context');
-      url.searchParams.delete('feature');
-      url.searchParams.delete('ab_channel');
-      url.searchParams.delete('list');
-      url.searchParams.delete('pp');
-      url.searchParams.delete('start_radio');
-      url.search = url.searchParams.toString();
-      query = url.toString();
+      query = normalizeURL(query);
     }
     let existingSongId: number | undefined | null;
     const priorSongRequest = (await db.selectFrom('songRequests')
