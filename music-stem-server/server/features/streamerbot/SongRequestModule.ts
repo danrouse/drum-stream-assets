@@ -533,7 +533,10 @@ export default class SongRequestModule {
   ) {
     if (isURL(query)) {
       query = normalizeURL(query);
+    } else {
+      query = query.trim().toLowerCase();
     }
+
     let existingSongId: number | undefined | null;
     const priorSongRequest = (await db.selectFrom('songRequests')
       .leftJoin('songs', 'songId', 'songs.id')
