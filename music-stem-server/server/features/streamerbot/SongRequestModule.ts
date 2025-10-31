@@ -727,8 +727,8 @@ export default class SongRequestModule {
       }
     }, 500);
 
-    options.maxDuration ||= await this.songRequestMaxDurationForUser(requesterName);
-    options.minViews ||= await this.songRequestMinViewsForUser(requesterName);
+    if (!options.hasOwnProperty('maxDuration')) options.maxDuration = await this.songRequestMaxDurationForUser(requesterName);
+    if (!options.hasOwnProperty('minViews')) options.minViews = await this.songRequestMinViewsForUser(requesterName);
     const songRequestId = await this.execute(
       query.trim(),
       requesterName,
