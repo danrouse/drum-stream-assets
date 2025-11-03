@@ -154,7 +154,7 @@ export interface SongRequestData extends SongData {
   songRequestId: number;
   createdAt: string;
   effectiveCreatedAt: string;
-  bumpCount: number;
+  currentBumpCount: number;
   fulfilledToday: number | null;
   lastFulfilledAt: string | null;
 }

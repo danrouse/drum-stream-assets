@@ -215,48 +215,6 @@ export default class SongRequestModule {
         }
       }
     });
-    this.client.registerCommandHandler('!bump', async (payload) => {
-      const { songRequest, isAmbiguous } = await this.disambiguate(
-        payload.user, payload.message, 'Use !bump <number> to select which song to get more wheel entries for.'
-      );
-      if (isAmbiguous) return;
-      if (!songRequest) {
-        await this.client.sendTwitchMessage(`@${payload.user} You don't have any queued song requests to bump!`);
-        return;
-      }
-
-      const viewer = await this.client.getViewer(payload.user);
-      const user = await this.client.getUser(payload.user);
-      let availableBumps = user.availableBumps;
-      let userUpdate = db.updateTable('users').where('id', '=', user.id);
-      if (viewer?.subscribed) {
-        // Check to see if subscriber has gotten their free bump of the stream
-        const currentStreamId = (await queries.currentStreamHistory())[0].id;
-        if (user.lastFreeBumpStreamHistoryId !== currentStreamId) {
-          availableBumps += 1;
-          await this.client.sendTwitchMessage(`@${payload.user} You've been given a free bump of the day, thanks for subscribing! dannyt75Heart`);
-        }
-        userUpdate = userUpdate.set('lastFreeBumpStreamHistoryId', currentStreamId);
-      }
-
-      if (availableBumps > 0) {
-        // Bump the song - now increases wheel entries instead of queue position
-        userUpdate = userUpdate.set('availableBumps', availableBumps - 1);
-        await db.updateTable('songRequests')
-          .where('id', '=', songRequest.id)
-          .set(eb => ({ bumpCount: eb('bumpCount', '+', 1) }))
-          .execute();
-        const currentBumpCount = (await db.selectFrom('songRequests')
-          .select('bumpCount')
-          .where('id', '=', songRequest.id)
-          .execute())[0].bumpCount;
-        await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} now has ${currentBumpCount + 1} entries in the wheel!`);
-        this.wss.broadcast({ type: 'song_request_moved', songRequestId: songRequest.id });
-      } else {
-        await this.client.sendTwitchMessage(`@${payload.user} You don't have any bumps available to use!`);
-      }
-      await userUpdate.execute();
-    });
 
     this.client.registerCommandHandler('!longsr', async (payload) => {
       const user = await this.client.getUser(payload.user);
@@ -398,7 +356,7 @@ export default class SongRequestModule {
         const user = await this.client.getUser(payload.userName);
         await db.updateTable('users')
           .where('id', '=', user.id)
-          .set(q => ({ availableBumps: q('availableBumps', '+', giftedCount) }))
+          .set(q => ({ currentBumpCount: q('currentBumpCount', '+', giftedCount) }))
           .execute();
         await this.client.sendTwitchMessage(`@${payload.userName} Thank you for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ❤️💚💙`);
         // await this.client.sendTwitchMessage(`@${payload.userName} Thanks for gifting ${giftedCount === 1 ? 'a sub' : giftedCount + ' subs'}! ` +
@@ -423,6 +381,16 @@ export default class SongRequestModule {
       .set({ status: 'playing' })
       .where('id', '=', payload.songRequestId)
       .execute();
+    const requester = await db.selectFrom('songRequests')
+      .select('requester')
+      .where('id', '=', payload.songRequestId)
+      .executeTakeFirst();
+    if (requester?.requester) {
+      await db.updateTable('users')
+        .where(sql`LOWER(name)`, '=', requester.requester.toLowerCase())
+        .set('currentBumpCount', 0)
+        .execute();
+    }
   }
 
   private handleSongPlaybackCompleted = async (payload: WebSocketMessage<'song_playback_completed' | 'song_request_removed'>) => {

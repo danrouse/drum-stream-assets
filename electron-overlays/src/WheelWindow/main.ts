@@ -3,6 +3,7 @@ import { SongRequestData, StreamerbotViewer } from '../../../shared/messages';
 interface SongRequester {
   name: string;
   fulfilledToday: number;
+  currentBumpCount: number;
   lastFulfilledAt: string | null;
   oldestRequestAge: number;
   requests: SongRequestData[];
@@ -300,7 +301,7 @@ function calculateSliceScale(requester: SongRequester): number {
   const REDUCTION_PER_FULFILLED_REQUEST = 0.15;
   const REDUCTION_RECENTLY_FULFILLED = 0.5;
   const RECENTLY_FULFILLED_TIME_WINDOW = 1000 * 60 * 15; // 15 minutes
-  // const INCREASE_PER_BUMP = 0.5;
+  const INCREASE_PER_BUMP = 0.2;
   const INCREASE_PER_HOUR = 1.0;
   const INCREASE_FIRST_REQUEST_RATE_BONUS = 2.0;
   const INCREASE_SUB_BONUS = 0.5;
@@ -317,6 +318,9 @@ function calculateSliceScale(requester: SongRequester): number {
     ? (1 - timeSinceLastRequest / RECENTLY_FULFILLED_TIME_WINDOW) * REDUCTION_RECENTLY_FULFILLED
     : 0;
 
+  // increase size based on number of bumps (NTT wins)
+  const bumpBonus = requester.currentBumpCount * INCREASE_PER_BUMP;
+
   // increase the size for requests based on their age
   const ageBonus = requester.oldestRequestAge
     ? requester.oldestRequestAge / (1000 * 60 * 60) * INCREASE_PER_HOUR
@@ -332,6 +336,7 @@ function calculateSliceScale(requester: SongRequester): number {
     - fulfilledPenalty
     - recentlyFulfilledPenalty
     + (ageBonus * firstRequestBonus)
+    + bumpBonus
     + (isSubscribed ? INCREASE_SUB_BONUS : 0);
 
   // clamp the final result

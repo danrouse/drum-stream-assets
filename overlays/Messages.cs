@@ -410,9 +410,6 @@ public class SongRequestData : SongData
 
     [JsonPropertyName("createdAt")]
     public new string CreatedAt { get; set; } = string.Empty;
-
-    [JsonPropertyName("bumpCount")]
-    public int BumpCount { get; set; }
 }
 
 public class LegacySongData

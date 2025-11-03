@@ -80,13 +80,20 @@ export const allSongRequests = () => db.selectFrom('songRequests')
       .as('lastFulfilled'),
     join => join.onRef('lastFulfilled.requester', '=', 'songRequests.requester')
   )
+  .leftJoin(
+    db.selectFrom('users')
+      .select(['name', 'currentBumpCount'])
+      .as('users'),
+    join => join.onRef('users.name', '=', 'songRequests.requester')
+  )
   .where('songRequests.status', '=', 'ready')
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
     'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
-    'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.bumpCount', 'songRequests.effectiveCreatedAt',
+    'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.effectiveCreatedAt',
     'fulfilledCounts.fulfilledToday',
     'lastFulfilled.lastFulfilledAt',
+    'users.currentBumpCount',
   ])
   .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
   .execute();

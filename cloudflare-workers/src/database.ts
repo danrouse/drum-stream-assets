@@ -18,7 +18,6 @@ interface SongRequestsTable {
   noShenanigans: number | null;
   songId: number | null;
   fulfilledAt: ColumnType<string, string, string> | null;
-  bumpCount: Generated<number>;
 }
 
 interface DownloadsTable {
@@ -90,7 +89,7 @@ interface UsersTable {
   createdAt: Generated<CreatedAtType>;
   name: string;
   nameThatTunePoints: Generated<number>;
-  availableBumps: Generated<number>;
+  currentBumpCount: number;
   lastFreeBumpStreamHistoryId: number | null;
   availableLongSongs: Generated<number>;
   lastLongSongStreamHistoryId: number | null;

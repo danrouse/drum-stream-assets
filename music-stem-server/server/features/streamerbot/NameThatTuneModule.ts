@@ -37,11 +37,12 @@ export default class NameThatTuneModule {
       // Give winners points
       await db.insertInto('users')
         .values(
-          payload.otherWinners.map(name => ({ name, nameThatTunePoints: 1 }))
-            .concat([{ name: payload.winner, nameThatTunePoints: 2 }])
+          payload.otherWinners.map(name => ({ name, nameThatTunePoints: 1, currentBumpCount: 1 }))
+            .concat([{ name: payload.winner, nameThatTunePoints: 2, currentBumpCount: 1 }])
         )
         .onConflict(oc => oc.column('name').doUpdateSet({
-          nameThatTunePoints: eb => eb('nameThatTunePoints', '+', eb.ref('excluded.nameThatTunePoints'))
+          nameThatTunePoints: eb => eb('nameThatTunePoints', '+', eb.ref('excluded.nameThatTunePoints')),
+          currentBumpCount: eb => eb('currentBumpCount', '+', eb.ref('excluded.currentBumpCount')),
         }))
         .execute();
 
