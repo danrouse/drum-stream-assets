@@ -47,6 +47,11 @@ setInterval(() => {
   }
 }, 100);
 
+(async () => {
+  songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
+  startRound();
+})();
+
 window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
   if (payload.scene === ACTIVE_SCENE_NAME) {
     songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
@@ -105,17 +110,24 @@ function startRound() {
     songPool.push(nextSong);
   }
 
-  const correctResponse = Math.floor(Math.random() * NUM_SONG_OPTIONS) + 1;
+  // occasionally set one song to be #69
+  const responseNumbers = Array.from({ length: NUM_SONG_OPTIONS }, (_, i) => i + 1);
+  if (Math.random() < 0.5) {
+    responseNumbers[Math.floor(Math.random() * NUM_SONG_OPTIONS)] = 69;
+  }
+
+  const correctResponseIndex = Math.floor(Math.random() * NUM_SONG_OPTIONS);
+  const correctResponse = responseNumbers[correctResponseIndex];
   console.log('Correct:', correctResponse);
-  renderGuessingView(songPool, songPool[correctResponse - 1]);
-  nextSceneChange = setTimeout(() => endRound(correctResponse, songPool), ROUND_LENGTH_MS);
+  renderGuessingView(songPool, songPool[correctResponseIndex], responseNumbers);
+  nextSceneChange = setTimeout(() => endRound(correctResponse, songPool[correctResponseIndex]), ROUND_LENGTH_MS);
   timerDisplayValueMs = ROUND_LENGTH_MS;
 }
 
-function endRound(correctResponse: number, songPool: SongData[]) {
+function endRound(correctResponse: number, song: SongData) {
   // fade in the correct song immediately, but wait an extra period of time
   // to compensate for stream lag
-  renderResultsView(songPool, songPool[correctResponse - 1]);
+  renderResultsView(song);
   setTimeout(() => {
     howls.forEach(h => h.fade(1, 0, FADE_OUT_TIME_MS));
   }, LAG_COMPENSATION_DELAY_MS + POST_ROUND_LENGTH_MS - FADE_OUT_TIME_MS);
@@ -142,7 +154,7 @@ function endRound(correctResponse: number, songPool: SongData[]) {
 
 const truncate = (s: string, len: number = 32) => s.length < len ? s : s.substring(0, len).trim() + '…';
 
-function renderGuessingView(songPool: SongData[], correctSong: SongData) {
+function renderGuessingView(songPool: SongData[], correctSong: SongData, responseNumbers: number[]) {
   songListElem.innerHTML = '';
   songListElem.classList.remove('results');
   timerElem.classList.remove('results');
@@ -152,10 +164,10 @@ function renderGuessingView(songPool: SongData[], correctSong: SongData) {
       a.push(i);
     }
     return a;
-  }, []);
+  }, [] as number[]);
   songPool.forEach((song, i) => {
     const elem = document.createElement('li');
-    elem.innerHTML = `<span class="marker-number">${i + 1}</span> ${[truncate(song.artist), truncate(song.title, 48)].filter(s => s).join(' - ')}`;
+    elem.innerHTML = `<span class="marker-number">${responseNumbers[i]}</span> ${[truncate(song.artist), truncate(song.title, 48)].filter(s => s).join(' - ')}`;
     if (song === correctSong) {
       elem.classList.add('correct');
     } else if (fadeOuts.includes(i)) {
@@ -186,7 +198,7 @@ function renderGuessingView(songPool: SongData[], correctSong: SongData) {
   });
 }
 
-function renderResultsView(songPool: SongData[], song: SongData) {
+function renderResultsView(song: SongData) {
   songListElem.classList.add('results');
 
   // if no winner, say so
