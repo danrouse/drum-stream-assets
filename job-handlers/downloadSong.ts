@@ -20,11 +20,21 @@ export default async function downloadSong(
       const host = url.host.toLowerCase();
       const youTubeMatch = host.match(/^((www|m|music)\.)?(youtube\.com|youtu.be)/);
       const spotifyMatch = host.match(/^(open\.)?spotify\.com/);
+      const spotifyShortLinkMatch = host.match(/^spotify(\.app)?\.link/);
       if (youTubeMatch) {
         return await downloadFromYouTube(url, outputPath, uuid, options);
       } else if (spotifyMatch) {
         if (!url.pathname.includes('/track/')) {
           throw new Error('NO_PLAYLISTS');
+        }
+      } else if (spotifyShortLinkMatch) {
+        const data = await fetch(query);
+        const body = await data.text();
+        const spotifyId = body.match(/\/track\/([^\s\?\#]+)/)?.[1];
+        if (spotifyId) {
+          return await downloadFromSpotDL(`https://open.spotify.com/track/${spotifyId}`, outputPath, uuid);
+        } else {
+          throw new Error('UNSUPPORTED_DOMAIN');
         }
       } else {
         throw new Error('UNSUPPORTED_DOMAIN');
