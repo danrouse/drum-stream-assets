@@ -1,10 +1,10 @@
 import { ReactNode } from 'react';
 import { formatTime } from '../../../shared/util';
-import { SongData, StreamerbotViewer } from '../../../shared/messages';
+import { SongData, SongRequestData, StreamerbotViewer } from '../../../shared/messages';
 import './style.css';
 
 interface SongListProps {
-  songs: SongData[];
+  songs: Array<SongData | SongRequestData>;
   selectedSong?: SongData;
   showTimeAgo?: boolean;
   showRuntime?: boolean;
@@ -42,6 +42,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, showRuntime
               <p className="album">{song.album}</p>
               {song.requester && <p className={`requesterName ${activeViewers?.find(viewer => viewer.display.toLowerCase() === song.requester?.toLowerCase())?.online ? 'online' : 'offline'}`}>{song.requester} (#{(song.fulfilledToday || 0) + 1})</p>}
               {showTimeAgo && song.createdAt && <p>{getTimeDiff(song.createdAt)}</p>}
+              {showTimeAgo && 'lastFulfilledAt' in song && song.lastFulfilledAt && <p>last song: {getTimeDiff(song.lastFulfilledAt)}</p>}
             </div>
             <div>
               <p className="duration">{formatTime(song.duration)}</p>
