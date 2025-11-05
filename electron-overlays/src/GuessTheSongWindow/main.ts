@@ -47,11 +47,6 @@ setInterval(() => {
   }
 }, 100);
 
-(async () => {
-  songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
-  startRound();
-})();
-
 window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
   if (payload.scene === ACTIVE_SCENE_NAME) {
     songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
