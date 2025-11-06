@@ -739,6 +739,7 @@ async function initializeWheel() {
         name,
         fulfilledToday: requests[0]!.fulfilledToday,
         lastFulfilledAt: requests[0]!.lastFulfilledAt,
+        currentBumpCount: requests[0]!.currentBumpCount,
         oldestRequestAge: new Date().getTime() - new Date(earliestRequestedByDate).getTime(),
         requests,
       };
