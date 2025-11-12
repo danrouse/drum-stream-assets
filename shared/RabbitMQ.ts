@@ -79,10 +79,10 @@ export class JobInterface {
           // don't end up in a loop if we error while handling an error message!
           return;
         }
-        this.channel?.sendToQueue(Queues.SONG_REQUEST_ERROR, Buffer.from(JSON.stringify({
+        this.publish(Queues.SONG_REQUEST_ERROR, {
           id: result.id,
           errorMessage: (error as Error).message,
-        })), { persistent: true });
+        });
       }
       this.channel?.ack(msg);
     });
