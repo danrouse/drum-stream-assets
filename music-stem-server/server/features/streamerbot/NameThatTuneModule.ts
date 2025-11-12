@@ -23,6 +23,9 @@ export default class NameThatTuneModule {
       // Record this round's winner
       const roundedTime = Math.round(payload.time * 10) / 10;
       let message = `${payload.winner} got the right answer quickest in ${roundedTime} seconds!`;
+      if (payload.time < 0) {
+        message = `${payload.winner} got the right answer quickest with a complete guess! KEKL`;
+      }
       if (payload.otherWinners.length) message += ` (${payload.otherWinners.join(', ')} also got it right!)`
       await this.client.sendTwitchMessage(message);
 
