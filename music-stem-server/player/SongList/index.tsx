@@ -40,7 +40,11 @@ export default function SongList({ songs, selectedSong, showTimeAgo, showRuntime
             </div>
             <div>
               <p className="album">{song.album}</p>
-              {song.requester && <p className={`requesterName ${activeViewers?.find(viewer => viewer.display.toLowerCase() === song.requester?.toLowerCase())?.online ? 'online' : 'offline'}`}>{song.requester} (#{(song.fulfilledToday || 0) + 1})</p>}
+              {song.requester && (
+                <p className={`requesterName ${activeViewers?.find(viewer => viewer.display.toLowerCase() === song.requester?.toLowerCase())?.online ? 'online' : 'offline'}`}>
+                  {song.requester} (#{('fulfilledToday' in song ? song.fulfilledToday || 0 : 0) + 1})
+                </p>
+              )}
               {showTimeAgo && song.createdAt && <p>{getTimeDiff(song.createdAt)}</p>}
               {showTimeAgo && 'lastFulfilledAt' in song && song.lastFulfilledAt && <p>last song: {getTimeDiff(song.lastFulfilledAt)}</p>}
             </div>

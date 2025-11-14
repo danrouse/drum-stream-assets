@@ -60,8 +60,16 @@ class HttpD1Driver implements Driver {
     return new HttpD1Connection(this.config);
   }
 
-  async beginTransaction(): Promise<DatabaseConnection> {
-    return new HttpD1Connection(this.config);
+  async beginTransaction(): Promise<void> {
+    throw new Error('Transactions are not supported by D1');
+  }
+
+  async commitTransaction(): Promise<void> {
+    throw new Error('Transactions are not supported by D1');
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    throw new Error('Transactions are not supported by D1');
   }
 
   async releaseConnection(): Promise<void> {

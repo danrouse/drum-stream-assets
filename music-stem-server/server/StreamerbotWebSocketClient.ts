@@ -26,7 +26,7 @@ export const TwitchRewardDurations: Streamerbot.TwitchRewardMeta<number> = {
 
 const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
   ['Fart Mode', 'Randomize Drums', 'Randomize EVERY HIT'],
-  ['Motorcycle Helmet', 'Pick ONE Hat', 'Pick TWO Hats', 'Pick THREE Hats'],
+  ['Pick ONE Hat', 'Pick TWO Hats', 'Pick THREE Hats', 'Hat Wheel'],
 ];
 
 type DeepPartial<T> = {
@@ -116,107 +116,6 @@ export default class StreamerbotWebSocketClient {
     this.registerCommandHandler('!song', async (payload) => {
       if (this.currentSong) {
         await this.sendTwitchMessage(`@${payload.user} The current song is ${this.currentSong.artist} - ${this.currentSong.title}`);
-      }
-    });
-
-    this.registerCommandHandler('!inventory', async (payload) => {
-      const user = await this.getUser(payload.user);
-      await this.sendTwitchMessage(`@${payload.user} You have ${user.nameThatTunePoints} points, ${user.availableLongSongs} long song requests, and ${user.availableBumps} bumps available to use`);
-    });
-    const PRICE_BUMP = 10;
-    const PRICE_LONG_SR = 15;
-    this.registerCommandHandler('!buy', async (payload) => {
-      const user = await this.getUser(payload.user);
-      const userUpdate = db.updateTable('users').where('id', '=', user.id);
-      const args = payload.message.trim().toLowerCase().replace(/^!/, '').split(' ');
-      let count = 1, item;
-      for (const arg of args) {
-        const itemMatch = arg.match(/<?(bump|longsr)s?>?/);
-        if (itemMatch) {
-          item = itemMatch[1];
-          continue;
-        }
-        const countMatch = arg.match(/^(\d+)$/);
-        if (countMatch) {
-          count = Number(countMatch[1]);
-          continue;
-        }
-      }
-      if (item === 'bump') {
-        if (user.nameThatTunePoints < (PRICE_BUMP * count)) {
-          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A bump' : `${count} bumps`} costs ${PRICE_BUMP * count} and you have ${user.nameThatTunePoints || '0'}`);
-        } else {
-          await userUpdate.set({
-            availableBumps: user.availableBumps + count,
-            nameThatTunePoints: user.nameThatTunePoints - (PRICE_BUMP * count),
-          }).execute();
-          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Bump' : `${count} bumps`} acquired! Use ${count === 1 ? 'it' : 'them'} with !bump. You now have ${user.availableBumps + count} bumps and ${user.nameThatTunePoints - (PRICE_BUMP * count)} points`);
-        }
-      } else if (item === 'longsr') {
-        if (user.nameThatTunePoints < (PRICE_LONG_SR * count)) {
-          await this.sendTwitchMessage(`@${payload.user} You don't have enough points! ${count === 1 ? 'A long song request' : `${count} long song requests`} costs ${PRICE_LONG_SR * count} and you have ${user.nameThatTunePoints || '0'}`);
-        } else {
-          await userUpdate.set({
-            availableLongSongs: user.availableLongSongs + count,
-            nameThatTunePoints: user.nameThatTunePoints - (PRICE_LONG_SR * count),
-          }).execute();
-          await this.sendTwitchMessage(`@${payload.user} ${count === 1 ? 'Long song request' : `${count} Long SRs`} acquired! Use ${count === 1 ? 'it' : 'them'} with !longsr. You now have ${user.availableLongSongs + count} long song requests and ${user.nameThatTunePoints - (PRICE_LONG_SR * count)} points`);
-        }
-      } else {
-        await this.sendTwitchMessage(`@${payload.user} Usage: !buy bump # (for ${PRICE_BUMP} pts) | !buy longsr # (for ${PRICE_LONG_SR} pts)`);
-        return;
-      }
-    });
-
-    this.registerCommandHandler('!give', async (payload) => {
-      // !give <person> <item> <number=1>
-      // allow arguments in any position!
-      const args = payload.message.toLowerCase().split(' ');
-      let count = 1, item, recipient;
-      for (const arg of args) {
-        const itemMatch = arg.match(/<?(bump|longsr)s?>?/);
-        if (itemMatch) {
-          item = itemMatch[1];
-          continue;
-        }
-        const countMatch = arg.match(/^(\d+)$/);
-        if (countMatch) {
-          count = Number(countMatch[1]);
-          continue;
-        }
-        recipient = arg.replace(/@/g, '');
-      }
-      if (!count || !item || !recipient) {
-        await this.sendTwitchMessage(`@${payload.user} Usage: !give @person <longsr|bump> #`);
-        return;
-      }
-      // ensure giver has enough
-      const givingUser = await this.getUser(payload.user);
-      if (
-        (item === 'bump' && givingUser.availableBumps < count) ||
-        (item === 'longsr' && givingUser.availableLongSongs < count)
-      ) {
-        await this.sendTwitchMessage(`@${payload.user} You don't have enough to give!`);
-      } else {
-        const col = item === 'bump' ? 'availableBumps' : 'availableLongSongs';
-        // update giver
-        await db.updateTable('users')
-          .where('id', '=', givingUser.id)
-          .set(q => ({
-            [col]: q(col, '-', count)
-          }))
-          .execute();
-
-        // update recipient
-        const receivingUser = await this.getUser(recipient);
-        await db.updateTable('users')
-          .where('id', '=', receivingUser.id)
-          .set(q => ({
-            [col]: q(col, '+', count)
-          }))
-          .execute();
-
-        await this.sendTwitchMessage(`@${payload.user} has given @${recipient} ${count === 1 ? `a ${item}` : `${count} ${item}s`}!`);
       }
     });
   }

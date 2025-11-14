@@ -101,7 +101,7 @@ interface UsersTable {
   createdAt: Generated<CreatedAtType>;
   name: string;
   nameThatTunePoints: Generated<number>;
-  currentBumpCount: number;
+  currentBumpCount: Generated<number>;
   lastFreeBumpStreamHistoryId: number | null;
   availableLongSongs: Generated<number>;
   lastLongSongStreamHistoryId: number | null;

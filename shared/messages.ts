@@ -2,6 +2,7 @@ import * as Streamerbot from './streamerbot';
 
 // partial from Streamerbot, since these definitions are in a place without dependencies
 export type StreamerbotViewer = {
+  id: string | number;
   login: string;
   display: string;
   previousActive: string;
