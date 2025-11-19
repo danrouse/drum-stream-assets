@@ -160,6 +160,15 @@ export interface SongRequestData extends SongData {
   lastFulfilledAt: string | null;
 }
 
+export interface SongRequester {
+  name: string;
+  fulfilledToday: number | null;
+  lastFulfilledAt: string | null;
+  currentBumpCount: number;
+  requestLabels: string;
+  oldestRequestAgeMinutes: number;
+}
+
 export interface LegacySongData {
   name: string; // for paths
   artist: string;

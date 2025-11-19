@@ -14,7 +14,7 @@ import reactVitePlugin from '@vitejs/plugin-react';
 
 import * as Queries from './queries';
 import * as Paths from '../../shared/paths';
-import { SongData } from '../../shared/messages';
+import { SongData, SongRequestData, SongRequester } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('HTTP');
@@ -28,7 +28,7 @@ app.use('/stems', cors(), express.static(Paths.STEMS_PATH));
 // since everything is stored on local machine, convert these
 // into routes served by the http server.
 // probably temporary, until this data is stored In The Cloud
-const convertLocalPathsToURLs = (songs: SongData[]) => songs.map((song) => ({
+const convertLocalPathsToURLs = <T extends SongData | SongRequestData>(songs: T[]) => songs.map((song) => ({
   ...song,
   stemsPath: `/stems/${encodeURIComponent(song.stemsPath)}`,
   downloadPath: song.downloadPath ? `http://localhost:3000/downloads/${encodeURIComponent(song.downloadPath)}` : undefined,
@@ -41,8 +41,13 @@ app.get('/songs', cors(), async (req, res) => {
 });
 
 app.get('/requests', cors(), async (req, res) => {
-  const songs = await Queries.allSongRequests();
-  res.send(convertLocalPathsToURLs(songs));
+  const requests = await Queries.allSongRequests();
+  res.send(convertLocalPathsToURLs(requests));
+});
+
+app.get('/requesters', cors(), async (req, res) => {
+  const requesters = await Queries.allSongRequesters();
+  res.send(requesters);
 });
 
 app.get('/clean', async () => {

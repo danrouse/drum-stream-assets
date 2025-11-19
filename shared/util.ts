@@ -1,3 +1,5 @@
+import { SongRequester } from './messages';
+
 export const isURL = (s: string) => {
   try {
     return Boolean(s.match(/^\s*https?:/) && new URL(s));
@@ -66,3 +68,62 @@ export const getOrdinal = (num: number): string => {
       return `${num}th`;
   }
 };
+
+export const calculateSliceScale = (requester: SongRequester, isSubscribed: boolean = false) => {
+  const MIN_SCALE = 0.25;
+  const MAX_SCALE = 3.0;
+  const REDUCTION_PER_FULFILLED_REQUEST = 0.15;
+  const REDUCTION_RECENTLY_FULFILLED = 0.5;
+  const RECENTLY_FULFILLED_TIME_WINDOW = 1000 * 60 * 15; // 15 minutes
+  const INCREASE_PER_BUMP = 0.2;
+  const INCREASE_PER_HOUR = 1.0;
+  const INCREASE_FIRST_REQUEST = 0.5;
+  const INCREASE_SUB_BONUS = 0.5;
+
+  const timeSinceLastRequest = requester.lastFulfilledAt ?
+    new Date().getTime() - new Date(requester.lastFulfilledAt).getTime() :
+    Infinity;
+
+  // reduce the size based on how many songs a requester has had fulfilled today
+  const fulfilledPenalty = (requester.fulfilledToday || 0) * REDUCTION_PER_FULFILLED_REQUEST;
+
+  // reduce the size for requesters that have recently had a song played
+  const recentlyFulfilledPenalty = timeSinceLastRequest < RECENTLY_FULFILLED_TIME_WINDOW
+    ? (1 - timeSinceLastRequest / RECENTLY_FULFILLED_TIME_WINDOW) * REDUCTION_RECENTLY_FULFILLED
+    : 0;
+
+  // increase size based on number of bumps (NTT wins)
+  const bumpBonus = requester.currentBumpCount * INCREASE_PER_BUMP;
+
+  // increase the size for requests based on their age
+  const ageBonus = requester.oldestRequestAgeMinutes
+    ? (requester.oldestRequestAgeMinutes / 60) * INCREASE_PER_HOUR
+    : 0;
+
+  // amplify the age bonus for someone's first request of the day
+  const firstRequestBonus = requester.fulfilledToday === 0 ? INCREASE_FIRST_REQUEST : 0;
+
+  // subs get bigger slices
+  const subscriberBonus = isSubscribed ? INCREASE_SUB_BONUS : 0;
+
+  // clamp the final result
+  const size = Math.max(MIN_SCALE, Math.min(MAX_SCALE,
+    1.0
+    - fulfilledPenalty
+    - recentlyFulfilledPenalty
+    + ageBonus
+    + firstRequestBonus
+    + bumpBonus
+    + subscriberBonus
+  ));
+
+  return {
+    size,
+    fulfilledPenalty,
+    recentlyFulfilledPenalty,
+    ageBonus,
+    firstRequestBonus,
+    bumpBonus,
+    subscriberBonus,
+  };
+}

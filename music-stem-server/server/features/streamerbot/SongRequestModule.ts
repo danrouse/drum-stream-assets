@@ -13,7 +13,7 @@ import StreamerbotWebSocketClient from '../../StreamerbotWebSocketClient';
 import { db } from '../../database';
 import * as queries from '../../queries';
 import { Queues, Payloads, JobInterface } from '../../../../shared/RabbitMQ';
-import { createLogger, isURL, formatTime, normalizeURL } from '../../../../shared/util';
+import { createLogger, isURL, formatTime, normalizeURL, calculateSliceScale } from '../../../../shared/util';
 import { WebSocketMessage } from '../../../../shared/messages';
 import WebSocketCoordinatorServer from '../../WebSocketCoordinatorServer';
 
@@ -213,6 +213,28 @@ export default class SongRequestModule {
         } else {
           await this.client.sendTwitchMessage(`@${payload.user} Your ${songRequests.length} songs: ${songList}`);
         }
+      }
+    });
+
+    this.client.registerCommandHandler('!size', async (payload) => {
+      const percent = (num: number) => `${Math.round(num * 100)}%`;
+      const requesters = await queries.allSongRequesters();
+      const requester = requesters.find(requester => requester.name === payload.user);
+      if (requester) {
+        const viewer = await this.client.getViewer(payload.user);
+        const size = calculateSliceScale(requester, viewer?.subscribed);
+        const parts = [];
+        if (size.ageBonus > 0) parts.push(`Age +${percent(size.ageBonus)}`);
+        if (size.firstRequestBonus > 0) parts.push(`First Request of the Day +${percent(size.firstRequestBonus)}`);
+        if (size.bumpBonus > 0) parts.push(`NTT bumps +${percent(size.bumpBonus)}`);
+        if (size.subscriberBonus > 0) parts.push(`Subscriber +${percent(size.subscriberBonus)}`);
+        if (size.recentlyFulfilledPenalty > 0) parts.push(`Recently Played -${percent(size.recentlyFulfilledPenalty)}`);
+        if (size.fulfilledPenalty > 0) parts.push(`${requester.fulfilledToday} Songs Today -${percent(size.fulfilledPenalty)}`);
+        const totalSize = requesters.map(requester => calculateSliceScale(requester, viewer?.subscribed).size).reduce((a, b) => a + b, 0);
+        const buf = `@${payload.user} Your slice of the wheel: ${percent(size.size / totalSize)} (${parts.join(', ')})`;
+        await this.client.sendTwitchMessage(buf);
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any song requests!`);
       }
     });
 

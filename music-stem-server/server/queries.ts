@@ -6,6 +6,7 @@
  */
 import { sql } from 'kysely';
 import { db } from './database';
+import { SongRequester } from '../../shared/messages';
 
 //
 // song request by user
@@ -97,6 +98,48 @@ export const allSongRequests = () => db.selectFrom('songRequests')
   ])
   .orderBy(['songRequests.priority desc', 'songRequests.effectiveCreatedAt asc'])
   .execute();
+
+export const allSongRequesters = () => db.selectFrom('songRequests')
+  .where('songRequests.status', 'in', ['processing', 'ready'])
+  .groupBy('songRequests.requester')
+  .innerJoin('songs', 'songs.id', 'songRequests.songId')
+  .leftJoin(
+    db.selectFrom('songRequests as sr2')
+      .select([
+        'sr2.requester',
+        db.fn.countAll<number>().as('fulfilledToday')
+      ])
+      .where('sr2.status', '=', 'fulfilled')
+      .where('sr2.createdAt', '>', sql<string>`(select createdAt from streamHistory order by id desc limit 1)`)
+      .groupBy('sr2.requester')
+      .as('fulfilledCounts'),
+    join => join.onRef('fulfilledCounts.requester', '=', 'songRequests.requester')
+  )
+  .leftJoin(
+    db.selectFrom('songRequests as sr3')
+      .select(['sr3.requester', sql<string>`max(sr3.fulfilledAt)`.as('lastFulfilledAt')])
+      .where('sr3.status', '=', 'fulfilled')
+      .where('sr3.createdAt', '>', sql<string>`(select createdAt from streamHistory order by id desc limit 1)`)
+      .orderBy('sr3.fulfilledAt', 'desc')
+      .groupBy('sr3.requester')
+      .as('lastFulfilled'),
+    join => join.onRef('lastFulfilled.requester', '=', 'songRequests.requester')
+  )
+  .innerJoin(
+    db.selectFrom('users')
+      .select(['name', 'currentBumpCount'])
+      .as('users'),
+    join => join.onRef('users.name', '=', 'songRequests.requester')
+  )
+  .select([
+    sql<string>`coalesce(songRequests.requester, 'danny_the_liar')`.as('name'),
+    sql<string>`group_concat(case when songs.artist == '' then songs.title else concat(songs.artist, ' - ', songs.title) end, '\n')`.as('requestLabels'),
+    sql<number>`(julianday('now') - julianday(min(songRequests.effectiveCreatedAt))) * 24 * 60`.as('oldestRequestAgeMinutes'),
+    'fulfilledCounts.fulfilledToday',
+    'lastFulfilled.lastFulfilledAt',
+    'users.currentBumpCount',
+  ])
+  .execute() satisfies Promise<SongRequester[]>;
 
 export const songRequestQueue = () => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
