@@ -49,6 +49,7 @@ setInterval(() => {
 
 window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
   if (payload.scene === ACTIVE_SCENE_NAME) {
+    document.body.style.display = 'block';
     songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
     startRound();
   } else {
@@ -61,6 +62,7 @@ window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
     howls.forEach(h => { h.stop(); h.unload(); });
     howls = [];
     isActive = false;
+    document.body.style.display = 'none';
   }
 });
 

@@ -2,10 +2,11 @@
 
 html {
   overflow: hidden;
-  background: var(--tan);
 }
 body {
+  display: none;
   margin: 0;
+  background-color: var(--tan);
   background-image: url('../../../assets/dance-of-eternity-sheet-music-bg.png');
   background-size: 50%;
   animation: bg-slide 45s linear infinite;
