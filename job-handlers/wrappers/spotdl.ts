@@ -23,7 +23,7 @@ export async function downloadFromSpotDL(query: string, outputPath: string, uuid
         // result in highest quality output
         '--format', 'm4a',
         '--bitrate', 'disable',
-        '--yt-dlp-args', '--cookies-from-browser firefox',
+        '--yt-dlp-args', '"--cookies-from-browser firefox"',
         '--lyrics', 'synced',
         '--generate-lrc',
         'download', `"${query}"`,

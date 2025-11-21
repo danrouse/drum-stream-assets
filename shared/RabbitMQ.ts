@@ -39,6 +39,7 @@ export type Payloads = {
   },
   'song_request_complete': {
     id: number,
+    acoustidRecordingId?: string,
     downloadPath: string,
     stemsPath: string,
     lyricsPath?: string,

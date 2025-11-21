@@ -530,10 +530,10 @@ export default class SongRequestModule {
 
     let existingSongId: number | undefined | null;
     const priorSongRequest = (await db.selectFrom('songRequests')
-      .leftJoin('songs', 'songId', 'songs.id')
+      .leftJoin('songs', 'songRequests.songId', 'songs.id')
       .innerJoin('songDownloads', 'songDownloads.songId', 'songs.id')
-      .leftJoin('downloads', 'downloadId', 'songDownloads.downloadId')
-      .select(['songId', 'stemsPath', 'artist', 'title', 'album', 'track', 'downloads.path as downloadPath', 'lyricsPath', 'isVideo'])
+      .leftJoin('downloads', 'downloads.id', 'songDownloads.downloadId')
+      .select(['songRequests.songId', 'stemsPath', 'artist', 'title', 'album', 'track', 'downloads.path as downloadPath', 'lyricsPath', 'isVideo'])
       .selectAll('songs')
       .where('query', '=', query)
       .execute())[0];
@@ -603,7 +603,6 @@ export default class SongRequestModule {
           }
           this.jobs.publish(Queues.SONG_REQUEST_COMPLETE, {
             ...payload,
-            id: duplicate.id,
             downloadPath: duplicate.downloadPath,
             stemsPath: duplicate.stemsPath,
           });
@@ -625,10 +624,10 @@ export default class SongRequestModule {
     this.log('handleSongRequestComplete', payload);
 
     try {
-      let song = (await db.selectFrom('songs')
+      let song = await db.selectFrom('songs')
         .select('id')
         .where('stemsPath', '=', payload.stemsPath)
-        .execute())[0];
+        .executeTakeFirst();
       if (song) {
         const existingSongRequest = await db.selectFrom('songRequests')
           .select('id')
@@ -646,6 +645,7 @@ export default class SongRequestModule {
       } else {
         const download = await db.insertInto('downloads').values({
           path: payload.downloadPath,
+          acoustidRecordingId: payload.acoustidRecordingId,
           isVideo: Number(payload.isVideo),
           songRequestId: payload.id,
         }).returning('id as id').executeTakeFirst();
@@ -660,7 +660,7 @@ export default class SongRequestModule {
           // @ts-expect-error
           // TODO: REMOVE THIS WHEN WE GET RID OF THE FK CONSTRAINT AND DROP THE COLUMN
           // the table needs to be recreated and sqlite makes this a pain in the ass
-          downloadId: 999999,
+          downloadId: download!.id,
         }).returning('id as id').executeTakeFirst())!;
         await db.insertInto('songDownloads').values({
           songId: song.id,

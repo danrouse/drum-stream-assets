@@ -13,9 +13,8 @@ if (!process.env.ACOUSTID_CLIENT_ID) {
 }
 const API_URL = new URL('https://api.acoustid.org/v2/lookup');
 API_URL.searchParams.set('client', process.env.ACOUSTID_CLIENT_ID);
-API_URL.searchParams.set('meta', 'recordingids+sources');
 
-const PATH_TO_FPCALC = resolve('../../bin/fpcalc.exe');
+const PATH_TO_FPCALC = resolve('../bin/fpcalc.exe');
 
 function generateAcoustidFingerprint(path: string): { duration: number, fingerprint: string } {
   const fingerprint = execSync(`${PATH_TO_FPCALC} -json "${path}"`, { encoding: 'utf-8' });
@@ -24,12 +23,11 @@ function generateAcoustidFingerprint(path: string): { duration: number, fingerpr
 
 async function getAcoustidRecordingId(path: string) {
   const { duration, fingerprint } = generateAcoustidFingerprint(path);
-
   const url = new URL(API_URL);
   url.searchParams.set('duration', Math.floor(duration).toString());
   url.searchParams.set('fingerprint', fingerprint);
 
-  const response = await fetch(url);
+  const response = await fetch(url.toString() + '&meta=recordings+sources');
   if (!response.ok) return;
 
   const data = await response.json();
@@ -38,13 +36,13 @@ async function getAcoustidRecordingId(path: string) {
 
   // use best fingerprint match from AcoustID
   const bestMatch = data.results.reduce((best: any, current: any) =>
-    current.score > best.score ? current : best, {});
+    current.score > best.score ? current : best, data.results[0] || {});
   if (!Array.isArray(bestMatch.recordings)) return;
 
   // find the recording with the most reported sources
   // this prevents the worst of data pollution in the AcoustID database
   const bestRecording = bestMatch.recordings.reduce((best: any, current: any) =>
-    current.sources > best.sources ? current : best, {});
+    current.sources > best.sources ? current : best, bestMatch.recordings[0] || {});
   return bestRecording.id as string;
 }
 
