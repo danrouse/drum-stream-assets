@@ -47,7 +47,8 @@ export const requestsByUserToday = (user: string) => db.selectFrom('songRequests
 //
 
 export const allSongs = () => db.selectFrom('songs')
-  .leftJoin('downloads', 'downloads.id', 'downloadId')
+  .innerJoin('songDownloads', 'songDownloads.songId', 'songs.id')
+  .leftJoin('downloads', 'downloads.id', 'songDownloads.downloadId')
   .leftJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.lyricsPath', 'songs.createdAt',
@@ -58,7 +59,8 @@ export const allSongs = () => db.selectFrom('songs')
 
 export const allSongRequests = () => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
-  .innerJoin('downloads', 'downloads.id', 'songs.downloadId')
+  .innerJoin('songDownloads', 'songDownloads.songId', 'songs.id')
+  .innerJoin('downloads', 'downloads.id', 'songDownloads.downloadId')
   .leftJoin(
     db.selectFrom('songRequests as sr2')
       .select([

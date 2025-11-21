@@ -54,7 +54,12 @@ interface SongsTable {
 
   stemsPath: string;
   lyricsPath: string | null;
+}
 
+interface SongDownloadsTable {
+  id: Generated<number>;
+  createdAt: CreatedAtType;
+  songId: number;
   downloadId: number;
 }
 
@@ -116,6 +121,9 @@ export type DownloadUpdate = Updateable<DownloadsTable>;
 export type Song = Selectable<SongsTable>;
 export type NewSong = Insertable<SongsTable>;
 export type SongUpdate = Updateable<SongsTable>;
+export type SongDownload = Selectable<SongDownloadsTable>;
+export type NewSongDownload = Insertable<SongDownloadsTable>;
+export type SongDownloadUpdate = Updateable<SongDownloadsTable>;
 export type SongTag = Selectable<SongTagsTable>;
 export type NewSongTag = Insertable<SongTagsTable>;
 export type SongTagUpdate = Updateable<SongTagsTable>;
@@ -139,6 +147,7 @@ export interface Database {
   songRequests: SongRequestsTable;
   downloads: DownloadsTable;
   songs: SongsTable;
+  songDownloads: SongDownloadsTable;
   songTags: SongTagsTable;
   songVotes: SongVotesTable;
   songHistory: SongHistoryTable;

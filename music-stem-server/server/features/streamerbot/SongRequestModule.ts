@@ -530,7 +530,8 @@ export default class SongRequestModule {
     let existingSongId: number | undefined | null;
     const priorSongRequest = (await db.selectFrom('songRequests')
       .leftJoin('songs', 'songId', 'songs.id')
-      .leftJoin('downloads', 'downloadId', 'downloads.id')
+      .innerJoin('songDownloads', 'songDownloads.songId', 'songs.id')
+      .leftJoin('downloads', 'downloadId', 'songDownloads.downloadId')
       .select(['songId', 'stemsPath', 'artist', 'title', 'album', 'track', 'downloads.path as downloadPath', 'lyricsPath', 'isVideo'])
       .selectAll('songs')
       .where('query', '=', query)
@@ -616,9 +617,12 @@ export default class SongRequestModule {
           track: payload.track,
           duration: payload.duration,
           stemsPath: payload.stemsPath,
-          downloadId: download[0].id,
         }).returning('id as id').execute())[0];
           lyricsPath: payload.lyricsPath,
+        await db.insertInto('songDownloads').values({
+          songId: song.id,
+          downloadId: download!.id,
+        }).execute();
       }
       await db.updateTable('songRequests')
         .set({ status: 'ready', songId: song.id })
