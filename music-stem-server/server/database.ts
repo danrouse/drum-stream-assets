@@ -37,7 +37,6 @@ interface DownloadsTable {
   createdAt: CreatedAtType;
 
   path: string;
-  lyricsPath: string | null;
   isVideo: number;
 
   songRequestId: number;
@@ -54,6 +53,7 @@ interface SongsTable {
   duration: number;
 
   stemsPath: string;
+  lyricsPath: string | null;
 
   downloadId: number;
 }

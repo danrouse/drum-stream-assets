@@ -147,7 +147,6 @@ export interface SongData {
 export interface SongRequestData extends SongData {
   downloadPath: string;
   isVideo: number;
-  lyricsPath: string | null;
   requester: string | null;
   priority: number;
   noShenanigans?: number | null;

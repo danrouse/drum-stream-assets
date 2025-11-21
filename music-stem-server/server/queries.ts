@@ -50,8 +50,8 @@ export const allSongs = () => db.selectFrom('songs')
   .leftJoin('downloads', 'downloads.id', 'downloadId')
   .leftJoin('songRequests', 'songRequests.id', 'downloads.songRequestId')
   .select([
-    'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.createdAt',
-    'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
+    'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.lyricsPath', 'songs.createdAt',
+    'downloads.path as downloadPath', 'downloads.isVideo',
     'songRequests.requester',
   ])
   .execute();
@@ -89,8 +89,8 @@ export const allSongRequests = () => db.selectFrom('songRequests')
   )
   .where('songRequests.status', '=', 'ready')
   .select([
-    'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath',
-    'downloads.path as downloadPath', 'downloads.isVideo', 'downloads.lyricsPath',
+    'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.lyricsPath',
+    'downloads.path as downloadPath', 'downloads.isVideo',
     'songRequests.requester', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.status', 'songRequests.id as songRequestId', 'songRequests.createdAt', 'songRequests.effectiveCreatedAt',
     'fulfilledCounts.fulfilledToday',
     'lastFulfilled.lastFulfilledAt',

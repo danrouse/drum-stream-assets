@@ -606,7 +606,6 @@ export default class SongRequestModule {
       } else {
         const download = await db.insertInto('downloads').values({
           path: payload.downloadPath,
-          lyricsPath: payload.lyricsPath,
           isVideo: Number(payload.isVideo),
           songRequestId: payload.id,
         }).returning('id as id').execute();
@@ -619,6 +618,7 @@ export default class SongRequestModule {
           stemsPath: payload.stemsPath,
           downloadId: download[0].id,
         }).returning('id as id').execute())[0];
+          lyricsPath: payload.lyricsPath,
       }
       await db.updateTable('songRequests')
         .set({ status: 'ready', songId: song.id })
