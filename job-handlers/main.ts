@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import downloadSong from './downloadSong';
 import getSongTags from './getSongTags';
 import demucs from './wrappers/demucs';
+import getAcoustidRecordingId from './wrappers/acoustid';
 import * as Paths from '../shared/paths';
 import { Queues, JobInterface } from '../shared/RabbitMQ';
 
@@ -25,11 +26,17 @@ await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
     throw new Error('TOO_LONG');
   }
 
+  const acoustidRecordingId = await getAcoustidRecordingId(downloadedSongPath);
+  let lyricsPath: string | undefined = downloadedSongPath.substring(0, downloadedSongPath.lastIndexOf('.')) + '.lrc';
+  if (!existsSync(lyricsPath)) lyricsPath = undefined;
+
   await i.publish(Queues.SONG_REQUEST_DOWNLOADED, {
     id: msg.id,
     path: downloadedSongPath,
     ignoreDuplicates: msg.ignoreDuplicates,
     requester: msg.requester,
+    acoustidRecordingId,
+    lyricsPath: lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
 
     artist: String(tags.artist) || '',
     title: String(tags.title) || '',
@@ -39,8 +46,8 @@ await i.listen(Queues.SONG_REQUEST_CREATED, async (msg) => {
   });
 });
 
-await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
-  console.log('SONG_REQUEST_DOWNLOADED', msg);
+await i.listen(Queues.SONG_REQUEST_DEDUPLICATED, async (msg) => {
+  console.log('SONG_REQUEST_DEDUPLICATED', msg);
 
   const dstPath = msg.path.endsWith('.webm') ? msg.path.replace(/\.webm$/, '.mp4') : msg.path;
   console.log('Running ffmpeg-normalize', msg.path, dstPath);
@@ -48,16 +55,13 @@ await i.listen(Queues.SONG_REQUEST_DOWNLOADED, async (msg) => {
   console.log('Running demucs', dstPath);
   const stemsPath = await demucs(dstPath, Paths.DEMUCS_OUTPUT_PATH, msg.ignoreDuplicates);
 
-  let lyricsPath: string | undefined = dstPath.substring(0, dstPath.lastIndexOf('.')) + '.lrc';
-  if (!existsSync(lyricsPath)) lyricsPath = undefined;
-
   const extension = dstPath.substring(dstPath.lastIndexOf('.') + 1);
   const isVideo = VIDEO_EXTENSIONS.includes(extension.toLowerCase());
 
   await i.publish(Queues.SONG_REQUEST_COMPLETE, {
     ...msg,
     downloadPath: dstPath.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
-    lyricsPath: lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
+    lyricsPath: msg.lyricsPath?.replace(Paths.DOWNLOADS_PATH, '').replace(/^[/\\]+/, ''),
     stemsPath: stemsPath.replace(Paths.STEMS_PATH, '').replace(/^[/\\]+/, ''),
     isVideo,
     requester: msg.requester,

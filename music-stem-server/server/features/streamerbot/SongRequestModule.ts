@@ -393,6 +393,7 @@ export default class SongRequestModule {
     this.wss.registerHandler('song_changed', this.handleSongChanged);
 
     this.jobs = new JobInterface();
+    this.jobs.listen(Queues.SONG_REQUEST_DOWNLOADED, this.handleSongRequestDownloaded);
     this.jobs.listen(Queues.SONG_REQUEST_COMPLETE, this.handleSongRequestComplete);
     this.jobs.listen(Queues.SONG_REQUEST_ERROR, this.handleSongRequestError);
   }
@@ -582,6 +583,44 @@ export default class SongRequestModule {
     return songRequest.id;
   }
 
+  private handleSongRequestDownloaded = async (payload: Payloads[typeof Queues.SONG_REQUEST_DOWNLOADED]) => {
+    this.log('handleSongRequestDownloaded', payload);
+    try {
+      // check if the downloaded and fingerprinted song is a duplicate
+      if (payload.acoustidRecordingId) {
+        const duplicate = await db.selectFrom('downloads')
+          .innerJoin('songDownloads', 'songDownloads.downloadId', 'downloads.id')
+          .innerJoin('songs', 'songs.id', 'songDownloads.songId')
+          .select(['songs.id', 'songs.stemsPath', 'songs.lyricsPath', 'downloads.path as downloadPath'])
+          .where('acoustidRecordingId', '=', payload.acoustidRecordingId)
+          .executeTakeFirst();
+        if (duplicate) {
+          if (payload.lyricsPath && !duplicate.lyricsPath) {
+            await db.updateTable('songs')
+              .set({ lyricsPath: payload.lyricsPath })
+              .where('id', '=', duplicate.id)
+              .execute();
+          }
+          this.jobs.publish(Queues.SONG_REQUEST_COMPLETE, {
+            ...payload,
+            id: duplicate.id,
+            downloadPath: duplicate.downloadPath,
+            stemsPath: duplicate.stemsPath,
+          });
+          return;
+        }
+      }
+      this.jobs.publish(Queues.SONG_REQUEST_DEDUPLICATED, {
+        ...payload,
+      });
+    } catch (e) {
+      return this.handleSongRequestError({
+        errorMessage: e instanceof Error ? e.message : (e as string),
+        id: payload.id,
+      });
+    }
+  };
+
   private handleSongRequestComplete = async (payload: Payloads[typeof Queues.SONG_REQUEST_COMPLETE]) =>  {
     this.log('handleSongRequestComplete', payload);
 
@@ -609,7 +648,7 @@ export default class SongRequestModule {
           path: payload.downloadPath,
           isVideo: Number(payload.isVideo),
           songRequestId: payload.id,
-        }).returning('id as id').execute();
+        }).returning('id as id').executeTakeFirst();
         song = (await db.insertInto('songs').values({
           artist: payload.artist,
           title: payload.title,
@@ -617,8 +656,12 @@ export default class SongRequestModule {
           track: payload.track,
           duration: payload.duration,
           stemsPath: payload.stemsPath,
-        }).returning('id as id').execute())[0];
           lyricsPath: payload.lyricsPath,
+          // @ts-expect-error
+          // TODO: REMOVE THIS WHEN WE GET RID OF THE FK CONSTRAINT AND DROP THE COLUMN
+          // the table needs to be recreated and sqlite makes this a pain in the ass
+          downloadId: 999999,
+        }).returning('id as id').executeTakeFirst())!;
         await db.insertInto('songDownloads').values({
           songId: song.id,
           downloadId: download!.id,

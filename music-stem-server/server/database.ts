@@ -1,9 +1,3 @@
-/**
- * Database definitions using Kysely
- * Interfaces and types are exported here,
- * as well as an `initializeDatabase` function which can be used to
- * handle initial DB setup (used to set up a manual testing env, at least)
- */
 import {
   Kysely,
   ColumnType,
@@ -40,6 +34,7 @@ interface DownloadsTable {
   isVideo: number;
 
   songRequestId: number;
+  acoustidRecordingId: string | null;
 }
 
 interface SongsTable {

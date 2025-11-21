@@ -14,6 +14,21 @@ export type Payloads = {
   'song_request_downloaded': {
     id: number,
     path: string,
+    acoustidRecordingId?: string,
+    lyricsPath?: string,
+    ignoreDuplicates?: boolean,
+    artist: string,
+    title: string,
+    album: string,
+    track: number,
+    duration: number,
+    requester?: string,
+  },
+  'song_request_deduplicated': {
+    id: number,
+    path: string,
+    acoustidRecordingId?: string,
+    lyricsPath?: string,
     ignoreDuplicates?: boolean,
     artist: string,
     title: string,
@@ -44,6 +59,7 @@ export type Payloads = {
 export const Queues = {
   SONG_REQUEST_CREATED: 'song_request_created',
   SONG_REQUEST_DOWNLOADED: 'song_request_downloaded',
+  SONG_REQUEST_DEDUPLICATED: 'song_request_deduplicated',
   SONG_REQUEST_COMPLETE: 'song_request_complete',
   SONG_REQUEST_ERROR: 'song_request_error',
 } as const;
