@@ -128,7 +128,7 @@ export default class SongRequestModule {
 
     this.client.registerCommandHandler('!replace', async (payload) => {
       const { songRequest, query: strippedQuery, isAmbiguous } = await this.disambiguate(
-        payload.user, payload.message, 'Use !replace <number> <query> to select which song to replace.'
+        payload.user, payload.message, `Use ${payload.command} <number> <query> to select which song to replace.`
       );
       if (isAmbiguous) return;
       if (!songRequest) {
@@ -178,7 +178,7 @@ export default class SongRequestModule {
       }
 
       const { songRequest, isAmbiguous } = await this.disambiguate(
-        payload.user, payload.message, 'Use !remove <number> to select which song to remove.'
+        payload.user, payload.message, `Use ${payload.command} <number> to select which song to remove, or !remove all`
       );
       if (isAmbiguous) return;
       if (!songRequest) {
@@ -231,7 +231,7 @@ export default class SongRequestModule {
         if (size.recentlyFulfilledPenalty > 0) parts.push(`Recently Played -${percent(size.recentlyFulfilledPenalty)}`);
         if (size.fulfilledPenalty > 0) parts.push(`${requester.fulfilledToday} Songs Today -${percent(size.fulfilledPenalty)}`);
         const totalSize = requesters.map(requester => calculateSliceScale(requester, viewer?.subscribed).size).reduce((a, b) => a + b, 0);
-        const buf = `@${payload.user} Your slice of the wheel: ${percent(size.size / totalSize)} (${parts.join(', ')})`;
+        const buf = `@${payload.user} Slice size: ${percent(size.size)}, ${percent(size.size / totalSize)} of the wheel (${parts.join(', ')})`;
         await this.client.sendTwitchMessage(buf);
       } else {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any song requests!`);

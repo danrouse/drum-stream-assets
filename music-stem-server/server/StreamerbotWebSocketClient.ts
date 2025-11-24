@@ -36,6 +36,7 @@ type DeepPartial<T> = {
 export type CommandPayload = {
   user: string;
   message: string;
+  command: string;
 };
 export type TwitchRedemptionPayload = {
   user: string;
@@ -361,6 +362,7 @@ export default class StreamerbotWebSocketClient {
     this.commandHandlers[commandName]?.({
       user: payload.data.user.display,
       message: payload.data.message,
+      command: payload.data.command,
     });
   }
 
