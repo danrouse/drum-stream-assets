@@ -140,7 +140,7 @@ export default class SongRequestModule {
       try {
         query = this.prepareSongRequestQuery(strippedQuery);
       } catch (err) {
-        await this.client.doAction('!how');
+        await this.client.doAction('!howreplace');
         throw err;
       }
       await this.handleUserSongRequest(
