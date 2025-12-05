@@ -41,6 +41,7 @@ export default class OBSModule {
     this.wss.registerHandler('song_changed', this.handleSongChanged);
     this.wss.registerHandler('song_playback_started', this.handleSongStarted);
     this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
+    this.wss.registerHandler('song_stopped', this.handleSongStopped);
   }
 
   private updateFullscreenVideoEnabled() {
@@ -70,6 +71,12 @@ export default class OBSModule {
       markerName += ` SR #${payload.songRequestId}`;
     }
     await this.client.doAction('Create Stream Marker', { description: markerName });
+
+    await this.client.doAction('OBS Mic Reverb Off');
+  };
+
+  private handleSongStopped = async (payload: WebSocketMessage<'song_stopped'>) => {
+    await this.client.doAction('OBS Mic Reverb Off');
   };
 
   private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
