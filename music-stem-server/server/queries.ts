@@ -127,7 +127,7 @@ export const allSongRequesters = () => db.selectFrom('songRequests')
       .as('lastFulfilled'),
     join => join.onRef('lastFulfilled.requester', '=', 'songRequests.requester')
   )
-  .innerJoin(
+  .leftJoin(
     db.selectFrom('users')
       .select(['name', 'currentBumpCount'])
       .as('users'),

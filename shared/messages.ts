@@ -163,7 +163,7 @@ export interface SongRequester {
   name: string;
   fulfilledToday: number | null;
   lastFulfilledAt: string | null;
-  currentBumpCount: number;
+  currentBumpCount: number | null;
   requestLabels: string;
   oldestRequestAgeMinutes: number;
 }

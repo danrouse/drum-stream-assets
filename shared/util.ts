@@ -93,7 +93,7 @@ export const calculateSliceScale = (requester: SongRequester, isSubscribed: bool
     : 0;
 
   // increase size based on number of bumps (NTT wins)
-  const bumpBonus = requester.currentBumpCount * INCREASE_PER_BUMP;
+  const bumpBonus = (requester.currentBumpCount || 0) * INCREASE_PER_BUMP;
 
   // increase the size for requests based on their age
   const ageBonus = requester.oldestRequestAgeMinutes
