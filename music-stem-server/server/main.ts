@@ -5,7 +5,7 @@ import StreamerbotWebSocketClient from './StreamerbotWebSocketClient';
 import MIDIModule from './features/MIDIModule';
 import DiscordModule from './features/DiscordModule';
 import SongRequestModule from './features/streamerbot/SongRequestModule';
-import ShenanigansModule from './features/streamerbot/ShenanigansModule';
+// import ShenanigansModule from './features/streamerbot/ShenanigansModule';
 import OBSModule from './features/streamerbot/OBSModule';
 import SongVotingModule from './features/streamerbot/SongVotingModule';
 import EmotesModule from './features/streamerbot/EmotesModule';
@@ -39,11 +39,11 @@ const songRequestModule = new SongRequestModule(
   webSocketCoordinatorServer
 );
 
-const shenanigansModule = new ShenanigansModule(
-  streamerbotWebSocketClient,
-  webSocketCoordinatorServer,
-  midiModule
-);
+// const shenanigansModule = new ShenanigansModule(
+//   streamerbotWebSocketClient,
+//   webSocketCoordinatorServer,
+//   midiModule
+// );
 
 const obsModule = new OBSModule(
   streamerbotWebSocketClient,
