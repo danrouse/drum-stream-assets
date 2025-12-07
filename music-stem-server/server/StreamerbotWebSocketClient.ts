@@ -110,8 +110,6 @@ export default class StreamerbotWebSocketClient {
     }
 
     this.wss.registerHandler('song_changed', this.handleSongChanged);
-    this.wss.registerHandler('song_played', () => this.doAction('Queue: Pause', { queueName: 'TTS' }));
-    this.wss.registerHandler('song_playpack_paused', () => this.doAction('Queue: Unpause', { queueName: 'TTS' }));
     this.wss.registerHandler('song_playback_completed', this.handleSongEnded);
 
     this.registerCommandHandler('!song', async (payload) => {
@@ -222,9 +220,6 @@ export default class StreamerbotWebSocketClient {
         endedAt: new Date().toISOString(),
       }])
       .execute();
-
-    // Make sure TTS queue is unpaused
-    await this.doAction('Queue: Unpause', { queueName: 'TTS' });
   };
 
   private handleSongChanged = async (payload: WebSocketMessage<'song_changed'>) => {
