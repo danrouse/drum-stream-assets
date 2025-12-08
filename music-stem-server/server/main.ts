@@ -13,6 +13,7 @@ import NameThatTuneModule from './features/streamerbot/NameThatTuneModule';
 import GambaModule from './features/streamerbot/GambaModule';
 import WheelModule from './features/streamerbot/WheelModule';
 import DMXLightingModule from './features/DMXLightingModule';
+import MoneyModule from './features/streamerbot/MoneyModule';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('Main');
@@ -76,5 +77,10 @@ const wheelModule = new WheelModule(
 );
 
 const dmxLightingModule = new DMXLightingModule(
+  webSocketCoordinatorServer
+);
+
+const moneyModule = new MoneyModule(
+  streamerbotWebSocketClient,
   webSocketCoordinatorServer
 );

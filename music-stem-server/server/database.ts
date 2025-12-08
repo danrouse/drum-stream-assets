@@ -105,6 +105,7 @@ interface UsersTable {
   lastFreeBumpStreamHistoryId: number | null;
   availableLongSongs: Generated<number>;
   lastLongSongStreamHistoryId: number | null;
+  money: number;
 }
 
 export type SongRequest = Selectable<SongRequestsTable>;

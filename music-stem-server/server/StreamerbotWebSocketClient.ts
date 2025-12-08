@@ -253,16 +253,21 @@ export default class StreamerbotWebSocketClient {
 
   private async updateActiveViewers() {
     const res = await this.client.getActiveViewers();
-    const viewers: typeof this.viewers = res.viewers.map(v => ({
-      ...v,
-      online: true,
-      color: this.viewers.find(v2 => v2.id === v.id)?.color,
-    }));
+    const viewers: typeof this.viewers = res.viewers.map(v => {
+      const existingViewer = this.viewers.find(v2 => v2.id === v.id);
+      return {
+        ...v,
+        online: true,
+        onlineSinceTimestamp: existingViewer?.onlineSinceTimestamp || Date.now(),
+        color: existingViewer?.color,
+      };
+    });
     for (let prevViewer of this.viewers) {
       if (!viewers.find(v => v.id === prevViewer.id)) {
         // viewer was in previous list but is no longer showing online
         // retain the viewer information but mark as offline
         prevViewer.online = false;
+        prevViewer.onlineSinceTimestamp = undefined;
         viewers.push(prevViewer)
       }
     }

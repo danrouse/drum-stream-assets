@@ -9,6 +9,7 @@ export type StreamerbotViewer = {
   role: string;
   subscribed: boolean;
   online: boolean;
+  onlineSinceTimestamp?: number;
   color?: string;
 };
 
