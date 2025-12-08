@@ -25,10 +25,10 @@ export default class MoneyModule {
   private raffleEntrants: Set<string> = new Set();
   private raffleValue = 0;
   private raffleTimer?: NodeJS.Timeout;
-  private static readonly RAFFLE_DURATION_SECONDS = 10;
+  private static readonly RAFFLE_DURATION_SECONDS = 60;
   private static readonly RAFFLE_DEFAULT_VALUE = 100;
 
-  private static readonly MONEY_PER_MINUTE = 1;
+  private static readonly MONEY_PER_MINUTE = 2;
   private static readonly INTERVAL_UPDATE_PERIOD_MS = 60000;
   private viewers: StreamerbotViewer[] = [];
 
