@@ -258,7 +258,7 @@ export default class SongRequestModule {
       const songRequests = await queries.songRequestsByUser(payload.user);
       if (songRequests.length > 0) {
         await db.updateTable('songRequests')
-          .set({ status: 'processing' })
+          .set({ status: 'ready' })
           .where('id', 'in', songRequests.map(sr => sr.id))
           .where('status', '=', 'hold')
           .execute();

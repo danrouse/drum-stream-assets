@@ -178,5 +178,6 @@ export default class MoneyModule {
       .set({ money: eb => eb('money', '-', amount) })
       .where(sql`LOWER(name)`, '=', payload.user.toLowerCase())
       .execute();
+    this.client.sendTwitchMessage(`@${payload.user} You gave ${recipient} ${amount} Beff${amount !== 1 ? 's' : ''}!`);
   };
 }
