@@ -20,6 +20,7 @@ export default class MoneyModule {
   private wss: WebSocketCoordinatorServer;
 
   private regularPayoutInterval: NodeJS.Timeout;
+  private viewers: StreamerbotViewer[] = [];
 
   private raffleIsActive = false;
   private raffleEntrants: Set<string> = new Set();
@@ -30,7 +31,6 @@ export default class MoneyModule {
 
   private static readonly MONEY_PER_MINUTE = 2;
   private static readonly INTERVAL_UPDATE_PERIOD_MS = 60000;
-  private viewers: StreamerbotViewer[] = [];
 
   constructor(
     client: StreamerbotWebSocketClient,
@@ -47,6 +47,7 @@ export default class MoneyModule {
     this.client.registerCommandHandler('!cancelraffle', this.handleCancelRaffleCommand);
     this.client.registerCommandHandler('!raffle', this.handleRaffleCommand);
     this.client.registerCommandHandler('!gamble', this.handleGambleCommand);
+    this.client.registerCommandHandler('!give', this.handleGiveCommand);
   }
 
   private handleInterval = async () => {
@@ -68,32 +69,33 @@ export default class MoneyModule {
 
   private handleMoneyCommand = async (payload: CommandPayload) => {
     const user = await this.client.getUser(payload.user);
-    this.client.sendTwitchMessage(`@${payload.user} You have ${user.money} moneys`);
+    this.client.sendTwitchMessage(`@${payload.user} You have ${user.money} Beffs`);
   };
 
   private handleLeaderboardCommand = async (payload: CommandPayload) => {
     const users = await db.selectFrom('users')
       .select(['name', 'money'])
       .orderBy('money', 'desc')
-      .limit(10)
+      .limit(5)
       .execute();
     this.client.sendTwitchMessage(users.map((user, index) =>
-      `${index + 1}. ${user.name}: ${user.money}`).join(', '));
+      `#${index + 1}: ${user.name}: ${user.money}`).join(' | '));
   };
 
   private handleStartRaffleCommand = async (payload: CommandPayload) => {
     this.raffleIsActive = true;
 
     this.raffleValue = payload.message && parseInt(payload.message) || MoneyModule.RAFFLE_DEFAULT_VALUE;
+    if (this.raffleValue <= 0) this.raffleValue = MoneyModule.RAFFLE_DEFAULT_VALUE;
 
-    this.client.sendTwitchMessage(`Raffle started! Type !join to enter. You have ${MoneyModule.RAFFLE_DURATION_SECONDS} seconds to enter!`);
+    this.client.sendTwitchMessage(`Raffle started! Type !join to enter. You have ${MoneyModule.RAFFLE_DURATION_SECONDS} seconds!`);
     this.raffleTimer = setTimeout(() => {
       this.client.sendTwitchMessage(`There are ${Math.floor(MoneyModule.RAFFLE_DURATION_SECONDS / 2)} seconds left in the raffle! Type !join to enter.`);
 
       this.raffleTimer = setTimeout(async () => {
         const winner = this.raffleEntrants.size > 0 ? Array.from(this.raffleEntrants)[Math.floor(Math.random() * this.raffleEntrants.size)] : null;
         if (winner) {
-          this.client.sendTwitchMessage(`${winner} won the raffle and got ${this.raffleValue} moneys!`);
+          this.client.sendTwitchMessage(`${winner} won the raffle and got ${this.raffleValue} Beffs!`);
           await db.updateTable('users')
             .set({ money: eb => eb('money', '+', this.raffleValue) })
             .where(sql`LOWER(name)`, '=', winner.toLowerCase())
@@ -128,11 +130,11 @@ export default class MoneyModule {
     const user = await this.client.getUser(payload.user);
     let amount = payload.message.toLowerCase() === 'all' ? user.money : parseInt(payload.message);
 
-    if (isNaN(amount)) {
-      this.client.sendTwitchMessage(`@${payload.user} Gamble some amount of your moneys, or !gamble all`);;
+    if (isNaN(amount) || amount <= 0) {
+      this.client.sendTwitchMessage(`@${payload.user} Gamble some amount of your Beffs, or !gamble all`);;
       return;
     } else if (user.money < amount) {
-      this.client.sendTwitchMessage(`@${payload.user} You don't have enough moneys!`);
+      this.client.sendTwitchMessage(`@${payload.user} You don't have enough Beffs!`);
       return;
     } else {
       // pray to RNGesus
@@ -141,15 +143,40 @@ export default class MoneyModule {
       if (result) {
         const isSuperWin = Math.random() < 0.1;
         nextMoney += amount * (isSuperWin ? 2 : 1);
-        this.client.sendTwitchMessage(`@${payload.user} You ${isSuperWin ? 'TRIPLED' : 'doubled'} your bet and now have ${nextMoney} moneys!`);
+        this.client.sendTwitchMessage(`@${payload.user} You ${isSuperWin ? 'TRIPLED' : 'doubled'} your bet and now have ${nextMoney} Beffs!`);
       } else {
         nextMoney -= amount;
-        this.client.sendTwitchMessage(`@${payload.user} You lost your bet and now have ${nextMoney} moneys :(`);
+        this.client.sendTwitchMessage(`@${payload.user} You lost your bet and now have ${nextMoney} Beffs :(`);
       }
       await db.updateTable('users')
         .set({ money: nextMoney })
         .where(sql`LOWER(name)`, '=', payload.user.toLowerCase())
         .execute();
     }
+  };
+
+  private handleGiveCommand = async (payload: CommandPayload) => {
+    const user = await this.client.getUser(payload.user);
+    const words = payload.message.split(' ');
+    const recipient = words[0]?.toLowerCase();
+    const amount = parseInt(words[1] || '0') || 0;
+    if (!recipient || !amount || amount <= 0) {
+      this.client.sendTwitchMessage(`@${payload.user} !give <recipient> <amount>`);
+      return;
+    }
+    if (amount > user.money) {
+      this.client.sendTwitchMessage(`@${payload.user} You don't have enough Beffs!`);
+      return;
+    }
+    // ensure recipient exists
+    await this.client.getUser(recipient);
+    await db.updateTable('users')
+      .set({ money: eb => eb('money', '+', amount) })
+      .where(sql`LOWER(name)`, '=', recipient.toLowerCase())
+      .execute();
+    await db.updateTable('users')
+      .set({ money: eb => eb('money', '-', amount) })
+      .where(sql`LOWER(name)`, '=', payload.user.toLowerCase())
+      .execute();
   };
 }
