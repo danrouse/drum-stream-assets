@@ -14,7 +14,7 @@ import { SongRequester } from '../../shared/messages';
 export const songRequestsByUser = (user: string) => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
   .select(['songRequests.id', 'songs.artist', 'songs.title', 'songRequests.priority', 'songRequests.noShenanigans', 'songRequests.effectiveCreatedAt'])
-  .where('status', 'in', ['processing', 'ready'])
+  .where('status', 'in', ['processing', 'ready', 'hold'])
   .where('requester', '=', user)
   .orderBy('songRequests.effectiveCreatedAt asc')
   .execute();
