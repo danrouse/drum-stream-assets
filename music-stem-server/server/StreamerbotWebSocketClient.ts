@@ -14,18 +14,9 @@ export const TwitchRewardDurations: Streamerbot.TwitchRewardMeta<number> = {
 
   // TODO: Relocate into EmotesModule
   'Pin an Emote': 30000,
-
-  // TODO: Relocate into ShenanigansModule
-  'Slow Down Music': 60000,
-  'Speed Up Music': 60000,
-  'Fart Mode': 30000,
-  'Randomize Drums': 30000,
-  'Randomize EVERY HIT': 30000,
-  'Change Drum Kit': 120000,
 };
 
 const TwitchRewardGroups: Streamerbot.TwitchRewardName[][] = [
-  ['Fart Mode', 'Randomize Drums', 'Randomize EVERY HIT'],
   ['Pick ONE Hat', 'Pick TWO Hats', 'Pick THREE Hats', 'Hat Wheel'],
 ];
 
