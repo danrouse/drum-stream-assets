@@ -22,7 +22,7 @@ export const songRequestsByUser = (user: string) => db.selectFrom('songRequests'
 export const numOpenRequestsByUser = (user: string) => db.selectFrom('songRequests')
   .select(db.fn.countAll().as('count'))
   .where('requester', '=', user)
-  .where('status', 'in', ['processing', 'ready'])
+  .where('status', 'in', ['processing', 'ready', 'hold'])
   .execute();
 
 export const lastRequestTimeByUser = (user: string) => db.selectFrom('songRequests')

@@ -7,6 +7,7 @@ import {
   Updateable,
 } from 'kysely';
 import { HttpD1Dialect } from './HttpD1Dialect';
+import { SongRequestStatus } from '../../shared/messages';
 
 type CreatedAtType = ColumnType<string, string | undefined, string>;
 
@@ -19,7 +20,7 @@ interface SongRequestsTable {
   requester: string | null;
   twitchRewardId: string | null;
   twitchRedemptionId: string | null;
-  status: 'processing' | 'ready' | 'fulfilled' | 'cancelled' | 'playing';
+  status: SongRequestStatus;
   priority: number;
   noShenanigans: number | null;
   songId: number | null;

@@ -153,6 +153,7 @@ export default class SongRequestModule {
         },
       );
     });
+
     this.client.registerCommandHandler('!remove', async (payload) => {
       if (payload.message.toLowerCase() === 'all') {
         const songRequests = await queries.songRequestsByUser(payload.user);
@@ -199,6 +200,7 @@ export default class SongRequestModule {
       });
       await this.client.sendTwitchMessage(`@${payload.user} ${songRequest.artist} - ${songRequest.title} has been removed.`);
     });
+
     this.client.registerCommandHandler('!songs', async (payload) => {
       const songRequests = await queries.songRequestsByUser(payload.user);
       if (!songRequests.length) {
@@ -235,6 +237,34 @@ export default class SongRequestModule {
         await this.client.sendTwitchMessage(buf);
       } else {
         await this.client.sendTwitchMessage(`@${payload.user} You don't have any song requests!`);
+      }
+    });
+
+    this.client.registerCommandHandler('!brb', async (payload) => {
+      const songRequests = await queries.songRequestsByUser(payload.user);
+      if (songRequests.length > 0) {
+        await db.updateTable('songRequests')
+          .set({ status: 'hold' })
+          .where('id', 'in', songRequests.map(sr => sr.id))
+          .where('status', '=', 'ready')
+          .execute();
+        await this.client.sendTwitchMessage(`@${payload.user} Your song requests are on hold - type !back when you're back - be good! dannyt75Hug`);
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} You don't have any song requests to put on hold!`);
+      }
+    });
+
+    this.client.registerCommandHandler('!back', async (payload) => {
+      const songRequests = await queries.songRequestsByUser(payload.user);
+      if (songRequests.length > 0) {
+        await db.updateTable('songRequests')
+          .set({ status: 'processing' })
+          .where('id', 'in', songRequests.map(sr => sr.id))
+          .where('status', '=', 'hold')
+          .execute();
+        await this.client.sendTwitchMessage(`@${payload.user} Welcome back! Your song requests are back on the wheel dannyt75Spin`);
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} WB! but you don't have any song requests on hold dannyt75Keking`);
       }
     });
 

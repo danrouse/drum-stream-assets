@@ -125,7 +125,7 @@ export type WebSocketMessage<T = WebSocketServerMessage['type'] | WebSocketPlaye
 export type WebSocketBroadcaster = (payload: WebSocketServerMessage) => void;
 export type WebSocketMessageHandler = (payload: WebSocketMessage) => void;
 
-type SongRequestStatus = 'processing' | 'ready' | 'fulfilled' | 'cancelled' | 'playing';
+export type SongRequestStatus = 'processing' | 'ready' | 'fulfilled' | 'cancelled' | 'playing' | 'hold';
 
 export interface SongData {
   id: number;
