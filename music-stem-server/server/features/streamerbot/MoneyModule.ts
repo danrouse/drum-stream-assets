@@ -59,7 +59,7 @@ export default class MoneyModule {
     );
     await db.updateTable('users')
       .set({ money: eb => eb('money', '+', MoneyModule.MONEY_PER_MINUTE) })
-      .where(sql`LOWER(name)`, 'in', eligibleViewers.map(v => v.login.toLowerCase()))
+      .where(sql`LOWER(name)`, 'in', sql`(${eligibleViewers.map(v => `'${v.login.toLowerCase()}'`).join(',')})`)
       .execute();
   };
 
@@ -158,23 +158,20 @@ export default class MoneyModule {
 
   private handleGiveCommand = async (payload: CommandPayload) => {
     const user = await this.client.getUser(payload.user);
+    let amount: number | undefined;
+    let recipient: string | undefined;
     const match = payload.message.match(/^(\S+)\s+(\S+)$/);
-    if (!match) {
-      this.client.sendTwitchMessage(`@${payload.user} !give <recipient> <amount>`);
-      return;
-    }
-
-    // handle either argument order
-    const arg1 = match[1].trim().toLowerCase().replace(/^@/, '');
-    const arg2 = match[2].trim().toLowerCase().replace(/^@/, '');
-    let amount: number;
-    let recipient: string;
-    if (arg1 === 'all' || Number.isFinite(+arg1)) {
-      amount = arg1 === 'all' ? user.money : parseInt(arg1);
-      recipient = arg2;
-    } else {
-      amount = arg2 === 'all' ? user.money : parseInt(arg2);
-      recipient = arg1;
+    if (match) {
+      // handle either argument order
+      const arg1 = match[1].trim().toLowerCase().replace(/^@/, '');
+      const arg2 = match[2].trim().toLowerCase().replace(/^@/, '');
+      if (arg1 === 'all' || Number.isFinite(+arg1)) {
+        amount = arg1 === 'all' ? user.money : parseInt(arg1);
+        recipient = arg2;
+      } else {
+        amount = arg2 === 'all' ? user.money : parseInt(arg2);
+        recipient = arg1;
+      }
     }
 
     if (!recipient || !amount || amount <= 0) {
