@@ -17,6 +17,12 @@ export default class EmotesModule {
   private messageRepeatTimer?: NodeJS.Timeout;
   private pinNextEmoteForUser?: string;
 
+  private static readonly IGNORED_EMOTES = [
+    // there are 7tv emotes for some commands
+    '!sr',
+    '!join',
+  ];
+
   constructor(
     private client: StreamerbotWebSocketClient,
     private wss: WebSocketCoordinatorServer
@@ -52,7 +58,12 @@ export default class EmotesModule {
       }
 
       // if two people sent the same emote-only message twice in a row, echo it
-      if (payload.data.message.message === this.previousMessage && payload.data.message.username !== this.previousMessageUser && !this.messageRepeatTimer) {
+      if (
+        payload.data.message.message === this.previousMessage &&
+        payload.data.message.username !== this.previousMessageUser &&
+        !this.messageRepeatTimer &&
+        !EmotesModule.IGNORED_EMOTES.includes(payload.data.message.message)
+      ) {
         const wholeMessageIsTwitchEmote = payload.data.message.emotes[0]?.startIndex === 0 &&
           payload.data.message.emotes[0]?.endIndex === payload.data.message.message.length - 1;
         const isOwnTwitchEmote = payload.data.message.emotes[0]?.name.startsWith('dannyt75');
