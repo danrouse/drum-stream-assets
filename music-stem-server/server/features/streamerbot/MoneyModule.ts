@@ -76,6 +76,7 @@ export default class MoneyModule {
     const users = await db.selectFrom('users')
       .select(['name', 'money'])
       .orderBy('money', 'desc')
+      .where('name', '!=', 'danny_the_liar')
       .limit(5)
       .execute();
     this.client.sendTwitchMessage(users.map((user, index) =>
