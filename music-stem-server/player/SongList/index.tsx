@@ -33,6 +33,7 @@ export default function SongList({ songs, selectedSong, showTimeAgo, showRuntime
             selectedSong === song ? 'selected' : '',
             song.priority ? `priority priority-${song.priority}` : '',
             song.noShenanigans ? 'no-shens' : '',
+            song.status === 'hold' ? 'on-hold' : '',
           ].join(' ')}>
             <div>
               <p className="title">{song.title}</p>

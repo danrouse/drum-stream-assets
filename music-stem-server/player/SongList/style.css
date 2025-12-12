@@ -1,6 +1,6 @@
 .SongList {
 }
-  .SongList ul { 
+  .SongList ul {
     list-style: none;
   }
     .SongList li {
@@ -39,6 +39,9 @@
       .SongList li.no-shens {
         color: purple;
       }
+      .SongList li.on-hold {
+        opacity: 0.5;
+      }
 
 .SongList li > div {
   flex: 1;
@@ -60,7 +63,7 @@
   }
 
   .SongList .artist {
-        
+
   }
 .SongList .album {
 }

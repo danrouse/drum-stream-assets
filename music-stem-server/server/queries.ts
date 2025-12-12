@@ -89,7 +89,7 @@ export const allSongRequests = () => db.selectFrom('songRequests')
       .as('users'),
     join => join.onRef('users.name', '=', 'songRequests.requester')
   )
-  .where('songRequests.status', '=', 'ready')
+  .where('songRequests.status', 'in', ['ready', 'hold'])
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.lyricsPath',
     'downloads.path as downloadPath', 'downloads.isVideo',
