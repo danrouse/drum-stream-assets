@@ -129,7 +129,7 @@ export default class MoneyModule {
 
   private handleGambleCommand = async (payload: CommandPayload) => {
     const user = await this.client.getUser(payload.user);
-    let amount = payload.message.toLowerCase() === 'all' ? user.money : parseInt(payload.message);
+    const amount = payload.message.trim().toLowerCase() === 'all' ? user.money : parseInt(payload.message.trim());
 
     if (isNaN(amount) || amount <= 0) {
       this.client.sendTwitchMessage(`@${payload.user} Gamble some amount of your Beffs, or !gamble all`);;
@@ -158,9 +158,25 @@ export default class MoneyModule {
 
   private handleGiveCommand = async (payload: CommandPayload) => {
     const user = await this.client.getUser(payload.user);
-    const words = payload.message.split(' ');
-    const recipient = words[0]?.toLowerCase();
-    const amount = parseInt(words[1] || '0') || 0;
+    const match = payload.message.match(/^(\S+)\s+(\S+)$/);
+    if (!match) {
+      this.client.sendTwitchMessage(`@${payload.user} !give <recipient> <amount>`);
+      return;
+    }
+
+    // handle either argument order
+    const arg1 = match[1].trim().toLowerCase().replace(/^@/, '');
+    const arg2 = match[2].trim().toLowerCase().replace(/^@/, '');
+    let amount: number;
+    let recipient: string;
+    if (arg1 === 'all' || Number.isFinite(+arg1)) {
+      amount = arg1 === 'all' ? user.money : parseInt(arg1);
+      recipient = arg2;
+    } else {
+      amount = arg2 === 'all' ? user.money : parseInt(arg2);
+      recipient = arg1;
+    }
+
     if (!recipient || !amount || amount <= 0) {
       this.client.sendTwitchMessage(`@${payload.user} !give <recipient> <amount>`);
       return;
