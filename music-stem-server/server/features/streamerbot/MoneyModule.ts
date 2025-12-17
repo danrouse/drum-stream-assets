@@ -57,10 +57,17 @@ export default class MoneyModule {
       v.onlineSinceTimestamp &&
       Date.now() - v.onlineSinceTimestamp > MoneyModule.INTERVAL_UPDATE_PERIOD_MS
     );
-    await db.updateTable('users')
-      .set({ money: eb => eb('money', '+', MoneyModule.MONEY_PER_MINUTE) })
-      .where(sql`LOWER(name)`, 'in', sql`(${eligibleViewers.map(v => `'${v.login.toLowerCase()}'`).join(',')})`)
-      .execute();
+    if (eligibleViewers.length > 0) {
+      // this is an unsafe raw query as kysely's (safe) parameterization breaks when there are
+      // more than a certain number of viewers. it *should* be safe to use as the login array
+      // comes from streamerbot and cannot include any SQL injection/escape tokens.
+      // it's still not ideal, but when everything is a nail, it's okay to get hammered...?
+      await sql.raw(
+        `UPDATE users SET money = money + ${MoneyModule.MONEY_PER_MINUTE} WHERE LOWER(name) in (${
+          eligibleViewers.map(v => `'${v.login.toLowerCase()}'`).join(',')
+        })`)
+        .execute(db);
+    }
   };
 
   private handleViewersUpdate = async (payload: WebSocketMessage<'viewers_update'>) => {
