@@ -268,6 +268,33 @@ export default class SongRequestModule {
       }
     });
 
+    this.client.registerCommandHandler('!srroulette', async (payload) => {
+      // ensure the user isn't at max song requests
+      await this.prepareUserSongRequest(
+        'placeholder',
+        payload.user,
+        await this.songRequestMaxCountForUser(payload.user)
+      );
+      const historicalRequests = await db.selectFrom('songRequests').select(['id', 'songId']).where('requester', '=', payload.user).execute();
+      if (!historicalRequests.length) {
+        await this.client.sendTwitchMessage(`@${payload.user} You've never requested a song before, there's nothing to roulette!`);
+        return;
+      }
+      const randomRequest = historicalRequests[Math.floor(Math.random() * historicalRequests.length)];
+      const newRequest = await db.insertInto('songRequests').values({
+        requester: payload.user,
+        songId: randomRequest.songId,
+        query: '!srroulette',
+        status: 'ready',
+        priority: 0,
+      }).returning('id').executeTakeFirst();
+      if (newRequest) {
+        await this.client.sendTwitchMessage(`@${payload.user} A random request from your history has been added to the wheel. !songs if you want to see what it is!`);
+      } else {
+        await this.client.sendTwitchMessage(`@${payload.user} Something broke and at this point I'm too afraid to ask`);
+      }
+    });
+
     this.client.registerCustomEventHandler<'Twitch.GiftSub' | 'Twitch.GiftBomb'>('add bumps', async (payload) => {
       if (payload.triggerName === 'Gift Subscription' || payload.triggerName === 'Gift Bomb') {
         // @ts-expect-error Twitch.GiftBomb payload definition is incomplete
