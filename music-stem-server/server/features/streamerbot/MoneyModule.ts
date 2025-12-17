@@ -29,8 +29,11 @@ export default class MoneyModule {
   private static readonly RAFFLE_DURATION_SECONDS = 60;
   private static readonly RAFFLE_DEFAULT_VALUE = 100;
 
+  private gambleCooldowns: Map<string, number> = new Map();
+
   private static readonly MONEY_PER_MINUTE = 2;
   private static readonly INTERVAL_UPDATE_PERIOD_MS = 60000;
+  private static readonly GAMBLE_COOLDOWN_MS = 60000;
 
   constructor(
     client: StreamerbotWebSocketClient,
@@ -138,11 +141,23 @@ export default class MoneyModule {
     const user = await this.client.getUser(payload.user);
     const amount = payload.message.trim().toLowerCase() === 'all' ? user.money : parseInt(payload.message.trim());
 
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount)) {
       this.client.sendTwitchMessage(`@${payload.user} Gamble some amount of your Beffs, or !gamble all`);;
+      return;
+    } else if (user.money === 0) {
+      this.client.sendTwitchMessage(`@${payload.user} You don't have any Beffs to gamble!`);
+      return;
+    } else if (amount < 0) {
+      this.client.sendTwitchMessage(`@${payload.user} NEGATIVE NUMBERS AAAA`);
       return;
     } else if (user.money < amount) {
       this.client.sendTwitchMessage(`@${payload.user} You don't have enough Beffs!`);
+      return;
+    } else if (
+      this.gambleCooldowns.has(payload.user) &&
+      Date.now() - this.gambleCooldowns.get(payload.user)! < MoneyModule.GAMBLE_COOLDOWN_MS
+    ) {
+      this.client.sendTwitchMessage(`@${payload.user} Please wait ${Math.floor((this.gambleCooldowns.get(payload.user)! + MoneyModule.GAMBLE_COOLDOWN_MS - Date.now()) / 1000)} seconds before gambling again.`);
       return;
     } else {
       // pray to RNGesus
@@ -160,6 +175,7 @@ export default class MoneyModule {
         .set({ money: nextMoney })
         .where(sql`LOWER(name)`, '=', payload.user.toLowerCase())
         .execute();
+      this.gambleCooldowns.set(payload.user, Date.now());
     }
   };
 
