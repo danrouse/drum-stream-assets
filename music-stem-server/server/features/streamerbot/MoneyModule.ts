@@ -172,7 +172,7 @@ export default class MoneyModule {
       this.gambleCooldowns.has(payload.user) &&
       Date.now() - this.gambleCooldowns.get(payload.user)! < MoneyModule.GAMBLE_COOLDOWN_MS
     ) {
-      this.client.sendTwitchMessage(`@${payload.user} Please wait ${Math.floor((this.gambleCooldowns.get(payload.user)! + MoneyModule.GAMBLE_COOLDOWN_MS - Date.now()) / 1000)} seconds before gambling again.`);
+      this.client.sendTwitchMessage(`@${payload.user} Please wait ${Math.ceil((this.gambleCooldowns.get(payload.user)! + MoneyModule.GAMBLE_COOLDOWN_MS - Date.now()) / 1000)} seconds before gambling again.`);
       return;
     } else {
       // pray to RNGesus
