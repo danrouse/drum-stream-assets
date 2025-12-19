@@ -30,6 +30,7 @@ export default class MoneyModule {
   private static readonly RAFFLE_DEFAULT_VALUE = 100;
 
   private gambleCooldowns: Map<string, number> = new Map();
+  private gambleMoneyLost: number = 0;
 
   private static readonly MONEY_PER_MINUTE = 2;
   private static readonly INTERVAL_UPDATE_PERIOD_MS = 60000;
@@ -49,6 +50,7 @@ export default class MoneyModule {
     this.client.registerCommandHandler('!startraffle', this.handleStartRaffleCommand);
     this.client.registerCommandHandler('!cancelraffle', this.handleCancelRaffleCommand);
     this.client.registerCommandHandler('!raffle', this.handleRaffleCommand);
+    this.client.registerCommandHandler('!jackpot', this.handleJackpotCommand);
     this.client.registerCommandHandler('!gamble', this.handleGambleCommand);
     this.client.registerCommandHandler('!give', this.handleGiveCommand);
   }
@@ -95,9 +97,14 @@ export default class MoneyModule {
 
   private handleStartRaffleCommand = async (payload: CommandPayload) => {
     this.raffleIsActive = true;
+    let raffleIsJackpot = false;
 
-    this.raffleValue = payload.message && parseInt(payload.message) || MoneyModule.RAFFLE_DEFAULT_VALUE;
-    if (this.raffleValue <= 0) this.raffleValue = MoneyModule.RAFFLE_DEFAULT_VALUE;
+    if (payload.message && parseInt(payload.message)) {
+      this.raffleValue = parseInt(payload.message) || 0;
+    }
+    if (!this.raffleValue) {
+      raffleIsJackpot = true;
+    }
 
     this.client.sendTwitchMessage(`Raffle started! Type !join to enter. You have ${MoneyModule.RAFFLE_DURATION_SECONDS} seconds!`);
     this.raffleTimer = setTimeout(() => {
@@ -106,7 +113,11 @@ export default class MoneyModule {
       this.raffleTimer = setTimeout(async () => {
         const winner = this.raffleEntrants.size > 0 ? Array.from(this.raffleEntrants)[Math.floor(Math.random() * this.raffleEntrants.size)] : null;
         if (winner) {
-          this.client.sendTwitchMessage(`${winner} won the raffle and got ${this.raffleValue} Beffs!`);
+          if (raffleIsJackpot) {
+            this.raffleValue = this.gambleMoneyLost;
+            this.gambleMoneyLost = 0;
+          }
+          this.client.sendTwitchMessage(`${raffleIsJackpot ? 'JACKPOT!' : ''} ${winner} won the raffle and got ${this.raffleValue} Beffs!`);
           await db.updateTable('users')
             .set({ money: eb => eb('money', '+', this.raffleValue) })
             .where(sql`LOWER(name)`, '=', winner.toLowerCase())
@@ -135,6 +146,10 @@ export default class MoneyModule {
     if (this.raffleIsActive) {
       this.raffleEntrants.add(payload.user);
     }
+  };
+
+  private handleJackpotCommand = async (payload: CommandPayload) => {
+    this.client.sendTwitchMessage(`The jackpot is currently ${this.gambleMoneyLost} Beffs!`);
   };
 
   private handleGambleCommand = async (payload: CommandPayload) => {
@@ -170,6 +185,7 @@ export default class MoneyModule {
       } else {
         nextMoney -= amount;
         this.client.sendTwitchMessage(`@${payload.user} You lost your bet and now have ${nextMoney} Beffs :(`);
+        this.gambleMoneyLost += amount;
       }
       await db.updateTable('users')
         .set({ money: nextMoney })
