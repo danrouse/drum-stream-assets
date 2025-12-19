@@ -275,7 +275,11 @@ export default class SongRequestModule {
         payload.user,
         await this.songRequestMaxCountForUser(payload.user)
       );
-      const historicalRequests = await db.selectFrom('songRequests').select(['id', 'songId']).where('requester', '=', payload.user).execute();
+      const historicalRequests = await db.selectFrom('songRequests')
+        .select(['id', 'songId'])
+        .where('requester', '=', payload.user)
+        .where('status', '=', 'fulfilled')
+        .execute();
       if (!historicalRequests.length) {
         await this.client.sendTwitchMessage(`@${payload.user} You've never requested a song before, there's nothing to roulette!`);
         return;
