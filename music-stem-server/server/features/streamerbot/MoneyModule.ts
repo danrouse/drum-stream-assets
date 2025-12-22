@@ -28,6 +28,7 @@ export default class MoneyModule {
   private raffleTimer?: NodeJS.Timeout;
   private static readonly RAFFLE_DURATION_SECONDS = 60;
   private static readonly RAFFLE_DEFAULT_VALUE = 100;
+  private static readonly JACKPOT_SOCIALISM_THRESHOLD = 50000;
 
   private gambleCooldowns: Map<string, number> = new Map();
   private gambleMoneyLost: number = 0;
@@ -116,7 +117,21 @@ export default class MoneyModule {
           if (raffleIsJackpot) {
             this.raffleValue = this.gambleMoneyLost;
             this.gambleMoneyLost = 0;
+            if (this.raffleValue >= MoneyModule.JACKPOT_SOCIALISM_THRESHOLD) {
+              // Give half the jackpot to the winner, split the rest among all other entrants
+              const halfJackpot = this.raffleValue / 2;
+              this.raffleValue -= Math.floor(halfJackpot);
+              const moneyPerPerson = Math.floor(halfJackpot / (this.raffleEntrants.size - 1));
+              // TODO: Similar to auto-adding money breaking above the parameter limit on D1,
+              // this will also break if there are more than 100 entrants. Maybe fix this someday?
+              await db.updateTable('users')
+                .set({ money: eb => eb('money', '+', moneyPerPerson) })
+                .where(sql`LOWER(name)`, 'in', Array.from(this.raffleEntrants).filter(name => name !== winner).map(name => name.toLowerCase()))
+                .execute();
+              this.client.sendTwitchMessage(`Since the jackpot is so large, all entrants received ${moneyPerPerson} Beffs!`);
+            }
           }
+
           this.client.sendTwitchMessage(`${raffleIsJackpot ? 'JACKPOT!' : ''} ${winner} won the raffle and got ${this.raffleValue} Beffs!`);
           await db.updateTable('users')
             .set({ money: eb => eb('money', '+', this.raffleValue) })
