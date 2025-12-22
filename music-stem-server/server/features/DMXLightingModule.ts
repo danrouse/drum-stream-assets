@@ -16,6 +16,7 @@ interface DrumMapping {
   name: string;
   midiKeys: number[];
   color: { r: number; g: number; b: number };
+  lightRange: { start: number; end: number };
 }
 
 interface DrumFlash {
@@ -23,6 +24,7 @@ interface DrumFlash {
   color: { r: number; g: number; b: number };
   intensity: number;
   age: number;
+  lightRange: { start: number; end: number };
 }
 
 export default class DMXLightingModule {
@@ -33,77 +35,93 @@ export default class DMXLightingModule {
   private updateInterval: NodeJS.Timeout | null = null;
   private activeFlashes: DrumFlash[] = [];
 
-  // Define drum-to-color mappings (dim colors so they can add together without becoming white)
+  // Define drum-to-color mappings with specific light ranges
+  // Kick: 35-40, Snare: 30-34, Tom1: 27-29, Tom2: 24-26, Tom3: 21-23, Tom4: 18-20
+  // Crash1: 15-17, Crash2: 12-14, Crash3: 9-11, HiHat/Rides/Splashes: 1-8 (with color mixing)
   private drumMappings: DrumMapping[] = [
     {
       name: 'Kick',
       midiKeys: midiNoteKeysByName.Kick,
-      color: this.parseColor('rgb(50, 50, 50)') // Neutral gray for kick
+      color: this.parseColor('rgb(50, 50, 50)'), // Neutral gray for kick
+      lightRange: { start: 35, end: 40 }
     },
     {
       name: 'Tom4',
       midiKeys: midiNoteKeysByName.Tom4,
-      color: this.parseColor('rgb(0, 60, 0)') // Green
+      color: this.parseColor('rgb(0, 60, 0)'), // Green
+      lightRange: { start: 18, end: 20 }
     },
     {
       name: 'Tom3',
       midiKeys: midiNoteKeysByName.Tom3,
-      color: this.parseColor('rgb(0, 60, 30)') // Cyan-green
+      color: this.parseColor('rgb(0, 60, 30)'), // Cyan-green
+      lightRange: { start: 21, end: 23 }
     },
     {
       name: 'Tom2',
       midiKeys: midiNoteKeysByName.Tom2,
-      color: this.parseColor('rgb(0, 30, 60)') // Sky blue
+      color: this.parseColor('rgb(0, 30, 60)'), // Sky blue
+      lightRange: { start: 24, end: 26 }
     },
     {
       name: 'Tom1',
       midiKeys: midiNoteKeysByName.Tom1,
-      color: this.parseColor('rgb(0, 0, 60)') // Blue
+      color: this.parseColor('rgb(0, 0, 60)'), // Blue
+      lightRange: { start: 27, end: 29 }
     },
     {
       name: 'Snare',
       midiKeys: midiNoteKeysByName.Snare,
-      color: this.parseColor('rgb(60, 0, 0)') // Red
+      color: this.parseColor('rgb(60, 0, 0)'), // Red
+      lightRange: { start: 30, end: 34 }
     },
     {
       name: 'HiHat',
       midiKeys: midiNoteKeysByName.HiHat,
-      color: this.parseColor('rgb(50, 45, 15)') // Golden yellow
+      color: this.parseColor('rgb(50, 45, 15)'), // Golden yellow
+      lightRange: { start: 1, end: 8 }
     },
     {
       name: 'Crash1',
       midiKeys: midiNoteKeysByName.Crash1,
-      color: this.parseColor('rgb(60, 60, 0)') // Yellow
+      color: this.parseColor('rgb(60, 60, 0)'), // Yellow
+      lightRange: { start: 15, end: 17 }
     },
     {
       name: 'Crash2',
       midiKeys: midiNoteKeysByName.Crash2,
-      color: this.parseColor('rgb(60, 0, 60)') // Magenta
+      color: this.parseColor('rgb(60, 0, 60)'), // Magenta
+      lightRange: { start: 12, end: 14 }
     },
     {
       name: 'Crash3',
       midiKeys: midiNoteKeysByName.Crash3,
-      color: this.parseColor('rgb(30, 60, 60)') // Light cyan
+      color: this.parseColor('rgb(30, 60, 60)'), // Light cyan
+      lightRange: { start: 9, end: 11 }
     },
     {
       name: 'Ride',
       midiKeys: midiNoteKeysByName.Ride,
-      color: this.parseColor('rgb(60, 30, 0)') // Orange
+      color: this.parseColor('rgb(60, 30, 0)'), // Orange
+      lightRange: { start: 1, end: 8 }
     },
     {
       name: 'Ride2',
       midiKeys: midiNoteKeysByName.Ride2,
-      color: this.parseColor('rgb(45, 20, 0)') // Dark orange
+      color: this.parseColor('rgb(45, 20, 0)'), // Dark orange
+      lightRange: { start: 1, end: 8 }
     },
     {
       name: 'Splash',
       midiKeys: midiNoteKeysByName.Splash,
-      color: this.parseColor('rgb(30, 0, 60)') // Purple
+      color: this.parseColor('rgb(30, 0, 60)'), // Purple
+      lightRange: { start: 1, end: 8 }
     },
     {
       name: 'Splash2',
       midiKeys: midiNoteKeysByName.Splash2,
-      color: this.parseColor('rgb(0, 30, 30)') // Dark cyan
+      color: this.parseColor('rgb(0, 30, 30)'), // Dark cyan
+      lightRange: { start: 1, end: 8 }
     }
   ];
 
@@ -244,26 +262,30 @@ export default class DMXLightingModule {
     // Set master dimmer to full
     this.setMasterDimmer(255);
 
-    // Calculate combined color from all active flashes
-    let combinedR = 0;
-    let combinedG = 0;
-    let combinedB = 0;
-
-    for (const flash of this.activeFlashes) {
-      // Add this flash's color contribution (with intensity applied)
-      combinedR += flash.color.r * flash.intensity;
-      combinedG += flash.color.g * flash.intensity;
-      combinedB += flash.color.b * flash.intensity;
+    // Initialize all lights to off
+    const lightColors: { r: number; g: number; b: number }[] = [];
+    for (let i = 0; i <= NUM_LIGHTS; i++) {
+      lightColors[i] = { r: 0, g: 0, b: 0 };
     }
 
-    // Clamp colors to valid range
-    combinedR = Math.min(255, Math.floor(combinedR));
-    combinedG = Math.min(255, Math.floor(combinedG));
-    combinedB = Math.min(255, Math.floor(combinedB));
+    // Process each flash and add its color to its assigned light range
+    for (const flash of this.activeFlashes) {
+      const { start, end } = flash.lightRange;
 
-    // Set all lights to the same combined color
+      for (let light = start; light <= end; light++) {
+        // Add this flash's color contribution (with intensity applied)
+        lightColors[light].r += flash.color.r * flash.intensity;
+        lightColors[light].g += flash.color.g * flash.intensity;
+        lightColors[light].b += flash.color.b * flash.intensity;
+      }
+    }
+
+    // Apply colors to all lights (clamped to valid range)
     for (let i = 1; i <= NUM_LIGHTS; i++) {
-      this.setLightRGB(i, combinedR, combinedG, combinedB);
+      const r = Math.min(255, Math.floor(lightColors[i].r));
+      const g = Math.min(255, Math.floor(lightColors[i].g));
+      const b = Math.min(255, Math.floor(lightColors[i].b));
+      this.setLightRGB(i, r, g, b);
     }
   }
 
@@ -284,7 +306,7 @@ export default class DMXLightingModule {
     // Calculate intensity based on velocity (0-127 MIDI range)
     const baseIntensity = velocity / 127;
 
-    // Create flash that affects all lights
+    // Create flash that affects the drum's assigned light range
     const flash: DrumFlash = {
       drumName: drumMapping.name,
       color: {
@@ -293,7 +315,8 @@ export default class DMXLightingModule {
         b: drumMapping.color.b
       },
       intensity: baseIntensity,
-      age: 0
+      age: 0,
+      lightRange: drumMapping.lightRange
     };
 
     this.activeFlashes.push(flash);
