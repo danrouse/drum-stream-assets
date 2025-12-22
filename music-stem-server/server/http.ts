@@ -14,7 +14,7 @@ import reactVitePlugin from '@vitejs/plugin-react';
 
 import * as Queries from './queries';
 import * as Paths from '../../shared/paths';
-import { SongData, SongRequestData, SongRequester } from '../../shared/messages';
+import { SongData, SongRequestData, SongRequester, SongRequestStatus } from '../../shared/messages';
 import { createLogger } from '../../shared/util';
 
 const log = createLogger('HTTP');
@@ -41,7 +41,11 @@ app.get('/songs', cors(), async (req, res) => {
 });
 
 app.get('/requests', cors(), async (req, res) => {
-  const requests = await Queries.allSongRequests();
+  let statuses = req.query.status;
+  if (statuses && !Array.isArray(statuses)) {
+    statuses = [statuses as SongRequestStatus];
+  }
+  const requests = await Queries.allSongRequests(statuses as SongRequestStatus[]);
   res.send(convertLocalPathsToURLs(requests));
 });
 

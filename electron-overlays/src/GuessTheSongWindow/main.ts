@@ -50,7 +50,7 @@ setInterval(() => {
 window.ipcRenderer.on('obs_scene_changed', async (_, payload) => {
   if (payload.scene === ACTIVE_SCENE_NAME) {
     document.body.style.display = 'block';
-    songsIndex = (await fetch('http://localhost:3000/songs').then(r => r.json()));
+    songsIndex = (await fetch('http://localhost:3000/requests?status=fulfilled').then(r => r.json()));
     startRound();
   } else {
     if (nextSceneChange) {

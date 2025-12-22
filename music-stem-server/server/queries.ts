@@ -6,7 +6,7 @@
  */
 import { sql } from 'kysely';
 import { db } from './database';
-import { SongRequester } from '../../shared/messages';
+import { SongRequester, SongRequestStatus } from '../../shared/messages';
 
 //
 // song request by user
@@ -57,7 +57,7 @@ export const allSongs = () => db.selectFrom('songs')
   ])
   .execute();
 
-export const allSongRequests = () => db.selectFrom('songRequests')
+export const allSongRequests = (statuses: SongRequestStatus[] = ['ready', 'hold']) => db.selectFrom('songRequests')
   .innerJoin('songs', 'songs.id', 'songRequests.songId')
   .innerJoin('songDownloads', 'songDownloads.songId', 'songs.id')
   .innerJoin('downloads', 'downloads.id', 'songDownloads.downloadId')
@@ -89,7 +89,7 @@ export const allSongRequests = () => db.selectFrom('songRequests')
       .as('users'),
     join => join.onRef('users.name', '=', 'songRequests.requester')
   )
-  .where('songRequests.status', 'in', ['ready', 'hold'])
+  .where('songRequests.status', 'in', statuses)
   .select([
     'songs.id', 'songs.artist', 'songs.title', 'songs.album', 'songs.duration', 'songs.stemsPath', 'songs.lyricsPath',
     'downloads.path as downloadPath', 'downloads.isVideo',
