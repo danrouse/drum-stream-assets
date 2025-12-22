@@ -36,92 +36,90 @@ export default class DMXLightingModule {
   private activeFlashes: DrumFlash[] = [];
 
   // Define drum-to-color mappings with specific light ranges
-  // Kick: 35-40, Snare: 30-34, Tom1: 27-29, Tom2: 24-26, Tom3: 21-23, Tom4: 18-20
-  // Crash1: 15-17, Crash2: 12-14, Crash3: 9-11, HiHat/Rides/Splashes: 1-8 (with color mixing)
   private drumMappings: DrumMapping[] = [
     {
       name: 'Kick',
       midiKeys: midiNoteKeysByName.Kick,
       color: this.parseColor('rgb(50, 50, 50)'), // Neutral gray for kick
-      lightRange: { start: 35, end: 40 }
+      lightRange: { start: 1, end: 6 }
     },
     {
       name: 'Tom4',
       midiKeys: midiNoteKeysByName.Tom4,
       color: this.parseColor('rgb(0, 60, 0)'), // Green
-      lightRange: { start: 18, end: 20 }
+      lightRange: { start: 21, end: 23 }
     },
     {
       name: 'Tom3',
       midiKeys: midiNoteKeysByName.Tom3,
       color: this.parseColor('rgb(0, 60, 30)'), // Cyan-green
-      lightRange: { start: 21, end: 23 }
+      lightRange: { start: 18, end: 20 }
     },
     {
       name: 'Tom2',
       midiKeys: midiNoteKeysByName.Tom2,
       color: this.parseColor('rgb(0, 30, 60)'), // Sky blue
-      lightRange: { start: 24, end: 26 }
+      lightRange: { start: 15, end: 17 }
     },
     {
       name: 'Tom1',
       midiKeys: midiNoteKeysByName.Tom1,
       color: this.parseColor('rgb(0, 0, 60)'), // Blue
-      lightRange: { start: 27, end: 29 }
+      lightRange: { start: 12, end: 14 }
     },
     {
       name: 'Snare',
       midiKeys: midiNoteKeysByName.Snare,
       color: this.parseColor('rgb(60, 0, 0)'), // Red
-      lightRange: { start: 30, end: 34 }
+      lightRange: { start: 7, end: 11 }
     },
     {
       name: 'HiHat',
       midiKeys: midiNoteKeysByName.HiHat,
       color: this.parseColor('rgb(50, 45, 15)'), // Golden yellow
-      lightRange: { start: 1, end: 8 }
+      lightRange: { start: 33, end: 40 }
     },
     {
       name: 'Crash1',
       midiKeys: midiNoteKeysByName.Crash1,
       color: this.parseColor('rgb(60, 60, 0)'), // Yellow
-      lightRange: { start: 15, end: 17 }
+      lightRange: { start: 24, end: 26 }
     },
     {
       name: 'Crash2',
       midiKeys: midiNoteKeysByName.Crash2,
       color: this.parseColor('rgb(60, 0, 60)'), // Magenta
-      lightRange: { start: 12, end: 14 }
+      lightRange: { start: 27, end: 29 }
     },
     {
       name: 'Crash3',
       midiKeys: midiNoteKeysByName.Crash3,
       color: this.parseColor('rgb(30, 60, 60)'), // Light cyan
-      lightRange: { start: 9, end: 11 }
+      lightRange: { start: 30, end: 32 }
     },
     {
       name: 'Ride',
       midiKeys: midiNoteKeysByName.Ride,
       color: this.parseColor('rgb(60, 30, 0)'), // Orange
-      lightRange: { start: 1, end: 8 }
+      lightRange: { start: 33, end: 40 }
     },
     {
       name: 'Ride2',
       midiKeys: midiNoteKeysByName.Ride2,
       color: this.parseColor('rgb(45, 20, 0)'), // Dark orange
-      lightRange: { start: 1, end: 8 }
+      lightRange: { start: 33, end: 40 }
     },
     {
       name: 'Splash',
       midiKeys: midiNoteKeysByName.Splash,
       color: this.parseColor('rgb(30, 0, 60)'), // Purple
-      lightRange: { start: 1, end: 8 }
+      lightRange: { start: 33, end: 40 }
     },
     {
       name: 'Splash2',
       midiKeys: midiNoteKeysByName.Splash2,
       color: this.parseColor('rgb(0, 30, 30)'), // Dark cyan
-      lightRange: { start: 1, end: 8 }
+      lightRange: { start: 33, end: 40 }
     }
   ];
 
