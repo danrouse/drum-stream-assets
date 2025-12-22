@@ -86,7 +86,7 @@ const ALL_HATS: string[] = [
   'Pink Sparkly Cowboy Hat',
   'Queen',
   'Taco',
-  // 'Tiara',
+  'Tiara',
 ];
 const HAT_TIMEOUT_MS = 1000 * 60 * 60 * 12; // 12 hours
 const selectionHistory: { item: string, time: Date }[] = [];
